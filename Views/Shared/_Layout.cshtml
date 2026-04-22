@@ -1,0 +1,276 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LGU Revenue Record System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Inter', sans-serif; }
+
+        :root {
+            --green: #388E3C;
+            --green-dark: #2E7D32;
+            --green-light: #C8E6C9;
+            --green-mid: #A5D6A7;
+            --white: #ffffff;
+            --gray-bg: #f0f0f0;
+            --gray-input: #ebebeb;
+            --gray-border: #E0E0E0;
+            --text: #1a1a1a;
+            --text-2: #444444;
+            --text-3: #888888;
+            --orange: #e07b00;
+            --red: #c0392b;
+            --blue: #2980b9;
+            --shadow: 0 2px 12px rgba(0,0,0,.08);
+        }
+
+        /* TOP NAV */
+        .topnav {
+            height: 80px;
+            background: #388E3C;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 200;
+            justify-content: space-between;
+        }
+        .topnav-brand { display: flex; align-items: center; gap: 10px; }
+        .lgu-text { color: #3BF0B4; font-weight: 800; font-size: 23px; }
+        .rev-text { color: white; font-weight: 800; font-size: 23px; }
+        .topnav-logo-placeholder {
+            height: 65px; width: 65px; border-radius: 50%;
+            background: rgba(255,255,255,.2);
+            border: 2px solid rgba(255,255,255,.4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: 800; color: white;
+        }
+        .topnav-right { display: flex; align-items: center; gap: 10px; }
+        .topnav-user-pill {
+            background: rgba(0,0,0,.2); color: white;
+            font-size: 12px; font-weight: 500;
+            padding: 5px 12px; border-radius: 20px;
+        }
+        .topnav-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(255,255,255,.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: white; cursor: pointer;
+        }
+
+        /* APP BODY */
+        .app-body { display: flex; flex: 1; min-height: 0; }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 300px; flex-shrink: 0;
+            background: white;
+            border-right: 1px solid #E0E0E0;
+            display: flex; flex-direction: column;
+            padding: 20px 16px;
+            height: calc(100vh - 80px);
+            position: fixed; top: 80px; left: 0; z-index: 100;
+            overflow-y: auto;
+        }
+        .sidebar-section-label {
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 1px; text-transform: uppercase;
+            color: #888; padding-left: 12px; margin-bottom: 20px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; font-size: 16px; font-weight: 550;
+            color: #388E3C; cursor: pointer; border-radius: 12px;
+            margin-bottom: 25px; transition: background .2s, color .2s;
+            text-decoration: none; border: none; background: transparent;
+            width: 100%; text-align: left; font-family: 'Inter', sans-serif;
+        }
+        .nav-item:hover { background: #f0f0f0; }
+        .nav-item.active { background: #388E3C; color: white; }
+        .nav-item svg { flex-shrink: 0; width: 22px; height: 22px; }
+
+        .logout-btn {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px; font-size: 15px; font-weight: 600;
+            color: #c0392b; cursor: pointer; border-radius: 12px;
+            margin-top: auto; border: none; background: transparent;
+            width: 100%; text-align: left; font-family: 'Inter', sans-serif;
+        }
+        .logout-btn:hover { background: #fdecea; }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex: 1; overflow-y: auto;
+            background: #C8E6C9;
+            margin-left: 300px;
+            min-height: calc(100vh - 80px);
+        }
+
+        /* SHARED FORM STYLES */
+        .form-label {
+            font-size: 11px; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase;
+            color: var(--text-2); margin-bottom: 6px; display: block;
+        }
+        .form-input {
+            width: 100%; padding: 12px 14px;
+            background: var(--gray-input);
+            border: 1.5px solid transparent;
+            border-radius: 8px; font-size: 14px;
+            font-family: 'Inter', sans-serif; color: var(--text);
+            transition: border-color .2s, background .2s; outline: none;
+        }
+        .form-input:focus { border-color: #388E3C; background: white; }
+        .form-select {
+            width: 100%; padding: 11px 14px;
+            background: var(--gray-input);
+            border: 1.5px solid transparent;
+            border-radius: 8px; font-size: 14px;
+            font-family: inherit; color: var(--text);
+            appearance: none; cursor: pointer; outline: none;
+            transition: border-color .2s;
+        }
+        .form-select:focus { border-color: var(--green); background: white; }
+        .btn-primary {
+            width: 100%; padding: 14px;
+            background: #388E3C; color: white;
+            border: none; border-radius: 10px;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+            transition: background .2s;
+        }
+        .btn-primary:hover { background: #2E7D32; }
+
+        /* PANELS */
+        .panel {
+            background: white; border-radius: 12px;
+            border: 1px solid var(--gray-border);
+            box-shadow: var(--shadow); overflow: hidden;
+        }
+        .panel-header {
+            padding: 14px 18px; border-bottom: 1px solid var(--gray-border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-title { font-size: 14px; font-weight: 700; color: var(--text); }
+
+        /* TOAST */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--green-dark); color: white;
+            padding: 12px 20px; border-radius: 10px;
+            font-size: 13.5px; font-weight: 600;
+            box-shadow: var(--shadow); z-index: 999;
+            transform: translateY(80px); opacity: 0;
+            transition: transform .3s, opacity .3s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: var(--red); }
+
+        /* MODAL */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 500; display: none;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: white; border-radius: 14px;
+            padding: 28px 32px; max-width: 480px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+        }
+        .modal-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .modal-sub { font-size: 13px; color: var(--text-3); margin-bottom: 22px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+        .btn-secondary {
+            padding: 11px 22px; background: white;
+            border: 1.5px solid var(--gray-border); border-radius: 8px;
+            font-size: 13px; font-weight: 600; color: var(--text-2);
+            cursor: pointer; font-family: inherit;
+        }
+        .btn-save {
+            padding: 11px 26px; background: var(--green);
+            border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 700; color: white;
+            cursor: pointer; font-family: inherit;
+        }
+    </style>
+</head>
+<body style="display:flex;flex-direction:column;min-height:100vh">
+
+    <!-- TOP NAV -->
+    <div class="topnav">
+        <div class="topnav-brand">
+            <div class="topnav-logo-placeholder">G</div>
+            <p style="margin:0"><span class="lgu-text">LGU</span><span class="rev-text">Revenue</span></p>
+        </div>
+        <div class="topnav-right">
+            <div class="topnav-user-pill">@ViewData["FullName"]</div>
+            <div class="topnav-avatar">@ViewData["Initials"]</div>
+        </div>
+    </div>
+
+    <!-- APP BODY -->
+    <div class="app-body">
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-section-label">Main</div>
+            <a asp-controller="Home" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "dashboard" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/></svg>
+                Workspace
+            </a>
+            <a asp-controller="Record" asp-action="Create" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "record" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Record Payment
+            </a>
+            <a asp-controller="Record" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "records" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Records
+            </a>
+            <a asp-controller="RevenueType" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "revtype" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Revenue Type
+            </a>
+            <div class="sidebar-section-label" style="margin-top:8px">Administration</div>
+            <a asp-controller="Report" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "report" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 14V2h8l4 4v8H2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 2v4h4M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Generate Report
+            </a>
+            <a asp-controller="Request" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "approve" ? "active" : "")">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Requests
+            </a>
+            <div style="flex:1"></div>
+            <a asp-controller="Account" asp-action="Logout" class="logout-btn">
+                <svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4M12 13l4-4-4-4M16 9H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Logout
+            </a>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            @RenderBody()
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let toastTimer;
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast' + (isError ? ' error' : '');
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+        }
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    </script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

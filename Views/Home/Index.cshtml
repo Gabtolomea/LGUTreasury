@@ -1,0 +1,293 @@
+﻿@{
+    ViewData["Title"] = "Dashboard";
+    ViewData["ActiveNav"] = "dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        height: calc(100vh - 80px);
+    }
+    .dash-center {
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .dash-right {
+        background: white;
+        border-left: 1px solid var(--gray-border);
+        padding: 20px 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .search-bar {
+        display: flex; align-items: center;
+        background: white; border: 1px solid var(--gray-border);
+        border-radius: 24px; padding: 9px 16px;
+        gap: 8px; box-shadow: var(--shadow);
+    }
+    .search-bar input {
+        border: none; outline: none;
+        font-size: 13.5px; font-family: inherit;
+        color: var(--text); background: transparent; flex: 1;
+    }
+    .stat-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .stat-card {
+        background: white; border-radius: 12px;
+        padding: 18px 20px; border: 1px solid var(--gray-border);
+        box-shadow: var(--shadow);
+    }
+    .stat-card-label { font-size: 11.5px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; }
+    .stat-card-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .stat-icon { font-size: 26px; }
+    .stat-value { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-sub { font-size: 12px; font-weight: 500; color: var(--green); }
+    .stat-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+    .badge-green { background: var(--green-light); color: var(--green); }
+    .badge-orange { background: #fff3e0; color: var(--orange); }
+    .record-row {
+        display: flex; align-items: center;
+        padding: 13px 18px; border-bottom: 1px solid #f0f0f0;
+        gap: 12px; cursor: pointer; transition: background .15s;
+    }
+    .record-row:hover { background: #fafafa; }
+    .record-row:last-child { border-bottom: none; }
+    .avatar-circle {
+        width: 38px; height: 38px; border-radius: 50%;
+        background: var(--green); color: white;
+        font-size: 13px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .record-info { flex: 1; }
+    .record-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .record-meta { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+    .record-amount { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; }
+    .record-time { font-size: 11px; color: var(--text-3); margin-top: 2px; text-align: right; }
+    .view-full-btn {
+        text-align: center; padding: 10px; font-size: 12.5px;
+        color: var(--text-3); cursor: pointer; background: none;
+        border: none; width: 100%; font-family: inherit; font-weight: 600;
+    }
+    .chart-wrap { padding: 16px 18px; }
+    .chart-title { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+    .bars { display: flex; align-items: flex-end; gap: 8px; height: 90px; }
+    .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .bar { width: 100%; border-radius: 5px 5px 0 0; background: var(--green); min-height: 4px; cursor: pointer; }
+    .bar:hover { opacity: .8; }
+    .bar.today { background: var(--green-dark); }
+    .bar-label { font-size: 10px; font-weight: 600; color: var(--text-3); }
+    .chart-footer {
+        display: flex; justify-content: space-between;
+        margin-top: 12px; padding-top: 10px;
+        border-top: 1px solid #f0f0f0;
+        font-size: 12px; color: var(--text-2);
+    }
+    .officer-badge {
+        background: var(--green-light); color: var(--green);
+        font-size: 11px; font-weight: 700;
+        padding: 3px 10px; border-radius: 12px;
+        width: fit-content; align-self: flex-end;
+    }
+    .profile-avatar {
+        width: 52px; height: 52px; border-radius: 50%;
+        background: var(--green); color: white;
+        font-size: 18px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 8px;
+    }
+    .profile-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .profile-eid { font-size: 12px; color: var(--text-3); margin-bottom: 14px; }
+    .profile-detail-row { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; }
+    .profile-detail-icon {
+        width: 28px; height: 28px; border-radius: 6px;
+        background: var(--green-light);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 13px;
+    }
+    .profile-detail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+    .profile-detail-val { font-size: 12.5px; font-weight: 600; color: var(--text); margin-top: 1px; }
+    .profile-details { display: flex; flex-direction: column; gap: 10px; }
+    .rh-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .rh-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+    .rh-today { font-size: 11px; color: var(--green); font-weight: 600; }
+    .rh-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .rh-item:last-child { border-bottom: none; }
+    .rh-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; border: 2px solid; }
+    .dot-pending { border-color: var(--orange); }
+    .dot-approved { border-color: var(--green); }
+    .dot-rejected { border-color: var(--red); }
+    .rh-rcp { font-size: 12.5px; font-weight: 700; color: var(--text); }
+    .rh-desc { font-size: 11.5px; color: var(--text-3); margin-bottom: 4px; }
+    .status-pill { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .pill-pending { background: #fff3e0; color: var(--orange); }
+    .pill-approved { background: var(--green-light); color: var(--green); }
+    .pill-rejected { background: #fdecea; color: var(--red); }
+    .filter-btn {
+        display: flex; align-items: center; gap: 4px;
+        background: var(--gray-input); border: none;
+        border-radius: 6px; padding: 5px 10px;
+        font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer;
+    }
+</style>
+
+<div class="dashboard-layout">
+    <div class="dash-center">
+        <div class="search-bar">
+            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search payments, names, or receipts..">
+        </div>
+
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="stat-card-label">Collected Today</div>
+                <div class="stat-card-icon-row">
+                    <div class="stat-icon">🪙</div>
+                    <div class="stat-value">@ViewBag.CollectedToday</div>
+                </div>
+                <div class="stat-sub">Total collected today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-label">Payments Recorded</div>
+                <div class="stat-card-icon-row">
+                    <div class="stat-icon">💳</div>
+                    <div class="stat-value">@ViewBag.PaymentsToday</div>
+                </div>
+                <span class="stat-badge badge-green">Total Transactions</span>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-label">Requests for Approval</div>
+                <div class="stat-card-icon-row">
+                    <div class="stat-icon">📨</div>
+                    <div class="stat-value">@ViewBag.PendingRequests</div>
+                </div>
+                <span class="stat-badge badge-orange">Pending Approval</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">Recent Records</div>
+                    <div style="font-size:12px;color:var(--green);font-weight:500">Recorded today</div>
+                </div>
+                <button class="filter-btn">Filter ▾</button>
+            </div>
+            @if (ViewBag.RecentRecords != null)
+            {
+                foreach (var record in ViewBag.RecentRecords)
+                {
+                    <div class="record-row">
+                        <div class="avatar-circle">@record.Initials</div>
+                        <div class="record-info">
+                            <div class="record-name">@record.PayeeName</div>
+                            <div class="record-meta">@record.Type • @record.ReceiptNo</div>
+                        </div>
+                        <div>
+                            <div class="record-amount">₱ @record.Amount</div>
+                            <div class="record-time">@record.Time</div>
+                        </div>
+                    </div>
+                }
+            }
+            <button class="view-full-btn" onclick="window.location.href='@Url.Action("Index","Payment")'">View Full ▾</button>
+        </div>
+
+        <div class="panel">
+            <div class="chart-wrap">
+                <div class="chart-title">Collection This Week</div>
+                <div class="bars" id="bar-chart"></div>
+                <div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px" id="bar-labels"></div>
+                <div style="display:flex;gap:8px;justify-content:space-between" id="bar-vals"></div>
+                <div class="chart-footer">
+                    <span>Weekly Total</span>
+                    <span><strong>₱ @ViewBag.WeeklyTotal</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-right">
+        <div class="officer-badge">@ViewData["Role"]</div>
+        <div>
+            <div class="profile-avatar">@ViewData["Initials"]</div>
+            <div class="profile-name">@ViewData["FullName"]</div>
+            <div class="profile-eid">Employee ID: @ViewData["EmployeeID"]</div>
+            <div class="profile-details">
+                <div class="profile-detail-row">
+                    <div class="profile-detail-icon">📅</div>
+                    <div>
+                        <div class="profile-detail-label">Member Since</div>
+                        <div class="profile-detail-val">@ViewData["MemberSince"]</div>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <div class="profile-detail-icon">🕒</div>
+                    <div>
+                        <div class="profile-detail-label">Last Active</div>
+                        <div class="profile-detail-val">Today, @DateTime.Now.ToString("hh:mm tt")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #f0f0f0">
+
+        <div>
+            <div class="rh-header">
+                <div class="rh-title">Request History</div>
+                <div class="rh-today">Today</div>
+            </div>
+            @if (ViewBag.RequestHistory != null)
+            {
+                foreach (var req in ViewBag.RequestHistory)
+                {
+                    <div class="rh-item">
+                        <div class="rh-dot dot-@req.StatusClass"></div>
+                        <div>
+                            <div class="rh-rcp">@req.ReceiptNo</div>
+                            <div class="rh-desc">@req.Description</div>
+                            <span class="status-pill pill-@req.StatusClass">@req.Status</span>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const chartData = [
+        {day:'MON',val:22},{day:'TUE',val:18},{day:'WED',val:20},
+        {day:'THU',val:27},{day:'FRI',val:22},{day:'SAT',val:12},{day:'SUN',val:19}
+    ];
+    const max = Math.max(...chartData.map(d => d.val));
+    const barsEl = document.getElementById('bar-chart');
+    const labelsEl = document.getElementById('bar-labels');
+    const valsEl = document.getElementById('bar-vals');
+    chartData.forEach((d, i) => {
+        const col = document.createElement('div');
+        col.className = 'bar-col';
+        const bar = document.createElement('div');
+        bar.className = 'bar' + (i === 3 ? ' today' : '');
+        bar.style.height = ((d.val / max) * 80) + 'px';
+        col.appendChild(bar);
+        barsEl.appendChild(col);
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:10px;font-weight:600;color:var(--text-3);text-align:center;flex:1';
+        lbl.textContent = d.day;
+        labelsEl.appendChild(lbl);
+        const val = document.createElement('div');
+        val.style.cssText = 'font-size:10px;color:var(--text-3);text-align:center;flex:1';
+        val.textContent = d.val + 'K';
+        valsEl.appendChild(val);
+    });
+</script>
+}

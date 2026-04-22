@@ -1,0 +1,367 @@
+@{
+    ViewData["Title"] = "Record Payment";
+    ViewData["ActiveNav"] = "record";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .content-page { padding: 0 20px 40px; max-width: 860px; margin: 0 auto; }
+    .page-header-row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 18px 0 14px;
+    }
+    .back-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; background: white;
+        border: 1px solid var(--gray-border);
+        cursor: pointer; color: var(--text-2);
+        font-size: 16px; text-decoration: none;
+    }
+    .page-title { font-size: 20px; font-weight: 700; color: var(--text); }
+    .page-sub { font-size: 13px; color: var(--green); font-weight: 400; }
+    .form-section {
+        background: white; border-radius: 12px;
+        border: 1px solid var(--gray-border);
+        box-shadow: var(--shadow);
+        padding: 22px 24px; margin-bottom: 16px;
+    }
+    .section-title {
+        font-size: 15px; font-weight: 700; color: var(--text);
+        margin-bottom: 18px; padding-bottom: 10px;
+        border-bottom: 1px solid #A5D6A7;
+    }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+    .form-grid-2 .span-2 { grid-column: span 2; }
+    .form-group { display: flex; flex-direction: column; }
+    .line-items-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+    .line-items-table th {
+        background: #C8E6C9; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .05em;
+        color: #2E7D32; padding: 9px 12px; text-align: left;
+    }
+    .line-items-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; color: var(--text); }
+    .line-items-table input {
+        width: 100%; padding: 6px 8px;
+        background: var(--gray-input); border: 1px solid transparent;
+        border-radius: 6px; font-size: 13px; font-family: inherit;
+        outline: none;
+    }
+    .line-items-table input:focus { border-color: var(--green); background: white; }
+    .add-line-btn {
+        display: flex; align-items: center; gap: 6px;
+        background: none; border: 1.5px dashed var(--green);
+        color: var(--green); font-size: 13px; font-weight: 600;
+        padding: 8px 14px; border-radius: 8px;
+        cursor: pointer; font-family: inherit;
+    }
+    .add-line-btn:hover { background: #C8E6C9; }
+    .total-row {
+        display: flex; justify-content: flex-end;
+        gap: 20px; align-items: center;
+        padding: 14px 0 0;
+        border-top: 1.5px solid var(--gray-border);
+        margin-top: 10px;
+    }
+    .total-label { font-size: 13px; font-weight: 700; color: var(--text-2); }
+    .total-value { font-size: 18px; font-weight: 800; color: var(--text); }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+    .btn-cancel {
+        padding: 11px 22px; background: white;
+        border: 1.5px solid var(--gray-border); border-radius: 8px;
+        font-size: 13px; font-weight: 600; color: var(--text-2);
+        cursor: pointer; font-family: inherit; text-decoration: none;
+        display: inline-flex; align-items: center;
+    }
+    .btn-save {
+        padding: 11px 26px; background: var(--green);
+        border: none; border-radius: 8px;
+        font-size: 13px; font-weight: 700; color: white;
+        cursor: pointer; font-family: inherit;
+    }
+    .btn-save:hover { background: var(--green-dark); }
+
+    /* Revenue Type Picker */
+    .rt-display {
+        cursor: pointer;
+        background: var(--gray-input);
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 6px 8px;
+        width: 100%;
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+        color: var(--text);
+    }
+    .rt-display:hover { border-color: var(--green); }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 600;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+        background: white;
+        border-radius: 14px;
+        padding: 28px 32px;
+        width: 90%;
+        max-width: 400px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0,0,0,.25);
+        animation: modalIn .2s ease;
+    }
+    @@keyframes modalIn {
+        from { transform: scale(.94); opacity: 0; }
+        to   { transform: scale(1);   opacity: 1; }
+    }
+    .modal-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+    .rt-search-input {
+        width: 100%; padding: 10px 14px;
+        background: var(--gray-input);
+        border: 1.5px solid transparent;
+        border-radius: 8px; font-size: 14px;
+        font-family: inherit; outline: none;
+        margin-bottom: 12px;
+        transition: border-color .2s;
+    }
+    .rt-search-input:focus { border-color: var(--green); background: white; }
+    .rt-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .rt-option {
+        padding: 12px 14px; border-radius: 8px;
+        cursor: pointer; border: 1.5px solid var(--gray-border);
+        transition: background .15s, border-color .15s;
+    }
+    .rt-option:hover { background: #e8f5e9; border-color: var(--green); }
+    .rt-option-name { font-weight: 600; font-size: 13.5px; color: var(--text); }
+    .rt-option-rate { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .modal-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+</style>
+
+<div class="content-page">
+    <div class="page-header-row">
+        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <div>
+            <div class="page-title">Encoding Payment</div>
+            <div class="page-sub">Recording a payment for the payor</div>
+        </div>
+    </div>
+
+    <form asp-action="Create" asp-controller="Record" method="post" id="payment-form">
+        @Html.AntiForgeryToken()
+
+        <!-- Payor Information -->
+        <div class="form-section">
+            <div class="section-title">Payor Information</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-input" name="FirstName" placeholder="e.g. Juan" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact No.</label>
+                    <input type="text" class="form-input" name="ContactNumber" placeholder="09XX-XXX-XXXX" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Middle Name</label>
+                    <input type="text" class="form-input" name="MiddleName" placeholder="Optional" />
+                </div>
+                <div class="form-group span-2" style="grid-row:span 2">
+                    <label class="form-label">Residence Address</label>
+                    <textarea class="form-input" name="ResidenceAddress" placeholder="Complete Address" style="min-height:90px"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-input" name="LastName" placeholder="e.g. Cruz" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Suffix</label>
+                    <input type="text" class="form-input" name="Suffix" placeholder="Sr., Jr., III..." />
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Information -->
+        <div class="form-section">
+            <div class="section-title">Payment Information</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">OR Number</label>
+                    <input type="text" class="form-input" name="OfficialReceipt" placeholder="Enter OR Number" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date Issued</label>
+                    <input type="date" class="form-input" name="DateIssued" required />
+                </div>
+                <div class="form-group span-2">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-input" name="Remarks" placeholder="Optional notes..." style="min-height:68px"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Line Items -->
+        <div class="form-section">
+            <div class="section-title">Revenue Line Items</div>
+            <table class="line-items-table">
+                <thead>
+                    <tr>
+                        <th>Revenue Type</th>
+                        <th>Qty</th>
+                        <th>Base Amount</th>
+                        <th>Surcharge</th>
+                        <th>Interest</th>
+                        <th>Line Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="line-items-body">
+                    <tr>
+                        <td>
+                            <input type="text" class="rt-display" placeholder="Click to select..." readonly onclick="openRevTypeModal(this)" />
+                            <input type="hidden" name="TypeIDs" class="rt-hidden" />
+                        </td>
+                        <td><input type="number" name="Quantities" value="1" min="1" style="width:60px" oninput="calcLine(this)" /></td>
+                        <td><input type="number" name="BaseAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+                        <td><input type="number" name="SurchargeAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+                        <td><input type="number" name="InterestAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+                        <td class="line-total" style="font-weight:700">₱ 0.00</td>
+                        <td><button type="button" onclick="removeLineItem(this)" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <button type="button" class="add-line-btn" onclick="addLineItem()">+ Add Item</button>
+            <div class="total-row">
+                <span class="total-label">Total Amount:</span>
+                <span class="total-value" id="grand-total">₱ 0.00</span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a asp-controller="Home" asp-action="Index" class="btn-cancel">Cancel</a>
+            <button type="submit" class="btn-save">Save Payment</button>
+        </div>
+    </form>
+</div>
+
+<!-- Revenue Type Picker Modal -->
+<div class="modal-overlay" id="modal-revtype-picker">
+    <div class="modal">
+        <div class="modal-title">Select Revenue Type</div>
+        <input type="text" class="rt-search-input" id="rt-search" placeholder="Search revenue type..." oninput="filterRevTypes()" />
+        <div class="rt-list" id="rt-list">
+            @foreach (var type in ViewBag.RevenueTypes)
+            {
+                <div class="rt-option"
+                     data-id="@type.TypeID"
+                     data-name="@type.Name"
+                     data-rate="@type.BaseRate"
+                     onclick="selectRevType(this)">
+                    <div class="rt-option-name">@type.Name</div>
+                    <div class="rt-option-rate">Base Rate: ₱ @type.BaseRate.ToString("N2")</div>
+                </div>
+            }
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="closeRevTypeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let activeRevInput = null;
+    let activeHiddenInput = null;
+
+    function openRevTypeModal(displayInput) {
+        const row = displayInput.closest('tr');
+        activeRevInput = displayInput;
+        activeHiddenInput = row.querySelector('.rt-hidden');
+        document.getElementById('rt-search').value = '';
+        filterRevTypes();
+        document.getElementById('modal-revtype-picker').classList.add('open');
+    }
+
+    function closeRevTypeModal() {
+        document.getElementById('modal-revtype-picker').classList.remove('open');
+    }
+
+    function selectRevType(el) {
+        const id = el.dataset.id;
+        const name = el.dataset.name;
+        const rate = parseFloat(el.dataset.rate);
+        activeRevInput.value = name;
+        activeHiddenInput.value = id;
+        // Auto fill base amount
+        const row = activeRevInput.closest('tr');
+        const baseInput = row.querySelector('[name=BaseAmounts]');
+        if (baseInput) {
+            baseInput.value = rate.toFixed(2);
+            calcLine(baseInput);
+        }
+        closeRevTypeModal();
+    }
+
+    function filterRevTypes() {
+        const query = document.getElementById('rt-search').value.toLowerCase();
+        document.querySelectorAll('.rt-option').forEach(opt => {
+            opt.style.display = opt.dataset.name.toLowerCase().includes(query) ? '' : 'none';
+        });
+    }
+
+    function addLineItem() {
+        const tbody = document.getElementById('line-items-body');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" class="rt-display" placeholder="Click to select..." readonly onclick="openRevTypeModal(this)" />
+                <input type="hidden" name="TypeIDs" class="rt-hidden" />
+            </td>
+            <td><input type="number" name="Quantities" value="1" min="1" style="width:60px" oninput="calcLine(this)" /></td>
+            <td><input type="number" name="BaseAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+            <td><input type="number" name="SurchargeAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+            <td><input type="number" name="InterestAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
+            <td class="line-total" style="font-weight:700">₱ 0.00</td>
+            <td><button type="button" onclick="removeLineItem(this)" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function removeLineItem(btn) {
+        btn.closest('tr').remove();
+        updateGrandTotal();
+    }
+
+    function calcLine(inp) {
+        const row = inp.closest('tr');
+        const qty = parseFloat(row.querySelector('[name=Quantities]').value) || 1;
+        const base = parseFloat(row.querySelector('[name=BaseAmounts]').value) || 0;
+        const surcharge = parseFloat(row.querySelector('[name=SurchargeAmounts]').value) || 0;
+        const interest = parseFloat(row.querySelector('[name=InterestAmounts]').value) || 0;
+        const total = (base + surcharge + interest) * qty;
+        row.querySelector('.line-total').textContent = '₱ ' + total.toFixed(2);
+        updateGrandTotal();
+    }
+
+    function updateGrandTotal() {
+        let sum = 0;
+        document.querySelectorAll('.line-total').forEach(td => {
+            sum += parseFloat(td.textContent.replace('₱','').trim()) || 0;
+        });
+        document.getElementById('grand-total').textContent = '₱ ' + sum.toFixed(2);
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('modal-revtype-picker').addEventListener('click', function(e) {
+        if (e.target === this) closeRevTypeModal();
+    });
+</script>
+}
