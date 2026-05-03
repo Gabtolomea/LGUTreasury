@@ -1,10 +1,15 @@
 using LGUTreasury.Data;
 using LGUTreasury.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+
 
 namespace LGUTreasury.Controllers
 {
+    
     public class AccountController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -13,8 +18,6 @@ namespace LGUTreasury.Controllers
         {
             _context = context;
         }
-
-        // GET: /Account/Login
         // GET: /Account/Login
 public IActionResult Login()
 {
@@ -97,7 +100,7 @@ public IActionResult Login()
         }
 
         // GET: /Account/Logout
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
             HttpContext.Session.Clear();
             return RedirectToAction("Login");

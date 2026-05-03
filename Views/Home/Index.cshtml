@@ -1,293 +1,593 @@
 ﻿@{
     ViewData["Title"] = "Dashboard";
     ViewData["ActiveNav"] = "dashboard";
-    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <style>
-    .dashboard-layout {
-        display: grid;
-        grid-template-columns: 1fr 280px;
-        height: calc(100vh - 80px);
-    }
-    .dash-center {
-        padding: 16px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-    }
-    .dash-right {
-        background: white;
-        border-left: 1px solid var(--gray-border);
-        padding: 20px 16px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-    .search-bar {
-        display: flex; align-items: center;
-        background: white; border: 1px solid var(--gray-border);
-        border-radius: 24px; padding: 9px 16px;
-        gap: 8px; box-shadow: var(--shadow);
-    }
-    .search-bar input {
-        border: none; outline: none;
-        font-size: 13.5px; font-family: inherit;
-        color: var(--text); background: transparent; flex: 1;
-    }
-    .stat-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-    .stat-card {
-        background: white; border-radius: 12px;
-        padding: 18px 20px; border: 1px solid var(--gray-border);
-        box-shadow: var(--shadow);
-    }
-    .stat-card-label { font-size: 11.5px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; }
-    .stat-card-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .stat-icon { font-size: 26px; }
-    .stat-value { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
-    .stat-sub { font-size: 12px; font-weight: 500; color: var(--green); }
-    .stat-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 6px; }
-    .badge-green { background: var(--green-light); color: var(--green); }
-    .badge-orange { background: #fff3e0; color: var(--orange); }
-    .record-row {
-        display: flex; align-items: center;
-        padding: 13px 18px; border-bottom: 1px solid #f0f0f0;
-        gap: 12px; cursor: pointer; transition: background .15s;
-    }
-    .record-row:hover { background: #fafafa; }
-    .record-row:last-child { border-bottom: none; }
-    .avatar-circle {
-        width: 38px; height: 38px; border-radius: 50%;
-        background: var(--green); color: white;
-        font-size: 13px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-    .record-info { flex: 1; }
-    .record-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
-    .record-meta { font-size: 12px; color: var(--text-3); margin-top: 1px; }
-    .record-amount { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; }
-    .record-time { font-size: 11px; color: var(--text-3); margin-top: 2px; text-align: right; }
-    .view-full-btn {
-        text-align: center; padding: 10px; font-size: 12.5px;
-        color: var(--text-3); cursor: pointer; background: none;
-        border: none; width: 100%; font-family: inherit; font-weight: 600;
-    }
-    .chart-wrap { padding: 16px 18px; }
-    .chart-title { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
-    .bars { display: flex; align-items: flex-end; gap: 8px; height: 90px; }
-    .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
-    .bar { width: 100%; border-radius: 5px 5px 0 0; background: var(--green); min-height: 4px; cursor: pointer; }
-    .bar:hover { opacity: .8; }
-    .bar.today { background: var(--green-dark); }
-    .bar-label { font-size: 10px; font-weight: 600; color: var(--text-3); }
-    .chart-footer {
-        display: flex; justify-content: space-between;
-        margin-top: 12px; padding-top: 10px;
-        border-top: 1px solid #f0f0f0;
-        font-size: 12px; color: var(--text-2);
-    }
-    .officer-badge {
-        background: var(--green-light); color: var(--green);
-        font-size: 11px; font-weight: 700;
-        padding: 3px 10px; border-radius: 12px;
-        width: fit-content; align-self: flex-end;
-    }
-    .profile-avatar {
-        width: 52px; height: 52px; border-radius: 50%;
-        background: var(--green); color: white;
-        font-size: 18px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
-        margin-bottom: 8px;
-    }
-    .profile-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-    .profile-eid { font-size: 12px; color: var(--text-3); margin-bottom: 14px; }
-    .profile-detail-row { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; }
-    .profile-detail-icon {
-        width: 28px; height: 28px; border-radius: 6px;
-        background: var(--green-light);
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0; font-size: 13px;
-    }
-    .profile-detail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
-    .profile-detail-val { font-size: 12.5px; font-weight: 600; color: var(--text); margin-top: 1px; }
-    .profile-details { display: flex; flex-direction: column; gap: 10px; }
-    .rh-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .rh-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
-    .rh-today { font-size: 11px; color: var(--green); font-weight: 600; }
-    .rh-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
-    .rh-item:last-child { border-bottom: none; }
-    .rh-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; border: 2px solid; }
-    .dot-pending { border-color: var(--orange); }
-    .dot-approved { border-color: var(--green); }
-    .dot-rejected { border-color: var(--red); }
-    .rh-rcp { font-size: 12.5px; font-weight: 700; color: var(--text); }
-    .rh-desc { font-size: 11.5px; color: var(--text-3); margin-bottom: 4px; }
-    .status-pill { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-    .pill-pending { background: #fff3e0; color: var(--orange); }
-    .pill-approved { background: var(--green-light); color: var(--green); }
-    .pill-rejected { background: #fdecea; color: var(--red); }
-    .filter-btn {
-        display: flex; align-items: center; gap: 4px;
-        background: var(--gray-input); border: none;
-        border-radius: 6px; padding: 5px 10px;
-        font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer;
-    }
+/* DASHBOARD
+══════════════════════════════════════ */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr 270px;
+  min-height: calc(100vh - 80px);
+}
+.dash-center {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dash-right {
+  background: white;
+  border-left: 1px solid var(--gray-border);
+  padding: 18px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 80px;
+  height: calc(100vh - 80px);
+}
+
+/* ── Stat Cards ── */
+.stat-card {
+  background: white; border-radius: 12px;
+  padding: 15px 16px; border: 1px solid var(--gray-border);
+  box-shadow: var(--shadow);
+}
+.stat-card-label { font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+.stat-card-icon-row { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
+.stat-icon  { font-size: 22px; }
+.stat-value { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1; }
+.stat-sub   { font-size: 11.5px; font-weight: 500; color: var(--green); }
+.stat-badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 10.5px; font-weight: 600; margin-top: 5px; }
+.badge-green  { background: var(--green-light); color: var(--green); }
+.badge-orange { background: #fff3e0; color: var(--orange); }
+
+/* ── Highlights Carousel ── */
+.highlights-outer { position: relative; display: flex; align-items: center; padding-top: 28px; }
+.highlights-viewport { overflow: hidden; flex: 1; border-radius: 10px; }
+.highlights-track { display: flex; gap: 12px; transition: transform .38s cubic-bezier(.4,0,.2,1); will-change: transform; }
+.hl-card { flex: 0 0 calc((100% - 24px) / 3); min-width: 0; transition: box-shadow .2s, transform .2s; cursor: default; }
+.hl-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.11); transform: translateY(-2px); }
+
+.hl-progress-bg   { height: 4px; border-radius: 3px; background: #f0f0f0; margin-top: 8px; }
+.hl-progress-fill { height: 4px; border-radius: 3px; transition: width .6s ease; }
+.hl-fill-green  { background: var(--green); }
+.hl-fill-orange { background: var(--orange); }
+.hl-fill-blue   { background: var(--blue); }
+.hl-fill-red    { background: var(--red); }
+.hl-fill-teal   { background: #00897B; }
+
+.hl-arrow {
+  width: 26px; height: 26px; flex-shrink: 0;
+  background: white; border: 1px solid var(--gray-border);
+  border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 14px; color: var(--text-2);
+  transition: background .15s, color .15s;
+}
+.hl-arrow:hover { background: var(--green); color: white; }
+.hl-arrow-prev { margin-right: 6px; }
+.hl-arrow-next { margin-left: 6px; }
+.hl-arrow:disabled { opacity: .3; cursor: default; pointer-events: none; }
+
+.hl-dots { display: flex; justify-content: center; gap: 5px; margin-top: 6px; }
+.hl-dot { width: 6px; height: 6px; border-radius: 50%; background: #ddd; cursor: pointer; transition: background .2s, transform .2s; border: none; padding: 0; }
+.hl-dot.active { background: var(--green); transform: scale(1.3); }
+
+.hl-customize-btn {
+  position: absolute; top: 0; right: 38px;
+  width: 26px; height: 26px; background: white;
+  border: 1px solid var(--gray-border); border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 13px; color: var(--text-2);
+  transition: background .15s, color .15s; z-index: 5;
+}
+.hl-customize-btn:hover { background: var(--green); color: white; }
+
+/* ── Search Bar ── */
+.search-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: white; border: 1.5px solid var(--gray-border);
+  border-radius: 10px; padding: 10px 14px;
+  box-shadow: var(--shadow);
+}
+.search-bar input {
+  border: none; outline: none; font-size: 13px;
+  font-family: 'Inter', sans-serif; color: var(--text);
+  background: transparent; flex: 1;
+}
+.search-bar input::placeholder { color: var(--text-3); }
+
+/* ── Recent Records Panel ── */
+.panel { background: white; border-radius: 12px; border: 1px solid var(--gray-border); box-shadow: var(--shadow); overflow: hidden; }
+.panel-header { padding: 12px 16px; border-bottom: 1px solid var(--gray-border); display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.panel-sub   { font-size: 12px; color: var(--green); font-weight: 600; }
+
+.record-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #f0f0f0; gap: 10px; transition: background .15s; cursor: pointer; }
+.record-row:hover { background: #fafafa; }
+.record-row:last-child { border-bottom: none; }
+.avatar-circle { width: 34px; height: 34px; border-radius: 50%; background: var(--green); color: white; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.record-info   { flex: 1; }
+.record-name   { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.record-meta   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.record-amount { font-size: 13px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; }
+.record-time   { font-size: 10.5px; color: var(--text-3); text-align: right; }
+
+/* ── Bar Chart ── */
+.chart-wrap { padding: 12px 16px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.chart-title  { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.chart-toggle { display: flex; gap: 2px; background: var(--gray-input); border-radius: 6px; padding: 3px; }
+.chart-toggle button { background: none; border: none; font-size: 11px; font-weight: 600; color: var(--text-3); padding: 3px 8px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+.chart-toggle button.active { background: white; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 76px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--green-mid); transition: opacity .2s; cursor: pointer; min-height: 4px; }
+.bar:hover { opacity: .75; }
+.bar.today { background: var(--green); }
+.bar-label { font-size: 9.5px; font-weight: 600; color: var(--text-3); }
+
+/* ── Right Panel — Officer Profile ── */
+.officer-badge {
+  background: var(--green-light); color: var(--green);
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 12px;
+  width: fit-content; align-self: flex-end;
+}
+.profile-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--green); color: white;
+  font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+}
+.profile-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.profile-eid  { font-size: 11.5px; color: var(--text-3); margin-bottom: 14px; }
+
+.profile-details { display: flex; flex-direction: column; gap: 9px; }
+.profile-detail-row { display: flex; gap: 9px; align-items: flex-start; }
+.profile-detail-icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--green-light);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px;
+}
+.profile-detail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+.profile-detail-val   { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 1px; }
+
+/* ── Request History ── */
+.rh-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.rh-title  { font-size: 13px; font-weight: 700; color: var(--text); }
+.rh-today  { font-size: 11px; color: var(--green); font-weight: 600; }
+.rh-item { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid #f0f0f0; }
+.rh-item:last-child { border-bottom: none; }
+.rh-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; border: 2px solid; }
+.dot-pending  { border-color: var(--orange); background: transparent; }
+.dot-approved { border-color: var(--green);  background: transparent; }
+.dot-rejected { border-color: var(--red);    background: transparent; }
+.rh-rcp  { font-size: 12px; font-weight: 700; color: var(--text); }
+.rh-desc { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+
+.status-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.pill-pending  { background: #fff3e0; color: var(--orange); }
+.pill-approved { background: var(--green-light); color: var(--green); }
+.pill-rejected { background: #fdecea; color: var(--red); }
+
+/* ── Customize Modal ── */
+.customize-modal { max-width: 500px; width: 94%; }
+.cust-card-list { display: flex; flex-direction: column; gap: 7px; max-height: 320px; overflow-y: auto; padding-right: 2px; }
+.cust-card-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #f9f9f9; border: 1.5px solid var(--gray-border);
+  border-radius: 9px; padding: 9px 12px;
+  cursor: grab; transition: background .15s, border-color .15s; user-select: none;
+}
+.cust-card-item:active { cursor: grabbing; }
+.cust-card-item.dragging { opacity: .45; }
+.cust-card-item.drag-over { border-color: var(--green); background: #e8f5e9; }
+.cust-drag-handle { color: #bbb; font-size: 15px; flex-shrink: 0; cursor: grab; }
+.cust-card-icon  { font-size: 18px; flex-shrink: 0; }
+.cust-card-name  { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.cust-toggle {
+  width: 34px; height: 18px; background: #ddd; border-radius: 9px;
+  position: relative; cursor: pointer; transition: background .2s;
+  flex-shrink: 0; border: none; outline: none;
+}
+.cust-toggle.on { background: var(--green); }
+.cust-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%; background: white;
+  transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.cust-toggle.on::after { left: 18px; }
+.cust-info { font-size: 11.5px; color: var(--text-3); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 </style>
 
 <div class="dashboard-layout">
-    <div class="dash-center">
-        <div class="search-bar">
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <input type="text" placeholder="Search payments, names, or receipts..">
-        </div>
 
-        <div class="stat-cards">
-            <div class="stat-card">
-                <div class="stat-card-label">Collected Today</div>
-                <div class="stat-card-icon-row">
-                    <div class="stat-icon">🪙</div>
-                    <div class="stat-value">@ViewBag.CollectedToday</div>
-                </div>
-                <div class="stat-sub">Total collected today</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card-label">Payments Recorded</div>
-                <div class="stat-card-icon-row">
-                    <div class="stat-icon">💳</div>
-                    <div class="stat-value">@ViewBag.PaymentsToday</div>
-                </div>
-                <span class="stat-badge badge-green">Total Transactions</span>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card-label">Requests for Approval</div>
-                <div class="stat-card-icon-row">
-                    <div class="stat-icon">📨</div>
-                    <div class="stat-value">@ViewBag.PendingRequests</div>
-                </div>
-                <span class="stat-badge badge-orange">Pending Approval</span>
-            </div>
-        </div>
+  <!-- ── LEFT / CENTER ── -->
+  <div class="dash-center">
 
-        <div class="panel">
-            <div class="panel-header">
-                <div>
-                    <div class="panel-title">Recent Records</div>
-                    <div style="font-size:12px;color:var(--green);font-weight:500">Recorded today</div>
-                </div>
-                <button class="filter-btn">Filter ▾</button>
-            </div>
-            @if (ViewBag.RecentRecords != null)
-            {
-                foreach (var record in ViewBag.RecentRecords)
-                {
-                    <div class="record-row">
-                        <div class="avatar-circle">@record.Initials</div>
-                        <div class="record-info">
-                            <div class="record-name">@record.PayeeName</div>
-                            <div class="record-meta">@record.Type • @record.ReceiptNo</div>
-                        </div>
-                        <div>
-                            <div class="record-amount">₱ @record.Amount</div>
-                            <div class="record-time">@record.Time</div>
-                        </div>
-                    </div>
-                }
-            }
-            <button class="view-full-btn" onclick="window.location.href='@Url.Action("Index","Payment")'">View Full ▾</button>
-        </div>
-
-        <div class="panel">
-            <div class="chart-wrap">
-                <div class="chart-title">Collection This Week</div>
-                <div class="bars" id="bar-chart"></div>
-                <div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px" id="bar-labels"></div>
-                <div style="display:flex;gap:8px;justify-content:space-between" id="bar-vals"></div>
-                <div class="chart-footer">
-                    <span>Weekly Total</span>
-                    <span><strong>₱ @ViewBag.WeeklyTotal</strong></span>
-                </div>
-            </div>
-        </div>
+    <div class="search-bar">
+      <svg width="15" height="15" fill="none" viewBox="0 0 16 16">
+        <circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/>
+        <path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input type="text" placeholder="Search payments, names, or receipts…">
     </div>
 
-    <div class="dash-right">
-        <div class="officer-badge">@ViewData["Role"]</div>
-        <div>
-            <div class="profile-avatar">@ViewData["Initials"]</div>
-            <div class="profile-name">@ViewData["FullName"]</div>
-            <div class="profile-eid">Employee ID: @ViewData["EmployeeID"]</div>
-            <div class="profile-details">
-                <div class="profile-detail-row">
-                    <div class="profile-detail-icon">📅</div>
-                    <div>
-                        <div class="profile-detail-label">Member Since</div>
-                        <div class="profile-detail-val">@ViewData["MemberSince"]</div>
-                    </div>
-                </div>
-                <div class="profile-detail-row">
-                    <div class="profile-detail-icon">🕒</div>
-                    <div>
-                        <div class="profile-detail-label">Last Active</div>
-                        <div class="profile-detail-val">Today, @DateTime.Now.ToString("hh:mm tt")</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Highlights Carousel -->
+    <div class="highlights-outer" id="highlights-outer">
+      <button class="hl-customize-btn" id="hl-customize-btn" title="Customize cards" onclick="openCustomizeModal()">⚙</button>
+      <button class="hl-arrow hl-arrow-prev" id="hl-prev">‹</button>
+      <div class="highlights-viewport" id="highlights-viewport">
+        <div class="highlights-track" id="highlights-track">
 
-        <hr style="border:none;border-top:1px solid #f0f0f0">
+          <div class="stat-card hl-card" data-card-id="hl-card-1">
+            <div class="stat-card-label">Collected Today</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">🪙</div><div class="stat-value">₱ @ViewBag.CollectedToday</div></div>
+            <div class="stat-sub">@ViewData["CurrentFilter"]</div>
+          </div>
 
-        <div>
-            <div class="rh-header">
-                <div class="rh-title">Request History</div>
-                <div class="rh-today">Today</div>
-            </div>
-            @if (ViewBag.RequestHistory != null)
-            {
-                foreach (var req in ViewBag.RequestHistory)
-                {
-                    <div class="rh-item">
-                        <div class="rh-dot dot-@req.StatusClass"></div>
-                        <div>
-                            <div class="rh-rcp">@req.ReceiptNo</div>
-                            <div class="rh-desc">@req.Description</div>
-                            <span class="status-pill pill-@req.StatusClass">@req.Status</span>
-                        </div>
-                    </div>
-                }
-            }
+          <div class="stat-card hl-card" data-card-id="hl-card-2">
+            <div class="stat-card-label">Payments Recorded</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">💳</div><div class="stat-value">@ViewBag.PaymentsToday</div></div>
+            <span class="stat-badge badge-green">Total Transactions</span>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-3">
+            <div class="stat-card-label">Requests for Approval</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">📨</div><div class="stat-value">@ViewBag.PendingRequests</div></div>
+            <span class="stat-badge badge-orange">Pending Approval</span>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-4">
+            <div class="stat-card-label">Month-to-Date Collection</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">📆</div><div class="stat-value" style="font-size:20px">₱ 87,450</div></div>
+            <div class="stat-sub" id="hl-mtd-sub">22 days this month</div>
+            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-green" id="hl-mtd-bar" style="width:73%"></div></div>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-5">
+            <div class="stat-card-label">Daily Target</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">🎯</div><div class="stat-value" style="font-size:20px">₱ 12,300</div></div>
+            <div class="stat-sub">82% of ₱ 15,000 target</div>
+            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-orange" style="width:82%"></div></div>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-6">
+            <div class="stat-card-label">Shift Tracker</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">🕐</div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
+            <div class="stat-sub" id="hl-shift-remain">– remaining</div>
+            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-teal" id="hl-shift-bar" style="width:0%"></div></div>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-7">
+            <div class="stat-card-label">Top Revenue Today</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">🏆</div><div class="stat-value" style="font-size:17px;line-height:1.2">Business Tax</div></div>
+            <div class="stat-sub">₱ 5,200 · 3 transactions</div>
+            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
+          </div>
+
+          <div class="stat-card hl-card" data-card-id="hl-card-8">
+            <div class="stat-card-label">Oldest Pending</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">⏳</div><div class="stat-value" style="font-size:20px">RCP-0011</div></div>
+            <div class="stat-sub">Pending for <strong style="color:#c0392b">2 days</strong></div>
+          </div>
+
         </div>
+      </div>
+      <button class="hl-arrow hl-arrow-next" id="hl-next">›</button>
     </div>
+    <div class="hl-dots" id="hl-dots"></div>
+
+    <!-- Recent Records Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Recent Payments</div>
+        <a asp-controller="Record" asp-action="Index" class="panel-sub">View all →</a>
+      </div>
+      @if (ViewBag.RecentRecords != null)
+      {
+          foreach (var r in ViewBag.RecentRecords)
+          {
+      <div class="record-row">
+        <div class="avatar-circle">@r.Initials</div>
+        <div class="record-info">
+          <div class="record-name">@r.PayeeName</div>
+          <div class="record-meta">@r.Type · @r.ReceiptNo</div>
+        </div>
+        <div><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
+      </div>
+          }
+      }
+      else
+      {
+      <div style="padding:16px;text-align:center;color:var(--text-3);font-size:13px">No payments recorded yet.</div>
+      }
+
+      <!-- Bar chart -->
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div class="chart-title">Collections This Week</div>
+          <div class="chart-toggle">
+            <button class="active">Week</button>
+            <button>Month</button>
+          </div>
+        </div>
+        <div class="bars">
+          <div class="bar-col"><div class="bar" style="height:45%"></div><div class="bar-label">Mon</div></div>
+          <div class="bar-col"><div class="bar" style="height:70%"></div><div class="bar-label">Tue</div></div>
+          <div class="bar-col"><div class="bar" style="height:55%"></div><div class="bar-label">Wed</div></div>
+          <div class="bar-col"><div class="bar" style="height:80%"></div><div class="bar-label">Thu</div></div>
+          <div class="bar-col"><div class="bar today" style="height:60%"></div><div class="bar-label">Fri</div></div>
+          <div class="bar-col"><div class="bar" style="height:20%"></div><div class="bar-label">Sat</div></div>
+          <div class="bar-col"><div class="bar" style="height:10%"></div><div class="bar-label">Sun</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- dash-center -->
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="dash-right">
+
+    <div class="officer-badge">● On Duty</div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 14px;border-bottom:1px solid var(--gray-border)">
+      <div class="profile-avatar">@ViewData["Initials"]</div>
+      <div class="profile-name">@ViewData["FullName"]</div>
+      <div class="profile-eid">Employee ID: @ViewData["EmployeeID"]</div>
+      <div class="profile-details" style="width:100%;text-align:left">
+        <div class="profile-detail-row">
+          <div class="profile-detail-icon">📋</div>
+          <div>
+            <div class="profile-detail-label">Role</div>
+            <div class="profile-detail-val">@ViewData["Role"]</div>
+          </div>
+        </div>
+        <div class="profile-detail-row">
+          <div class="profile-detail-icon">📅</div>
+          <div>
+            <div class="profile-detail-label">Member Since</div>
+            <div class="profile-detail-val">@ViewData["MemberSince"]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Request History -->
+    <div>
+      <div class="rh-header">
+        <div class="rh-title">My Recent Requests</div>
+        <div class="rh-today">Today</div>
+      </div>
+      <div class="rh-item">
+        <div class="rh-dot dot-pending"></div>
+        <div>
+          <div class="rh-rcp">RCP-0012</div>
+          <div class="rh-desc">Amount correction request</div>
+          <span class="status-pill pill-pending">Pending</span>
+        </div>
+      </div>
+      <div class="rh-item">
+        <div class="rh-dot dot-approved"></div>
+        <div>
+          <div class="rh-rcp">RCP-0010</div>
+          <div class="rh-desc">Remarks update</div>
+          <span class="status-pill pill-approved">Approved</span>
+        </div>
+      </div>
+      <div class="rh-item">
+        <div class="rh-dot dot-rejected"></div>
+        <div>
+          <div class="rh-rcp">RCP-0009</div>
+          <div class="rh-desc">Payee name edit</div>
+          <span class="status-pill pill-rejected">Rejected</span>
+        </div>
+      </div>
+      <div class="rh-item">
+        <div class="rh-dot dot-approved"></div>
+        <div>
+          <div class="rh-rcp">RCP-0007</div>
+          <div class="rh-desc">Type correction</div>
+          <span class="status-pill pill-approved">Approved</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- dash-right -->
+
+</div><!-- dashboard-layout -->
+
+<!-- Customize Highlights Modal -->
+<div class="modal-overlay" id="modal-customize">
+  <div class="modal customize-modal">
+    <div class="modal-title">✦ Customize Highlight Cards</div>
+    <div class="modal-sub">Choose which cards to display and drag to reorder them.</div>
+    <div class="cust-info"><span>💡</span> At least 1 card must remain visible. Drag <strong>⠿</strong> to reorder.</div>
+    <div class="cust-card-list" id="cust-card-list"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('modal-customize')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="applyCustomizeCards()">Apply</button>
+    </div>
+  </div>
 </div>
 
 @section Scripts {
 <script>
-    const chartData = [
-        {day:'MON',val:22},{day:'TUE',val:18},{day:'WED',val:20},
-        {day:'THU',val:27},{day:'FRI',val:22},{day:'SAT',val:12},{day:'SUN',val:19}
-    ];
-    const max = Math.max(...chartData.map(d => d.val));
-    const barsEl = document.getElementById('bar-chart');
-    const labelsEl = document.getElementById('bar-labels');
-    const valsEl = document.getElementById('bar-vals');
-    chartData.forEach((d, i) => {
-        const col = document.createElement('div');
-        col.className = 'bar-col';
-        const bar = document.createElement('div');
-        bar.className = 'bar' + (i === 3 ? ' today' : '');
-        bar.style.height = ((d.val / max) * 80) + 'px';
-        col.appendChild(bar);
-        barsEl.appendChild(col);
-        const lbl = document.createElement('div');
-        lbl.style.cssText = 'font-size:10px;font-weight:600;color:var(--text-3);text-align:center;flex:1';
-        lbl.textContent = d.day;
-        labelsEl.appendChild(lbl);
-        const val = document.createElement('div');
-        val.style.cssText = 'font-size:10px;color:var(--text-3);text-align:center;flex:1';
-        val.textContent = d.val + 'K';
-        valsEl.appendChild(val);
+// ── Highlights Carousel ──
+(function () {
+  const TOTAL_CARDS = 8;
+  const VISIBLE     = 3;
+  const STEP        = 1;
+  const MAX_OFFSET  = TOTAL_CARDS - VISIBLE;
+
+  let offset = 0;
+
+  const track    = document.getElementById('highlights-track');
+  const viewport = document.getElementById('highlights-viewport');
+  const prevBtn  = document.getElementById('hl-prev');
+  const nextBtn  = document.getElementById('hl-next');
+  const dotsEl   = document.getElementById('hl-dots');
+
+  for (let i = 0; i <= MAX_OFFSET; i++) {
+    const d = document.createElement('button');
+    d.className = 'hl-dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => goTo(i));
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(idx) {
+    offset = Math.max(0, Math.min(MAX_OFFSET, idx));
+    const cardW = (viewport.clientWidth - 24) / 3 + 12;
+    track.style.transform = 'translateX(-' + (offset * cardW) + 'px)';
+    prevBtn.disabled = offset === 0;
+    nextBtn.disabled = offset === MAX_OFFSET;
+    dotsEl.querySelectorAll('.hl-dot').forEach((d, i) => d.classList.toggle('active', i === offset));
+  }
+
+  prevBtn.addEventListener('click', () => goTo(offset - STEP));
+  nextBtn.addEventListener('click', () => goTo(offset + STEP));
+
+  let touchStartX = 0;
+  viewport.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  viewport.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) goTo(dx < 0 ? offset + STEP : offset - STEP);
+  }, { passive: true });
+
+  goTo(0);
+  window.addEventListener('resize', () => goTo(offset));
+
+  // MTD widget
+  const now = new Date();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const pctMonth = Math.round((now.getDate() / daysInMonth) * 100);
+  const mtdSub = document.getElementById('hl-mtd-sub');
+  const mtdBar = document.getElementById('hl-mtd-bar');
+  if (mtdSub) mtdSub.textContent = now.getDate() + ' days · ' + months[now.getMonth()];
+  if (mtdBar) mtdBar.style.width = pctMonth + '%';
+
+  // Shift tracker
+  function updateShift() {
+    const n = new Date();
+    const shiftStart = new Date(n); shiftStart.setHours(8, 0, 0, 0);
+    const shiftEnd   = new Date(n); shiftEnd.setHours(17, 0, 0, 0);
+    const pct = Math.max(0, Math.min(100, Math.round(((n - shiftStart) / (shiftEnd - shiftStart)) * 100)));
+    const hh = String(n.getHours()).padStart(2, '0');
+    const mm = String(n.getMinutes()).padStart(2, '0');
+    const timeEl   = document.getElementById('hl-shift-time');
+    const remainEl = document.getElementById('hl-shift-remain');
+    const barEl    = document.getElementById('hl-shift-bar');
+    if (timeEl)   timeEl.textContent   = hh + ':' + mm;
+    if (barEl)    barEl.style.width    = pct + '%';
+    if (remainEl) {
+      if (n < shiftStart)    remainEl.textContent = 'Shift not started';
+      else if (n > shiftEnd) remainEl.textContent = 'Shift ended';
+      else {
+        const rem = shiftEnd - n;
+        remainEl.textContent = Math.floor(rem / 3600000) + 'h ' + Math.floor((rem % 3600000) / 60000) + 'm remaining';
+      }
+    }
+  }
+  updateShift();
+  setInterval(updateShift, 60000);
+})();
+
+// ── Chart toggle ──
+document.querySelectorAll('.chart-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('.chart-toggle').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ── Customize Highlight Cards ──
+const ALL_CARDS = [
+  { id: 'hl-card-1', icon: '🪙', name: 'Collected Today' },
+  { id: 'hl-card-2', icon: '💳', name: 'Payments Recorded' },
+  { id: 'hl-card-3', icon: '📨', name: 'Requests for Approval' },
+  { id: 'hl-card-4', icon: '📆', name: 'Month-to-Date Collection' },
+  { id: 'hl-card-5', icon: '🎯', name: 'Daily Target' },
+  { id: 'hl-card-6', icon: '🕐', name: 'Shift Tracker' },
+  { id: 'hl-card-7', icon: '🏆', name: 'Top Revenue Today' },
+  { id: 'hl-card-8', icon: '⏳', name: 'Oldest Pending' },
+];
+
+let cardState    = ALL_CARDS.map(c => ({ ...c, visible: true }));
+let dragSrcIndex = null;
+
+function openCustomizeModal() {
+  renderCustomizeList();
+  openModal('modal-customize');
+}
+
+function renderCustomizeList() {
+  const list = document.getElementById('cust-card-list');
+  list.innerHTML = '';
+  cardState.forEach((card, i) => {
+    const item = document.createElement('div');
+    item.className = 'cust-card-item';
+    item.draggable = true;
+    item.dataset.index = i;
+    item.innerHTML = `
+      <span class="cust-drag-handle">⠿</span>
+      <span class="cust-card-icon">${card.icon}</span>
+      <span class="cust-card-name">${card.name}</span>
+      <button class="cust-toggle ${card.visible ? 'on' : ''}" onclick="toggleCard(${i})" title="${card.visible ? 'Hide' : 'Show'}"></button>
+    `;
+    item.addEventListener('dragstart', () => {
+      dragSrcIndex = i;
+      setTimeout(() => item.classList.add('dragging'), 0);
     });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIndex === null || dragSrcIndex === i) return;
+      const moved = cardState.splice(dragSrcIndex, 1)[0];
+      cardState.splice(i, 0, moved);
+      dragSrcIndex = null;
+      renderCustomizeList();
+    });
+    list.appendChild(item);
+  });
+}
+
+function toggleCard(index) {
+  if (cardState[index].visible && cardState.filter(c => c.visible).length <= 1) {
+    showToast('At least 1 card must remain visible.', true);
+    return;
+  }
+  cardState[index].visible = !cardState[index].visible;
+  renderCustomizeList();
+}
+
+function applyCustomizeCards() {
+  const track = document.getElementById('highlights-track');
+  cardState.forEach(card => {
+    const el = track.querySelector(`[data-card-id="${card.id}"]`);
+    if (!el) return;
+    el.style.display = card.visible ? '' : 'none';
+    if (card.visible) track.appendChild(el);
+  });
+  closeModal('modal-customize');
+  showToast('Highlight cards updated!');
+}
 </script>
 }

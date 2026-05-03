@@ -38,17 +38,39 @@ namespace LGUTreasury.Controllers
                 ViewData["MemberSince"] = user.CreatedAt.ToString("MMMM yyyy");
             }
 
-            // Stats
+            // Filter
+            var filter = Request.Query["filter"].ToString();
+            ViewData["CurrentFilter"] = string.IsNullOrEmpty(filter) ? "today" : filter;
             var today = DateTime.Today;
-            var payments = await _context.PaymentRecords
-                .Where(p => p.DateIssued.Date == today)
-                .ToListAsync();
+
+            IQueryable<LGUTreasury.Models.PaymentRecord> query = _context.PaymentRecords.Include(p => p.Payee);
+
+            query = filter switch
+            {
+                "week"   => query.Where(p => p.DateIssued.Date >= today.AddDays(-7)),
+                "month"  => query.Where(p => p.DateIssued.Month == today.Month && p.DateIssued.Year == today.Year),
+                "year"   => query.Where(p => p.DateIssued.Year == today.Year),
+                "2years" => query.Where(p => p.DateIssued >= today.AddYears(-2)),
+                _        => query.Where(p => p.DateIssued.Date == today)
+            };
+
+            var payments = await query.OrderByDescending(p => p.DateIssued).ToListAsync();
 
             ViewBag.CollectedToday = payments.Sum(p => p.TotalAmount).ToString("N2");
             ViewBag.PaymentsToday = payments.Count;
             ViewBag.PendingRequests = 0;
-            ViewBag.WeeklyTotal = "0.00";
-            ViewBag.RecentRecords = new List<dynamic>();
+            ViewBag.WeeklyTotal = payments.Sum(p => p.TotalAmount).ToString("N2");
+
+            ViewBag.RecentRecords = payments.Take(5).Select(p => new
+            {
+                Initials  = $"{p.Payee?.Firstname?[0]}{p.Payee?.Lastname?[0]}".ToUpper(),
+                PayeeName = $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
+                Type      = "Payment",
+                ReceiptNo = p.OfficialReceipt,
+                Amount    = p.TotalAmount.ToString("N2"),
+                Time      = p.DateIssued.ToString("hh:mm tt")
+            }).ToList<dynamic>();
+
             ViewBag.RequestHistory = new List<dynamic>();
 
             return View();

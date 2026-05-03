@@ -22,7 +22,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseSession(); // add this
+app.UseSession(); 
 app.UseAuthorization();
 
 app.MapControllerRoute(
@@ -62,4 +62,5 @@ using (var scope = app.Services.CreateScope())
         context.SaveChanges();
     }
 }
+//original code
 app.Run();

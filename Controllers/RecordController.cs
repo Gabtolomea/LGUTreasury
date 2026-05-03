@@ -13,6 +13,26 @@ namespace LGUTreasury.Controllers
         {
             _context = context;
         }
+        [HttpGet]
+        public async Task<IActionResult> SearchPayee(string query)
+        {
+          var results = await _context.Payees
+          .Where(p => p.Firstname!.Contains(query) || 
+                      p.Lastname!.Contains(query))
+             .Take(8)
+             .Select(p => new {
+              p.PayeeID,
+              p.Firstname,
+              p.Middlename,
+              p.Lastname,
+              p.Suffix,
+              p.ContactNumber,
+              p.ResidenceAddress
+        })
+        .ToListAsync();
+
+    return Json(results);
+       }
 
         // GET: /Record/Create
         public async Task<IActionResult> Create()
@@ -26,7 +46,6 @@ namespace LGUTreasury.Controllers
             ViewData["Role"] = HttpContext.Session.GetString("Role");
             ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
 
-            // Load revenue types for dropdown
             ViewBag.RevenueTypes = await _context.RevenueTypes
                 .Where(r => r.IsActive)
                 .ToListAsync();
@@ -34,21 +53,28 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
-        // POST: /Payment/Create
+        // POST: /Record/Create
         [HttpPost]
-        public async Task<IActionResult> Create(string FirstName, string LastName, 
-            string? MiddleName, string? Suffix, string? ContactNumber, 
-            string? ResidenceAddress, string OfficialReceipt, 
+        public async Task<IActionResult> Create(
+            string FirstName, string LastName,
+            string? MiddleName, string? Suffix, string? ContactNumber,
+            string? ResidenceAddress, string OfficialReceipt,
             DateTime DateIssued, string? Remarks,
-            List<int> TypeIDs, List<int> Quantities, 
-            List<decimal> BaseAmounts, List<decimal> SurchargeAmounts, 
-            List<decimal> InterestAmounts)
+            List<int> TypeIDs, List<int> Quantities,
+            List<decimal> BaseAmounts,
+            List<decimal?> SurchargeAmounts,
+            List<decimal?> InterestAmounts)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null)
                 return RedirectToAction("Login", "Account");
+                if (DateIssued.Date > DateTime.Today)
+           {
+             TempData["Error"] = "Date issued cannot be in the future.";
+              ViewBag.RevenueTypes = await _context.RevenueTypes.Where(r => r.IsActive).ToListAsync();
+             return View();
+          }
 
-            // Create or find payee
             var payee = new Payee
             {
                 Firstname = FirstName,
@@ -62,7 +88,6 @@ namespace LGUTreasury.Controllers
             _context.Payees.Add(payee);
             await _context.SaveChangesAsync();
 
-            // Create payment record
             var payment = new PaymentRecord
             {
                 OfficialReceipt = OfficialReceipt,
@@ -74,13 +99,13 @@ namespace LGUTreasury.Controllers
             };
 
             decimal totalBase = 0, totalSurcharge = 0, totalInterest = 0;
-
             var lineItems = new List<RecordLineItem>();
+
             for (int i = 0; i < TypeIDs.Count; i++)
             {
                 var baseAmt = BaseAmounts[i];
-                var surcharge = SurchargeAmounts[i];
-                var interest = InterestAmounts[i];
+                var surcharge = SurchargeAmounts.Count > i ? SurchargeAmounts[i] ?? 0 : 0;
+                var interest = InterestAmounts.Count > i ? InterestAmounts[i] ?? 0 : 0;
                 var qty = Quantities[i];
                 var lineTotal = (baseAmt + surcharge + interest) * qty;
 
@@ -117,7 +142,7 @@ namespace LGUTreasury.Controllers
             return RedirectToAction("Index");
         }
 
-        // GET: /Payment/Index
+        // GET: /Record/Index
         public async Task<IActionResult> Index()
         {
             var userID = HttpContext.Session.GetInt32("UserID");
