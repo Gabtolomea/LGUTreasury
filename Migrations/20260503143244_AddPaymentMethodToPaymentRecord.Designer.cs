@@ -3,6 +3,7 @@ using System;
 using LGUTreasury.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,56 +11,16 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LGUTreasury.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503143244_AddPaymentMethodToPaymentRecord")]
+    partial class AddPaymentMethodToPaymentRecord
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
-
-            modelBuilder.Entity("LGUTreasury.Models.EditRequest", b =>
-                {
-                    b.Property<int>("RequestID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("PaymentID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Reason")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("RequestedBy_UserID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReviewNote")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("ReviewedBy_UserID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("RequestID");
-
-                    b.HasIndex("PaymentID");
-
-                    b.HasIndex("RequestedBy_UserID");
-
-                    b.HasIndex("ReviewedBy_UserID");
-
-                    b.ToTable("EditRequest");
-                });
 
             modelBuilder.Entity("LGUTreasury.Models.Payee", b =>
                 {
@@ -110,18 +71,12 @@ namespace LGUTreasury.Migrations
                     b.Property<DateTime>("DateIssued")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<bool>("HasPendingRequest")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<string>("OfficialReceipt")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<int>("PayeeID")
                         .HasColumnType("int");
-
-                    b.Property<string>("PaymentMethod")
-                        .HasColumnType("longtext");
 
                     b.Property<string>("Remarks")
                         .HasColumnType("longtext");
@@ -310,31 +265,6 @@ namespace LGUTreasury.Migrations
                     b.ToTable("UserAccounts");
                 });
 
-            modelBuilder.Entity("LGUTreasury.Models.EditRequest", b =>
-                {
-                    b.HasOne("LGUTreasury.Models.PaymentRecord", "PaymentRecord")
-                        .WithMany("EditRequests")
-                        .HasForeignKey("PaymentID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LGUTreasury.Models.UserAccount", "RequestedBy")
-                        .WithMany()
-                        .HasForeignKey("RequestedBy_UserID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LGUTreasury.Models.UserAccount", "ReviewedBy")
-                        .WithMany()
-                        .HasForeignKey("ReviewedBy_UserID");
-
-                    b.Navigation("PaymentRecord");
-
-                    b.Navigation("RequestedBy");
-
-                    b.Navigation("ReviewedBy");
-                });
-
             modelBuilder.Entity("LGUTreasury.Models.PaymentRecord", b =>
                 {
                     b.HasOne("LGUTreasury.Models.UserAccount", "CollectedBy")
@@ -397,8 +327,6 @@ namespace LGUTreasury.Migrations
 
             modelBuilder.Entity("LGUTreasury.Models.PaymentRecord", b =>
                 {
-                    b.Navigation("EditRequests");
-
                     b.Navigation("RecordLineItems");
                 });
 #pragma warning restore 612, 618

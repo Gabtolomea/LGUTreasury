@@ -1,4 +1,5 @@
 using LGUTreasury.Data;
+using LGUTreasury.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,33 +44,46 @@ namespace LGUTreasury.Controllers
             ViewData["CurrentFilter"] = string.IsNullOrEmpty(filter) ? "today" : filter;
             var today = DateTime.Today;
 
-            IQueryable<LGUTreasury.Models.PaymentRecord> query = _context.PaymentRecords.Include(p => p.Payee);
+            var lastMonth = today.AddMonths(-1);
+            var lastMonthStart = new DateTime(lastMonth.Year, lastMonth.Month, 1);
+            var lastMonthEnd = lastMonthStart.AddMonths(1).AddDays(-1);
+
+            IQueryable<PaymentRecord> query = _context.PaymentRecords
+                .Include(p => p.Payee);
 
             query = filter switch
             {
-                "week"   => query.Where(p => p.DateIssued.Date >= today.AddDays(-7)),
-                "month"  => query.Where(p => p.DateIssued.Month == today.Month && p.DateIssued.Year == today.Year),
-                "year"   => query.Where(p => p.DateIssued.Year == today.Year),
-                "2years" => query.Where(p => p.DateIssued >= today.AddYears(-2)),
-                _        => query.Where(p => p.DateIssued.Date == today)
+                "week"      => query.Where(p => p.DateIssued.Date >= today.AddDays(-7)),
+                "month"     => query.Where(p => p.DateIssued.Month == today.Month && p.DateIssued.Year == today.Year),
+                "lastmonth" => query.Where(p => p.DateIssued.Date >= lastMonthStart && p.DateIssued.Date <= lastMonthEnd),
+                "year"      => query.Where(p => p.DateIssued.Year == today.Year),
+                "2years"    => query.Where(p => p.DateIssued >= today.AddYears(-2)),
+                _           => query.Where(p => p.DateIssued.Date == today)
             };
 
             var payments = await query.OrderByDescending(p => p.DateIssued).ToListAsync();
+
+            // Load line items separately to avoid EF Core include issues
+            var paymentIDs = payments.Select(p => p.PaymentID).ToList();
+            var lineItems = await _context.RecordLineItems
+                .Include(l => l.RevenueType)
+                .Where(l => paymentIDs.Contains(l.PaymentID))
+                .ToListAsync();
 
             ViewBag.CollectedToday = payments.Sum(p => p.TotalAmount).ToString("N2");
             ViewBag.PaymentsToday = payments.Count;
             ViewBag.PendingRequests = 0;
             ViewBag.WeeklyTotal = payments.Sum(p => p.TotalAmount).ToString("N2");
 
-            ViewBag.RecentRecords = payments.Take(5).Select(p => new
+            ViewBag.RecentRecords = payments.Take(5).Select(p => new RecentRecordViewModel
             {
                 Initials  = $"{p.Payee?.Firstname?[0]}{p.Payee?.Lastname?[0]}".ToUpper(),
                 PayeeName = $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
-                Type      = "Payment",
+                Type      = lineItems.FirstOrDefault(l => l.PaymentID == p.PaymentID)?.RevenueType?.Name ?? "Payment",
                 ReceiptNo = p.OfficialReceipt,
                 Amount    = p.TotalAmount.ToString("N2"),
                 Time      = p.DateIssued.ToString("hh:mm tt")
-            }).ToList<dynamic>();
+            }).ToList();
 
             ViewBag.RequestHistory = new List<dynamic>();
 

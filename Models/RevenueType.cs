@@ -25,5 +25,7 @@ namespace LGUTreasury.Models
 
         [ForeignKey("CategoryID")]
         public RevenueCategory? Category { get; set; }
+
+        public ICollection<RevenuePolicy> RevenuePolicies { get; set; } = new List<RevenuePolicy>();
     }
 }

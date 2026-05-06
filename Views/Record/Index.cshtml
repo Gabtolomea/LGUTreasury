@@ -1,115 +1,217 @@
-@model List<LGUTreasury.Models.PaymentRecord>
-
+@using LGUTreasury.Models
+@model IEnumerable<PaymentRecord>
 @{
     ViewData["Title"] = "Records";
     ViewData["ActiveNav"] = "records";
-    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<style>
-    .records-page-wrap { padding: 0 16px 32px; }
-    .records-toolbar {
-        display: flex; gap: 10px; align-items: center;
-        padding: 16px 0;
-    }
-    .search-bar {
-        display: flex; align-items: center;
-        background: white; border: 1px solid var(--gray-border);
-        border-radius: 24px; padding: 9px 16px;
-        gap: 8px; box-shadow: var(--shadow); flex: 1;
-    }
-    .search-bar input {
-        border: none; outline: none;
-        font-size: 13.5px; font-family: inherit;
-        color: var(--text); background: transparent; flex: 1;
-    }
-    .btn-add-record {
-        display: flex; align-items: center; gap: 6px;
-        background: var(--green); color: white;
-        border: none; border-radius: 8px;
-        padding: 10px 16px; font-size: 13px;
-        font-weight: 600; cursor: pointer;
-        font-family: inherit; text-decoration: none;
-        white-space: nowrap;
-    }
-    .btn-add-record:hover { background: var(--green-dark); }
-    .data-table-wrap {
-        background: white; border-radius: 12px;
-        border: 1px solid var(--gray-border);
-        box-shadow: var(--shadow); overflow: hidden;
-    }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .data-table th {
-        padding: 13px 16px; text-align: left;
-        font-size: 11.5px; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .05em;
-        color: var(--text-3);
-        border-bottom: 2px solid var(--gray-border);
-    }
-    .data-table td {
-        padding: 13px 16px; border-bottom: 1px solid #f5f5f5;
-        color: var(--text); vertical-align: middle;
-    }
-    .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: #fafafa; }
-    .receipt-no { font-weight: 600; color: var(--green-dark); }
-    .amount { font-weight: 600; }
-    .date { color: var(--text-3); }
-</style>
+<link rel="stylesheet" href="~/css/records.css" />
+
+@Html.AntiForgeryToken()
+
+@if (TempData["Toast"] != null)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            showToast('@TempData["Toast"]');
+        });
+    </script>
+}
 
 <div class="records-page-wrap">
-    <div class="records-toolbar">
-        <div class="search-bar">
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <input type="text" placeholder="Search payments, names, or receipts.." id="search-input" oninput="filterTable()" />
+    <div class="page-header-row">
+        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <div style="flex:1">
+            <div class="page-title" id="page-title-text">Payment Records</div>
+            <div class="page-sub" id="page-sub-text">View and manage all payment records</div>
         </div>
-        <a asp-controller="Record" asp-action="Create" class="btn-add-record">+ Record Payment</a>
     </div>
 
-    <div class="data-table-wrap">
-        <table class="data-table" id="records-table">
-            <thead>
-                <tr>
-                    <th>Receipt No.</th>
-                    <th>Payor</th>
-                    <th>Total Amount</th>
-                    <th>Date Issued</th>
-                    <th>Collected By</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model != null && Model.Any())
-                {
-                    foreach (var record in Model)
-                    {
-                        <tr>
-                            <td class="receipt-no">@record.OfficialReceipt</td>
-                            <td>@record.Payee?.Lastname, @record.Payee?.Firstname @record.Payee?.Middlename</td>
-                            <td class="amount">₱ @record.TotalAmount.ToString("N2")</td>
-                            <td class="date">@record.DateIssued.ToString("MMM dd, yyyy")</td>
-                            <td>@record.CollectedBy?.FirstName @record.CollectedBy?.LastName</td>
-                        </tr>
-                    }
-                }
-                else
-                {
+    <!-- Tab Switcher -->
+    <div class="records-tabs">
+        <button class="records-tab active" id="tab-records" onclick="switchTab('records')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Payment Records
+        </button>
+        <button class="records-tab" id="tab-requests" onclick="switchTab('requests')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Modification Requests
+            <span class="tab-badge" id="tab-badge">0</span>
+        </button>
+    </div>
+
+    <!-- RECORDS PANEL -->
+    <div id="panel-records">
+        <div class="records-toolbar">
+            <div class="search-bar" style="flex:1">
+                <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input type="text" placeholder="Search by name, receipt, or type…" oninput="filterRecords(this.value)" />
+            </div>
+        </div>
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td colspan="5" style="text-align:center;padding:40px;color:var(--text-3)">No records found.</td>
+                        <th>Transaction ID</th>
+                        <th>Payor</th>
+                        <th>Collection Type</th>
+                        <th>Total Amount</th>
+                        <th>Date Issued</th>
+                        <th>Status</th>
+                        <th>Action</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody id="records-tbody">
+                    @if (!Model.Any())
+                    {
+                        <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No records found.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var record in Model)
+                        {
+                            var txnID    = "TXN-" + record.PaymentID.ToString("D6");
+                            var payee    = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
+                            var type     = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+                            var amount   = record.TotalAmount.ToString("N2");
+                            var date     = record.DateIssued.ToString("MMM dd, yyyy hh:mm tt");
+                            var status   = record.HasPendingRequest ? "Pending" : "Posted";
+                            var orNumber = record.OfficialReceipt ?? "—";
+                            var method   = record.PaymentMethod ?? "—";
+                            var remarks  = record.Remarks ?? "";
+
+                            <tr>
+                                <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
+                                <td>@payee</td>
+                                <td>@type</td>
+                                <td style="font-weight:600">₱ @amount</td>
+                                <td style="color:var(--text-3)">@date</td>
+                                <td><span class="status-text-@status.ToLower()">@status</span></td>
+                                <td>
+                                    <button class="action-view-btn"
+                                            onclick="viewRecord(@record.PaymentID, '@txnID', '@payee', '@type', '@amount', '@date', '@orNumber', '@status', '@method', '@remarks')"
+                                            title="View">
+                                        <span class="btn-icon">
+                                            <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
+                                        </span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- REQUESTS PANEL -->
+    <div id="panel-requests" style="display:none">
+        <div class="records-toolbar">
+            <div class="search-bar" style="flex:1">
+                <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <input type="text" placeholder="Search by name, receipt…" oninput="filterApprove(this.value)" />
+            </div>
+        </div>
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Request ID</th>
+                        <th>Transaction ID</th>
+                        <th>Payor</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                        <th>Requested By</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="approve-tbody">
+                    @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
+                    {
+                        <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No modification requests found.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
+                        {
+                            var txnID  = "TXN-" + req.PaymentID.ToString("D6");
+                            var payee  = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
+                            var reqBy  = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
+                            var isPending = req.Status == "Pending";
+
+                            <tr data-requestid="@req.RequestID">
+                                <td style="font-weight:700;color:var(--text-2)">REQ-@req.RequestID.ToString("D6")</td>
+                                <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
+                                <td>@payee</td>
+                                <td>@(req.Reason ?? "—")</td>
+                                <td style="color:var(--text-3)">@req.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                <td>@reqBy</td>
+                                <td><span class="request-status status-text-@req.Status.ToLower()">@req.Status</span></td>
+                                <td style="white-space:nowrap">
+                                    @if (isPending)
+                                    {
+                                        <button class="action-approve-btn" onclick="openApprove(@req.RequestID)" title="Approve">
+                                            <span class="btn-icon">✓</span>
+                                        </button>
+                                        <button class="action-reject-btn" onclick="openReject(@req.RequestID)" title="Reject">
+                                            <span class="btn-icon">✕</span>
+                                        </button>
+                                    }
+                                    <button class="action-view-btn" onclick="viewRecord(@req.PaymentID, '@txnID', '@payee', '—', '—', '@req.CreatedAt.ToString("MMM dd, yyyy")', '—', '@req.Status', '—', '@(req.Reason ?? "")')" title="View">
+                                        <span class="btn-icon">
+                                            <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
+                                        </span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- View Record Modal -->
+<div class="modal-overlay" id="modal-view-record">
+    <div class="modal" style="max-width:500px">
+        <div class="modal-title" id="modal-view-title">Payment Record</div>
+        <div id="modal-record-content"></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-view-record')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Approve Modal -->
+<div class="modal-overlay" id="modal-confirm-approve">
+    <div class="modal">
+        <div class="modal-title">Approve Modification?</div>
+        <div class="modal-sub">This will approve the requested modification and update the payment record.</div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-confirm-approve')">Cancel</button>
+            <button class="btn-primary" onclick="confirmApprove()">Yes, Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Reject Modal -->
+<div class="modal-overlay" id="modal-confirm-reject">
+    <div class="modal">
+        <div class="modal-title">Reject Modification?</div>
+        <div class="modal-sub">Provide an optional reason for rejection.</div>
+        <div style="margin-bottom:14px">
+            <label class="form-label">Reason (optional)</label>
+            <textarea class="form-input" id="reject-reason" placeholder="e.g. Incorrect amount entered" style="min-height:80px;width:100%;margin-top:6px"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-confirm-reject')">Cancel</button>
+            <button style="padding:10px 20px;background:var(--red);border:none;border-radius:8px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit" onclick="confirmReject()">Reject</button>
+        </div>
     </div>
 </div>
 
 @section Scripts {
-<script>
-    function filterTable() {
-        const query = document.getElementById('search-input').value.toLowerCase();
-        const rows = document.querySelectorAll('#records-table tbody tr');
-        rows.forEach(row => {
-            row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
-        });
-    }
-</script>
+    <script src="~/js/records.js"></script>
 }

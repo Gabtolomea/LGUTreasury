@@ -61,6 +61,19 @@ using (var scope = app.Services.CreateScope())
         );
         context.SaveChanges();
     }
+    if (!context.RevenuePolicies.Any())
+{
+    var types = context.RevenueTypes.ToList();
+    foreach (var type in types)
+    {
+        context.RevenuePolicies.Add(new LGUTreasury.Models.RevenuePolicy
+        {
+            TypeID = type.TypeID,
+            SurchargeRate = 25.00m,
+            InterestRate = 2.00m
+        });
+    }
+    context.SaveChanges();
 }
-//original code
+}//original code
 app.Run();

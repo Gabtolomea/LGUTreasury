@@ -1,4 +1,5 @@
-﻿@{
+﻿@using LGUTreasury.Controllers
+@{
     ViewData["Title"] = "Dashboard";
     ViewData["ActiveNav"] = "dashboard";
 }
@@ -293,32 +294,37 @@
         <div class="panel-title">Recent Payments</div>
         <a asp-controller="Record" asp-action="Index" class="panel-sub">View all →</a>
       </div>
-      @if (ViewBag.RecentRecords != null)
+
+      @if (ViewBag.RecentRecords != null && ViewBag.RecentRecords.Count > 0)
       {
-          foreach (var r in ViewBag.RecentRecords)
+          foreach (RecentRecordViewModel r in ViewBag.RecentRecords)
           {
-      <div class="record-row">
-        <div class="avatar-circle">@r.Initials</div>
-        <div class="record-info">
-          <div class="record-name">@r.PayeeName</div>
-          <div class="record-meta">@r.Type · @r.ReceiptNo</div>
-        </div>
-        <div><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
-      </div>
+              <div class="record-row">
+                <div class="avatar-circle">@r.Initials</div>
+                <div class="record-info">
+                  <div class="record-name">@r.PayeeName</div>
+                  <div class="record-meta">@r.Type · @r.ReceiptNo</div>
+                </div>
+                <div><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
+              </div>
           }
       }
       else
       {
-      <div style="padding:16px;text-align:center;color:var(--text-3);font-size:13px">No payments recorded yet.</div>
+          <div style="padding:16px;text-align:center;color:var(--text-3);font-size:13px">No payments recorded yet.</div>
       }
 
       <!-- Bar chart -->
       <div class="chart-wrap">
         <div class="chart-header">
-          <div class="chart-title">Collections This Week</div>
+          <div class="chart-title">Collections</div>
           <div class="chart-toggle">
-            <button class="active">Week</button>
-            <button>Month</button>
+            <button class="@(ViewData["CurrentFilter"]?.ToString() == "month" || ViewData["CurrentFilter"]?.ToString() == "today" ? "active" : "")"
+                    onclick="window.location.href='/?filter=month'">This Month</button>
+            <button class="@(ViewData["CurrentFilter"]?.ToString() == "lastmonth" ? "active" : "")"
+                    onclick="window.location.href='/?filter=lastmonth'">Last Month</button>
+            <button class="@(ViewData["CurrentFilter"]?.ToString() == "year" ? "active" : "")"
+                    onclick="window.location.href='/?filter=year'">Last Year</button>
           </div>
         </div>
         <div class="bars">
@@ -501,14 +507,6 @@
   updateShift();
   setInterval(updateShift, 60000);
 })();
-
-// ── Chart toggle ──
-document.querySelectorAll('.chart-toggle button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    btn.closest('.chart-toggle').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
 
 // ── Customize Highlight Cards ──
 const ALL_CARDS = [

@@ -1,12 +1,20 @@
-@if (TempData["Error"] != null)
-{
-    <script>
-        document.addEventListener('DOMContentLoaded', () => 
-            showToast('@TempData["Error"]', true));
-    </script>
+@model List<LGUTreasury.Models.PaymentRecord>
+@{
+    ViewData["Title"] = "Record Payment";
+    ViewData["ActiveNav"] = "record";
+    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <link rel="stylesheet" href="~/css/record-payment.css" />
+
+@if (TempData["Error"] != null)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            showToast('@TempData["Error"]', true);
+        });
+    </script>
+}
 
 <div class="content-page">
     <div class="page-header-row">
@@ -20,103 +28,108 @@
     <form asp-action="Create" asp-controller="Record" method="post" id="payment-form">
         @Html.AntiForgeryToken()
 
-       
+        <!-- Hidden fields -->
+        <input type="hidden" name="PayeeID" id="pay-payeeid" />
+        <input type="hidden" name="FirstName" id="pay-fname" />
+        <input type="hidden" name="MiddleName" id="pay-mname" />
+        <input type="hidden" name="LastName" id="pay-lname" />
+        <input type="hidden" name="Suffix" id="pay-suffix" />
+        <input type="hidden" name="ContactNumber" id="pay-contact" />
+        <input type="hidden" name="ResidenceAddress" id="pay-address" />
+        <input type="hidden" name="TypeID" id="pay-typeid" />
+        <input type="hidden" name="TotalBaseAmount" id="pay-base" />
+        <input type="hidden" name="TotalSurcharge" id="pay-surcharge" />
+        <input type="hidden" name="TotalInterest" id="pay-interest" />
+        <input type="hidden" name="TotalAmount" id="pay-total" />
 
-        <!-- Payor Information -->
+        <!-- PAYOR INFORMATION -->
         <div class="form-section">
-            <div class="section-title">Payor Information</div>
-             <div class="form-group span-2" style="margin-bottom:6px">
-         <label class="form-label">Search Existing Payee</label>
-         <input type="text" class="form-input" id="payee-search" 
-           placeholder="Type name to search existing payors…" 
-           autocomplete="off" />
-          <div id="payee-suggestions" style="
-        position:absolute; background:white; border:1px solid var(--gray-border);
-        border-radius:8px; box-shadow:var(--shadow);
-        max-height:200px; overflow-y:auto;
-        z-index:100; width:20%; display:none;">
-      </div>
-    </div>
-    
-            <div class="form-grid-2">
-    <div class="form-group">
-        <label class="form-label">First Name *</label>
-        <input type="text" class="form-input" name="FirstName" placeholder="e.g. Juan" required />
-    </div>
-    <div class="form-group">
-        <label class="form-label">Last Name *</label>
-        <input type="text" class="form-input" name="LastName" placeholder="e.g. Cruz" required />
-    </div>
-    <div class="form-group">
-        <label class="form-label">Middle Name</label>
-        <input type="text" class="form-input" name="MiddleName" placeholder="Optional" />
-    </div>
-    <div class="form-group">
-        <label class="form-label">Suffix</label>
-        <input type="text" class="form-input" name="Suffix" placeholder="Sr., Jr., III…" />
-    </div>
-    <div class="form-group">
-        <label class="form-label">Contact No.</label>
-        <input type="text" class="form-input" name="ContactNumber" placeholder="09XX-XXX-XXXX" />
-    </div>
-    <div class="form-group span-2">
-        <label class="form-label">Residence Address</label>
-        <textarea class="form-input" name="ResidenceAddress" placeholder="Complete address" style="min-height:60px"></textarea>
-    </div>
-</div>
-        <!-- Payment Information -->
+            <div class="section-title-row">
+                <div class="section-title" style="margin-bottom:0;padding-bottom:0;border-bottom:none">Payor Information</div>
+                <button type="button" class="add-payor-btn" onclick="openModal('payor-modal')">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Add New Payor
+                </button>
+            </div>
+
+            <div class="payor-search-wrap">
+                <div class="payor-search-bar">
+                    <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <input type="text" id="payor-search" placeholder="Search existing payor by name or contact…" oninput="searchPayors(this.value)" autocomplete="off" />
+                </div>
+                <div class="payor-dropdown" id="payor-dropdown"></div>
+            </div>
+
+            <div class="selected-payor-card hidden" id="selected-payor-card">
+                <div class="selected-payor-info">
+                    <div class="selected-payor-avatar" id="sel-avatar">—</div>
+                    <div>
+                        <div class="selected-payor-name" id="sel-name">—</div>
+                        <div class="selected-payor-meta" id="sel-meta">—</div>
+                    </div>
+                </div>
+                <button type="button" class="clear-payor-btn" onclick="clearPayor()">✕ Clear</button>
+            </div>
+        </div>
+
+        <!-- PAYMENT INFORMATION -->
         <div class="form-section">
             <div class="section-title">Payment Information</div>
             <div class="form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Transaction ID</label>
+                    <input type="text" class="form-input" id="pay-txnid" placeholder="Select a payor first…" readonly
+                           style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--text-3)" />
+                </div>
                 <div class="form-group">
                     <label class="form-label">OR Number *</label>
                     <input type="text" class="form-input" name="OfficialReceipt" placeholder="e.g. 00001" required />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Date Issued *</label>
-                    <input type="date" class="form-input" name="DateIssued" required />
+                    <input type="date" class="form-input" name="DateIssued" id="date-issued" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select class="form-select" name="PaymentMethod">
+                        <option value=""> Select Method </option>
+                        <option value="Cash">Cash</option>
+                        <option value="Check">Check</option>
+                        <option value="Online Transfer">Online Transfer</option>
+                    </select>
+                </div>
+                <div class="form-group span-2">
+                    <label class="form-label">Collection Type *</label>
+                    <input type="text" class="form-input" id="coltype-display"
+                           placeholder="Click to select revenue type…"
+                           readonly onclick="openRevTypeModal()"
+                           style="cursor:pointer" />
+
+                    <!-- Breakdown panel -->
+                    <div class="payment-breakdown" id="payment-breakdown">
+                        <div class="breakdown-title">Computed Breakdown</div>
+                        <div class="breakdown-row">
+                            <span>Base Amount</span>
+                            <span id="bd-base">₱ 0.00</span>
+                        </div>
+                        <div class="breakdown-row">
+                            <span>Surcharge Amount</span>
+                            <span id="bd-surcharge">₱ 0.00</span>
+                        </div>
+                        <div class="breakdown-row">
+                            <span>Interest Amount</span>
+                            <span id="bd-interest">₱ 0.00</span>
+                        </div>
+                        <div class="breakdown-total">
+                            <span>Total</span>
+                            <span id="bd-total">₱ 0.00</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group span-2">
                     <label class="form-label">Remarks</label>
                     <textarea class="form-input" name="Remarks" placeholder="Optional notes…" style="min-height:60px"></textarea>
                 </div>
-            </div>
-        </div>
-
-        <!-- Revenue Line Items -->
-        <div class="form-section">
-            <div class="section-title">Revenue Line Items</div>
-            <table class="line-items-table">
-                <thead>
-                    <tr>
-                        <th>Revenue Type</th>
-                        <th>Qty</th>
-                        <th>Base Amount</th>
-                        <th>Surcharge</th>
-                        <th>Interest</th>
-                        <th>Line Total</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="line-items-body">
-                    <tr>
-                        <td>
-                            <input type="text" class="rt-display" placeholder="Click to select..." readonly onclick="openRevTypeModal(this)" />
-                            <input type="hidden" name="TypeIDs" class="rt-hidden" />
-                        </td>
-                        <td><input type="number" name="Quantities" value="1" min="1" style="width:60px" oninput="calcLine(this)" /></td>
-                        <td><input type="number" name="BaseAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
-                        <td><input type="number" name="SurchargeAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
-                        <td><input type="number" name="InterestAmounts" placeholder="0.00" step="0.01" oninput="calcLine(this)" /></td>
-                        <td class="line-total" style="font-weight:700">₱ 0.00</td>
-                        <td><button type="button" onclick="removeLineItem(this)" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button></td>
-                    </tr>
-                </tbody>
-            </table>
-            <button type="button" class="add-line-btn" onclick="addLineItem()">+ Add Item</button>
-            <div class="total-row">
-                <span class="total-label">Total Amount:</span>
-                <span class="total-value" id="grand-total">₱ 0.00</span>
             </div>
         </div>
 
@@ -127,11 +140,12 @@
     </form>
 </div>
 
-<!-- Revenue Type Picker Modal -->
+<!-- REVENUE TYPE PICKER MODAL -->
 <div class="modal-overlay" id="modal-revtype-picker">
     <div class="modal">
-        <div class="modal-title">Select Revenue Type</div>
-        <input type="text" class="rt-search-input" id="rt-search" placeholder="Search revenue type..." oninput="filterRevTypes()" />
+        <div class="modal-title">Select Collection Type</div>
+        <input type="text" class="rt-search-input" id="rt-search"
+               placeholder="Search revenue type..." oninput="filterRevTypes()" />
         <div class="rt-list" id="rt-list">
             @if (ViewBag.RevenueTypes != null)
             {
@@ -140,20 +154,60 @@
                     <div class="rt-option"
                          data-id="@type.TypeID"
                          data-name="@type.Name"
-                         data-rate="@type.BaseRate"
+                         data-baserate="@type.BaseRate"
+                         data-surcharge="@type.SurchargeRate"
+                         data-interest="@type.InterestRate"
                          onclick="selectRevType(this)">
                         <div class="rt-option-name">@type.Name</div>
-                        <div class="rt-option-rate">Base Rate: ₱ @type.BaseRate.ToString("N2")</div>
+                        <div class="rt-option-rate">Base Rate: ₱ @((decimal)type.BaseRate)</div>
                     </div>
                 }
-            }
-            else
-            {
-                <div style="padding:14px;text-align:center;color:var(--text-3);font-size:13px">No revenue types available.</div>
             }
         </div>
         <div class="modal-actions">
             <button type="button" class="btn-cancel" onclick="closeRevTypeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADD NEW PAYOR MODAL -->
+<div class="modal-overlay" id="payor-modal">
+    <div class="modal" style="max-width:540px">
+        <div class="modal-title">Add New Payor</div>
+        <div class="modal-sub">Fill in the payor's details. Fields marked * are required.</div>
+        <div class="form-grid-2" style="gap:10px 16px">
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">First Name *</label>
+                <input type="text" class="form-input" placeholder="e.g. Juan" id="new-fname" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Middle Name</label>
+                <input type="text" class="form-input" placeholder="Optional" id="new-mname" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Last Name *</label>
+                <input type="text" class="form-input" placeholder="e.g. Cruz" id="new-lname" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Suffix</label>
+                <input type="text" class="form-input" placeholder="Sr., Jr., III…" id="new-suffix" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Contact No.</label>
+                <input type="text" class="form-input" placeholder="09XX-XXX-XXXX" id="new-contact" />
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" placeholder="Optional" id="new-email" />
+            </div>
+            <div class="form-group span-2" style="margin-bottom:0">
+                <label class="form-label">Residence Address</label>
+                <textarea class="form-input" placeholder="Complete address" id="new-address" style="min-height:60px"></textarea>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="closeModal('payor-modal')">Cancel</button>
+            <button type="button" class="btn-save" onclick="saveNewPayor()">Save Payor</button>
         </div>
     </div>
 </div>
