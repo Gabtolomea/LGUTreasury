@@ -1,4 +1,4 @@
-﻿@using LGUTreasury.Controllers
+﻿@using LGUTreasury.Models
 @{
     ViewData["Title"] = "Dashboard";
     ViewData["ActiveNav"] = "dashboard";
@@ -114,10 +114,10 @@
 .record-row:hover { background: #fafafa; }
 .record-row:last-child { border-bottom: none; }
 .avatar-circle { width: 34px; height: 34px; border-radius: 50%; background: var(--green); color: white; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.record-info   { flex: 1; }
-.record-name   { font-size: 12.5px; font-weight: 600; color: var(--text); }
-.record-meta   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-.record-amount { font-size: 13px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; }
+.record-info   { flex: 1; min-width: 0;  }
+.record-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.record-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.record-amount { font-size: 13px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; flex-shrink: 0; }
 .record-time   { font-size: 10.5px; color: var(--text-3); text-align: right; }
 
 /* ── Bar Chart ── */
@@ -127,14 +127,14 @@
 .chart-toggle { display: flex; gap: 2px; background: var(--gray-input); border-radius: 6px; padding: 3px; }
 .chart-toggle button { background: none; border: none; font-size: 11px; font-weight: 600; color: var(--text-3); padding: 3px 8px; border-radius: 4px; cursor: pointer; font-family: inherit; }
 .chart-toggle button.active { background: white; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-.bars { display: flex; align-items: flex-end; gap: 6px; height: 76px; }
-.bar-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
-.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--green-mid); transition: opacity .2s; cursor: pointer; min-height: 4px; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 76px; min-height: 76px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; flex: 1; height: 100%; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--green-dark); transition: opacity .2s; cursor: pointer; min-height: 4px; }
 .bar:hover { opacity: .75; }
 .bar.today { background: var(--green); }
 .bar-label { font-size: 9.5px; font-weight: 600; color: var(--text-3); }
 
-/* ── Right Panel — Officer Profile ── */
+/* ── Right Panel ── */
 .officer-badge {
   background: var(--green-light); color: var(--green);
   font-size: 11px; font-weight: 700;
@@ -150,7 +150,6 @@
 }
 .profile-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .profile-eid  { font-size: 11.5px; color: var(--text-3); margin-bottom: 14px; }
-
 .profile-details { display: flex; flex-direction: column; gap: 9px; }
 .profile-detail-row { display: flex; gap: 9px; align-items: flex-start; }
 .profile-detail-icon {
@@ -174,7 +173,6 @@
 .dot-rejected { border-color: var(--red);    background: transparent; }
 .rh-rcp  { font-size: 12px; font-weight: 700; color: var(--text); }
 .rh-desc { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
-
 .status-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
 .pill-pending  { background: #fff3e0; color: var(--orange); }
 .pill-approved { background: var(--green-light); color: var(--green); }
@@ -223,7 +221,7 @@
       <input type="text" placeholder="Search payments, names, or receipts…">
     </div>
 
-    <!-- Highlights Carousel -->
+    <!-- Highlights Carousel — 6 cards (removed Daily Target) -->
     <div class="highlights-outer" id="highlights-outer">
       <button class="hl-customize-btn" id="hl-customize-btn" title="Customize cards" onclick="openCustomizeModal()">⚙</button>
       <button class="hl-arrow hl-arrow-prev" id="hl-prev">‹</button>
@@ -231,15 +229,15 @@
         <div class="highlights-track" id="highlights-track">
 
           <div class="stat-card hl-card" data-card-id="hl-card-1">
-            <div class="stat-card-label">Collected Today</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">🪙</div><div class="stat-value">₱ @ViewBag.CollectedToday</div></div>
-            <div class="stat-sub">@ViewData["CurrentFilter"]</div>
+            <div class="stat-card-label">Total Collected</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">🪙</div><div class="stat-value">₱ @ViewBag.CollectedTotal</div></div>
+            <div class="stat-sub">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-2">
             <div class="stat-card-label">Payments Recorded</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">💳</div><div class="stat-value">@ViewBag.PaymentsToday</div></div>
-            <span class="stat-badge badge-green">Total Transactions</span>
+            <div class="stat-card-icon-row"><div class="stat-icon">💳</div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
+            <span class="stat-badge badge-green">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-3">
@@ -250,37 +248,24 @@
 
           <div class="stat-card hl-card" data-card-id="hl-card-4">
             <div class="stat-card-label">Month-to-Date Collection</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">📆</div><div class="stat-value" style="font-size:20px">₱ 87,450</div></div>
-            <div class="stat-sub" id="hl-mtd-sub">22 days this month</div>
+            <div class="stat-card-icon-row"><div class="stat-icon">📆</div><div class="stat-value" style="font-size:20px">₱ @ViewBag.MtdTotal</div></div>
+            <div class="stat-sub" id="hl-mtd-sub">@ViewBag.DaysThisMonth days this month</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-green" id="hl-mtd-bar" style="width:73%"></div></div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-5">
-            <div class="stat-card-label">Daily Target</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">🎯</div><div class="stat-value" style="font-size:20px">₱ 12,300</div></div>
-            <div class="stat-sub">82% of ₱ 15,000 target</div>
-            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-orange" style="width:82%"></div></div>
-          </div>
-
-          <div class="stat-card hl-card" data-card-id="hl-card-6">
             <div class="stat-card-label">Shift Tracker</div>
             <div class="stat-card-icon-row"><div class="stat-icon">🕐</div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
             <div class="stat-sub" id="hl-shift-remain">– remaining</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-teal" id="hl-shift-bar" style="width:0%"></div></div>
           </div>
 
-          <div class="stat-card hl-card" data-card-id="hl-card-7">
-            <div class="stat-card-label">Top Revenue Today</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">🏆</div><div class="stat-value" style="font-size:17px;line-height:1.2">Business Tax</div></div>
-            <div class="stat-sub">₱ 5,200 · 3 transactions</div>
-            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
-          </div>
-
-          <div class="stat-card hl-card" data-card-id="hl-card-8">
-            <div class="stat-card-label">Oldest Pending</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">⏳</div><div class="stat-value" style="font-size:20px">RCP-0011</div></div>
-            <div class="stat-sub">Pending for <strong style="color:#c0392b">2 days</strong></div>
-          </div>
+          <div class="stat-card hl-card" data-card-id="hl-card-6">
+           <div class="stat-card-label">Top Revenue Today</div>
+           <div class="stat-card-icon-row"><div class="stat-icon">🏆</div><div class="stat-value" style="font-size:17px;line-height:1.2">@ViewBag.TopRevenueName</div></div>
+           <div class="stat-sub">₱ @ViewBag.TopRevenueTotal · @ViewBag.TopRevenueCount transactions</div>
+           <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
+         </div>
 
         </div>
       </div>
@@ -305,7 +290,7 @@
                   <div class="record-name">@r.PayeeName</div>
                   <div class="record-meta">@r.Type · @r.ReceiptNo</div>
                 </div>
-                <div><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
+                <div style="text-align:right;flex-shrink:0"><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
               </div>
           }
       }
@@ -314,28 +299,33 @@
           <div style="padding:16px;text-align:center;color:var(--text-3);font-size:13px">No payments recorded yet.</div>
       }
 
-      <!-- Bar chart -->
+      <!-- Bar chart with Week / Month filter -->
       <div class="chart-wrap">
         <div class="chart-header">
           <div class="chart-title">Collections</div>
           <div class="chart-toggle">
-            <button class="@(ViewData["CurrentFilter"]?.ToString() == "month" || ViewData["CurrentFilter"]?.ToString() == "today" ? "active" : "")"
+            <button class="@(ViewData["CurrentFilter"]?.ToString() == "week" ? "active" : "")"
+                    onclick="window.location.href='/?filter=week'">This Week</button>
+            <button class="@(ViewData["CurrentFilter"]?.ToString() == "month" ? "active" : "")"
                     onclick="window.location.href='/?filter=month'">This Month</button>
-            <button class="@(ViewData["CurrentFilter"]?.ToString() == "lastmonth" ? "active" : "")"
-                    onclick="window.location.href='/?filter=lastmonth'">Last Month</button>
-            <button class="@(ViewData["CurrentFilter"]?.ToString() == "year" ? "active" : "")"
-                    onclick="window.location.href='/?filter=year'">Last Year</button>
           </div>
         </div>
-        <div class="bars">
-          <div class="bar-col"><div class="bar" style="height:45%"></div><div class="bar-label">Mon</div></div>
-          <div class="bar-col"><div class="bar" style="height:70%"></div><div class="bar-label">Tue</div></div>
-          <div class="bar-col"><div class="bar" style="height:55%"></div><div class="bar-label">Wed</div></div>
-          <div class="bar-col"><div class="bar" style="height:80%"></div><div class="bar-label">Thu</div></div>
-          <div class="bar-col"><div class="bar today" style="height:60%"></div><div class="bar-label">Fri</div></div>
-          <div class="bar-col"><div class="bar" style="height:20%"></div><div class="bar-label">Sat</div></div>
-          <div class="bar-col"><div class="bar" style="height:10%"></div><div class="bar-label">Sun</div></div>
+       <div class="bars">
+    @{
+        var barHeights = ViewBag.BarHeights as List<int> ?? new List<int> { 10,10,10,10,10,10,10 };
+        var barLabels  = ViewBag.BarLabels  as List<string> ?? new List<string> { "Mon","Tue","Wed","Thu","Fri","Sat","Sun" };
+        var todayLabel = DateTime.Today.ToString("ddd");
+    }
+    @for (int i = 0; i < 7; i++)
+    {
+        var h = barHeights.Count > i ? barHeights[i] : 4;
+        var l = barLabels.Count  > i ? barLabels[i]  : "—";
+        <div class="bar-col">
+            <div class="bar @(l == todayLabel ? "today" : "")" style="height:@(h < 4 ? 4 : h)%"></div>
+            <div class="bar-label">@l</div>
         </div>
+    }
+</div>
       </div>
     </div>
 
@@ -368,44 +358,34 @@
       </div>
     </div>
 
-    <!-- Request History -->
+    <!-- Recent Requests — real data from DB -->
     <div>
       <div class="rh-header">
         <div class="rh-title">My Recent Requests</div>
-        <div class="rh-today">Today</div>
+        <a asp-controller="Record" asp-action="Index" style="font-size:11px;color:var(--green);font-weight:600;text-decoration:none">View all →</a>
       </div>
-      <div class="rh-item">
-        <div class="rh-dot dot-pending"></div>
-        <div>
-          <div class="rh-rcp">RCP-0012</div>
-          <div class="rh-desc">Amount correction request</div>
-          <span class="status-pill pill-pending">Pending</span>
-        </div>
-      </div>
-      <div class="rh-item">
-        <div class="rh-dot dot-approved"></div>
-        <div>
-          <div class="rh-rcp">RCP-0010</div>
-          <div class="rh-desc">Remarks update</div>
-          <span class="status-pill pill-approved">Approved</span>
-        </div>
-      </div>
-      <div class="rh-item">
-        <div class="rh-dot dot-rejected"></div>
-        <div>
-          <div class="rh-rcp">RCP-0009</div>
-          <div class="rh-desc">Payee name edit</div>
-          <span class="status-pill pill-rejected">Rejected</span>
-        </div>
-      </div>
-      <div class="rh-item">
-        <div class="rh-dot dot-approved"></div>
-        <div>
-          <div class="rh-rcp">RCP-0007</div>
-          <div class="rh-desc">Type correction</div>
-          <span class="status-pill pill-approved">Approved</span>
-        </div>
-      </div>
+
+      @if (ViewBag.RecentRequests != null && ViewBag.RecentRequests.Count > 0)
+      {
+          foreach (var req in ViewBag.RecentRequests)
+          {
+              var dotClass = req.Status == "Approved" ? "dot-approved" : (req.Status == "Rejected" ? "dot-rejected" : "dot-pending");
+              var pillClass = req.Status == "Approved" ? "pill-approved" : (req.Status == "Rejected" ? "pill-rejected" : "pill-pending");
+              var txnID = "TXN-" + ((int)req.PaymentID).ToString("D6");
+              <div class="rh-item">
+                <div class="rh-dot @dotClass"></div>
+                <div>
+                  <div class="rh-rcp">@txnID</div>
+                  <div class="rh-desc">@(req.Reason ?? "Modification request")</div>
+                  <span class="status-pill @pillClass">@req.Status</span>
+                </div>
+              </div>
+          }
+      }
+      else
+      {
+          <div style="padding:8px 0;font-size:12px;color:var(--text-3)">No requests yet.</div>
+      }
     </div>
 
   </div><!-- dash-right -->
@@ -428,9 +408,9 @@
 
 @section Scripts {
 <script>
-// ── Highlights Carousel ──
+// ── Highlights Carousel — 6 cards now ──
 (function () {
-  const TOTAL_CARDS = 8;
+  const TOTAL_CARDS = 6;
   const VISIBLE     = 3;
   const STEP        = 1;
   const MAX_OFFSET  = TOTAL_CARDS - VISIBLE;
@@ -471,17 +451,6 @@
 
   goTo(0);
   window.addEventListener('resize', () => goTo(offset));
-
-  // MTD widget
-  const now = new Date();
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const pctMonth = Math.round((now.getDate() / daysInMonth) * 100);
-  const mtdSub = document.getElementById('hl-mtd-sub');
-  const mtdBar = document.getElementById('hl-mtd-bar');
-  if (mtdSub) mtdSub.textContent = now.getDate() + ' days · ' + months[now.getMonth()];
-  if (mtdBar) mtdBar.style.width = pctMonth + '%';
-
   // Shift tracker
   function updateShift() {
     const n = new Date();
@@ -508,16 +477,14 @@
   setInterval(updateShift, 60000);
 })();
 
-// ── Customize Highlight Cards ──
+// ── Customize Highlight Cards — 6 cards ──
 const ALL_CARDS = [
-  { id: 'hl-card-1', icon: '🪙', name: 'Collected Today' },
+  { id: 'hl-card-1', icon: '🪙', name: 'Total Collected' },
   { id: 'hl-card-2', icon: '💳', name: 'Payments Recorded' },
   { id: 'hl-card-3', icon: '📨', name: 'Requests for Approval' },
   { id: 'hl-card-4', icon: '📆', name: 'Month-to-Date Collection' },
-  { id: 'hl-card-5', icon: '🎯', name: 'Daily Target' },
-  { id: 'hl-card-6', icon: '🕐', name: 'Shift Tracker' },
-  { id: 'hl-card-7', icon: '🏆', name: 'Top Revenue Today' },
-  { id: 'hl-card-8', icon: '⏳', name: 'Oldest Pending' },
+  { id: 'hl-card-5', icon: '🕐', name: 'Shift Tracker' },
+  { id: 'hl-card-6', icon: '🏆', name: 'Top Revenue Today' },
 ];
 
 let cardState    = ALL_CARDS.map(c => ({ ...c, visible: true }));

@@ -45,6 +45,12 @@ public IActionResult Login()
                 return View(model);
             }
 
+            if (user.Status == "Pending")
+            {
+             TempData["Error"] = "Your account is pending approval. Please wait for admin to activate it.";
+             return View(model);
+            }
+
             // Store session
             HttpContext.Session.SetInt32("UserID", user.UserID);
             HttpContext.Session.SetString("Role", user.Role!);
@@ -59,43 +65,53 @@ public IActionResult Login()
             return View();
         }
 
-        // POST: /Account/Register
-        [HttpPost]
-        public async Task<IActionResult> Register(RegisterViewModel model)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
+[HttpPost]
+public async Task<IActionResult> Register(RegisterViewModel model)
+{
+    if (!ModelState.IsValid)
+        return View(model);
 
-            // Check if EmployeeID already exists
-            var exists = await _context.UserAccounts
-                .AnyAsync(u => u.EmployeeID == model.EmployeeID);
+    // Check if EmployeeID already exists
+    var exists = await _context.UserAccounts
+        .AnyAsync(u => u.EmployeeID == model.EmployeeID);
 
-            if (exists)
-            {
-                ModelState.AddModelError("EmployeeID", "ID Number already exists.");
-                return View(model);
-            }
+    if (exists)
+    {
+        TempData["Error"] = "ID Number already exists.";
+        return View(model);
+    }
+    
 
-            var user = new UserAccount
-            {
-                EmployeeID = model.EmployeeID,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
-                Role = model.Role,
-                FirstName = model.FirstName,
-                MiddleName = model.MiddleName,
-                LastName = model.LastName,
-                Suffix = model.Suffix,
-                ContactNumber = model.ContactNumber,
-                Address = model.Address,
-                IsActive = true,
-                CreatedAt = DateTime.Now
-            };
+    // Check passwords match
+    if (model.Password != model.ConfirmPassword)
+    {
+        TempData["Error"] = "Passwords do not match.";
+        return View(model);
+    }
 
-            _context.UserAccounts.Add(user);
-            await _context.SaveChangesAsync();
+    var user = new UserAccount
+    {
+        EmployeeID = model.EmployeeID,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
+        Role = "Collector", // default role — admin assigns later
+        Status = "Pending", // must be approved by admin
+        FirstName = model.FirstName,
+        MiddleName = model.MiddleName,
+        LastName = model.LastName,
+        Suffix = model.Suffix,
+        ContactNumber = model.ContactNumber,
+        Address = model.Address,
+        IsActive = true,
+        CreatedAt = DateTime.Now
+    };
 
-            return RedirectToAction("Login");
-        }
+    _context.UserAccounts.Add(user);
+    await _context.SaveChangesAsync();
+
+    TempData["Success"] = "Account created! Please wait for admin approval.";
+    return RedirectToAction("Login");
+    
+}
 
         // GET: /Account/Logout
         public async Task<IActionResult> Logout()

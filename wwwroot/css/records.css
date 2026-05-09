@@ -73,7 +73,7 @@
 .status-text-rejected { color: var(--red);    font-weight: 700; font-size: 12px; }
 
 /* ── Action buttons ── */
-.action-view-btn, .action-approve-btn, .action-reject-btn {
+.action-view-btn, .action-approve-btn, .action-reject-btn, .action-modify-btn {
     width: 26px; height: 26px; border: none; border-radius: 6px;
     cursor: pointer; display: inline-flex; align-items: center;
     justify-content: center; margin-right: 3px;
@@ -84,6 +84,8 @@
 .action-approve-btn:hover { background: var(--green-dark); }
 .action-reject-btn  { background: var(--red); }
 .action-reject-btn:hover { background: #a93226; }
+.action-modify-btn  { background: var(--orange); }
+.action-modify-btn:hover { background: #c56e00; }
 .btn-icon { display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; }
 
 /* ── Receipt modal rows ── */

@@ -33,6 +33,8 @@ namespace LGUTreasury.Models
 
         public bool IsActive { get; set; } = true;
 
+        public string Status { get; set; } = "Pending";
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

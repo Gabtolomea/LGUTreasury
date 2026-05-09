@@ -36,5 +36,12 @@ namespace LGUTreasury.Models
  
         [ForeignKey("ReviewedBy_UserID")]
         public UserAccount? ReviewedBy { get; set; }
+
+       public string? ProposedOR { get; set; }
+       public DateTime? ProposedDate { get; set; }
+       public int? ProposedTypeID { get; set; }
+       public string? ProposedPaymentMethod { get; set; }
+       public string? ProposedRemarks { get; set; }
+       public decimal? ProposedAmount { get; set; }
     }
 }

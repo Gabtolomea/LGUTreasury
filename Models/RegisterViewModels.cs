@@ -17,7 +17,7 @@ namespace LGUTreasury.Models
 
         public string? Suffix { get; set; }
 
-        [Required]
+        
         public string? Role { get; set; }
 
         public string? ContactNumber { get; set; }

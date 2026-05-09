@@ -31,6 +31,24 @@ namespace LGUTreasury.Migrations
                     b.Property<int>("PaymentID")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("ProposedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ProposedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ProposedOR")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ProposedPaymentMethod")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ProposedRemarks")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ProposedTypeID")
+                        .HasColumnType("int");
+
                     b.Property<string>("Reason")
                         .HasColumnType("longtext");
 
@@ -58,7 +76,7 @@ namespace LGUTreasury.Migrations
 
                     b.HasIndex("ReviewedBy_UserID");
 
-                    b.ToTable("EditRequest");
+                    b.ToTable("Editrequests");
                 });
 
             modelBuilder.Entity("LGUTreasury.Models.Payee", b =>
@@ -183,6 +201,31 @@ namespace LGUTreasury.Migrations
                     b.ToTable("RecordLineItems");
                 });
 
+            modelBuilder.Entity("LGUTreasury.Models.ReportLog", b =>
+                {
+                    b.Property<int>("LogID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("GeneratedByUserID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("LogID");
+
+                    b.ToTable("ReportLog");
+                });
+
             modelBuilder.Entity("LGUTreasury.Models.RevenueCategory", b =>
                 {
                     b.Property<string>("CategoryID")
@@ -302,6 +345,10 @@ namespace LGUTreasury.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Suffix")
                         .HasColumnType("longtext");
 
@@ -376,7 +423,7 @@ namespace LGUTreasury.Migrations
             modelBuilder.Entity("LGUTreasury.Models.RevenuePolicy", b =>
                 {
                     b.HasOne("LGUTreasury.Models.RevenueType", "RevenueType")
-                        .WithMany()
+                        .WithMany("RevenuePolicies")
                         .HasForeignKey("TypeID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -400,6 +447,11 @@ namespace LGUTreasury.Migrations
                     b.Navigation("EditRequests");
 
                     b.Navigation("RecordLineItems");
+                });
+
+            modelBuilder.Entity("LGUTreasury.Models.RevenueType", b =>
+                {
+                    b.Navigation("RevenuePolicies");
                 });
 #pragma warning restore 612, 618
         }

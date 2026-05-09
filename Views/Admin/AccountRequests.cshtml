@@ -1,0 +1,167 @@
+@using LGUTreasury.Models
+@model IEnumerable<UserAccount>
+@{
+    ViewData["Title"] = "Account Requests";
+    ViewData["ActiveNav"] = "accountrequests";
+}
+
+<link rel="stylesheet" href="~/css/records.css" />
+
+@Html.AntiForgeryToken()
+
+<div class="records-page-wrap">
+    <div class="page-header-row">
+        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <div style="flex:1">
+            <div class="page-title">Account Requests</div>
+            <div class="page-sub">Review and approve pending account registrations</div>
+        </div>
+    </div>
+
+    <div class="records-toolbar">
+        <div class="search-bar" style="flex:1">
+            <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search by name or ID…" oninput="filterAccounts(this.value)" />
+        </div>
+    </div>
+
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Contact</th>
+                    <th>Date Registered</th>
+                    <th>Assign Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="accounts-tbody">
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No pending account requests.</td></tr>
+                }
+                else
+                {
+                    @foreach (var user in Model)
+                    {
+                        var fullName = $"{user.LastName}, {user.FirstName}" + (string.IsNullOrEmpty(user.MiddleName) ? "" : $" {user.MiddleName[0]}.");
+                        <tr data-userid="@user.UserID">
+                            <td style="font-weight:700;color:var(--green-dark)">@user.EmployeeID</td>
+                            <td>@fullName</td>
+                            <td style="color:var(--text-3)">@(user.ContactNumber ?? "—")</td>
+                            <td style="color:var(--text-3)">@user.CreatedAt.ToString("MMM dd, yyyy")</td>
+                            <td>
+                                <select class="role-select" id="role-@user.UserID" style="padding:6px 10px;border:1.5px solid var(--gray-border);border-radius:6px;font-size:13px;font-family:inherit;background:white;cursor:pointer">
+                                    <option value="Collector">Collector</option>
+                                    <option value="Officer">Officer</option>
+                                </select>
+                            </td>
+                            <td style="white-space:nowrap">
+                                <button class="action-approve-btn" onclick="approveAccount(@user.UserID)" title="Approve">
+                                    <span class="btn-icon">✓</span>
+                                </button>
+                                <button class="action-reject-btn" onclick="openReject(@user.UserID)" title="Reject">
+                                    <span class="btn-icon">✕</span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Confirm Reject Modal -->
+<div class="modal-overlay" id="modal-confirm-reject">
+    <div class="modal">
+        <div class="modal-title">Reject Account?</div>
+        <div class="modal-sub">This will permanently delete the account registration. This cannot be undone.</div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-confirm-reject')">Cancel</button>
+            <button style="padding:10px 20px;background:var(--red);border:none;border-radius:8px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit" onclick="confirmReject()">Reject</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let rejectTarget = null;
+
+    function filterAccounts(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#accounts-tbody tr').forEach(function(tr) {
+            tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
+    async function approveAccount(userID) {
+        const role = document.getElementById('role-' + userID).value;
+        const token = document.querySelector('input[name=__RequestVerificationToken]');
+
+        try {
+            const res = await fetch('/Admin/ApproveAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': token ? token.value : ''
+                },
+                body: new URLSearchParams({ userID: userID, role: role })
+            });
+            const result = await res.json();
+            if (result.success) {
+                const row = document.querySelector('[data-userid="' + userID + '"]');
+                if (row) row.remove();
+                showToast('Account approved as ' + role + '!');
+                updateEmptyState();
+            } else {
+                showToast(result.message || 'Failed to approve.', true);
+            }
+        } catch (err) {
+            showToast('Error approving account.', true);
+        }
+    }
+
+    function openReject(userID) {
+        rejectTarget = userID;
+        openModal('modal-confirm-reject');
+    }
+
+    async function confirmReject() {
+        if (!rejectTarget) return;
+        const token = document.querySelector('input[name=__RequestVerificationToken]');
+
+        try {
+            const res = await fetch('/Admin/RejectAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': token ? token.value : ''
+                },
+                body: new URLSearchParams({ userID: rejectTarget })
+            });
+            const result = await res.json();
+            if (result.success) {
+                const row = document.querySelector('[data-userid="' + rejectTarget + '"]');
+                if (row) row.remove();
+                closeModal('modal-confirm-reject');
+                showToast('Account rejected and removed.');
+                updateEmptyState();
+            } else {
+                showToast(result.message || 'Failed to reject.', true);
+            }
+        } catch (err) {
+            showToast('Error rejecting account.', true);
+        }
+    }
+
+    function updateEmptyState() {
+        const tbody = document.getElementById('accounts-tbody');
+        if (tbody && tbody.querySelectorAll('tr').length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No pending account requests.</td></tr>';
+        }
+    }
+</script>
+}

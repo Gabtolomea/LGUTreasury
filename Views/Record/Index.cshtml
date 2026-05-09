@@ -3,6 +3,9 @@
 @{
     ViewData["Title"] = "Records";
     ViewData["ActiveNav"] = "records";
+    var role = ViewData["Role"]?.ToString();
+    var isOfficerOrAdmin = role == "Officer" || role == "Admin";
+    var isCollector = role == "Collector";
 }
 
 <link rel="stylesheet" href="~/css/records.css" />
@@ -27,17 +30,20 @@
         </div>
     </div>
 
-    <!-- Tab Switcher -->
+    <!-- Tab Switcher — Officer/Admin only sees Modification Requests tab -->
     <div class="records-tabs">
         <button class="records-tab active" id="tab-records" onclick="switchTab('records')">
             <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             Payment Records
         </button>
-        <button class="records-tab" id="tab-requests" onclick="switchTab('requests')">
-            <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Modification Requests
-            <span class="tab-badge" id="tab-badge">0</span>
-        </button>
+        @if (isOfficerOrAdmin)
+        {
+            <button class="records-tab" id="tab-requests" onclick="switchTab('requests')">
+                <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Modification Requests
+                <span class="tab-badge" id="tab-badge">0</span>
+            </button>
+        }
     </div>
 
     <!-- RECORDS PANEL -->
@@ -74,7 +80,7 @@
                             var payee    = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
                             var type     = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var amount   = record.TotalAmount.ToString("N2");
-                            var date     = record.DateIssued.ToString("MMM dd, yyyy hh:mm tt");
+                            var date     = record.DateIssued.ToString("MMM dd, yyyy");
                             var status   = record.HasPendingRequest ? "Pending" : "Posted";
                             var orNumber = record.OfficialReceipt ?? "—";
                             var method   = record.PaymentMethod ?? "—";
@@ -87,82 +93,24 @@
                                 <td style="font-weight:600">₱ @amount</td>
                                 <td style="color:var(--text-3)">@date</td>
                                 <td><span class="status-text-@status.ToLower()">@status</span></td>
-                                <td>
+                                <td style="white-space:nowrap">
                                     <button class="action-view-btn"
-                                            onclick="viewRecord(@record.PaymentID, '@txnID', '@payee', '@type', '@amount', '@date', '@orNumber', '@status', '@method', '@remarks')"
+                                            onclick="viewRecord('@txnID', '@payee', '@type', '@amount', '@date', '@orNumber', '@status', '@method', '@remarks')"
                                             title="View">
                                         <span class="btn-icon">
                                             <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
                                         </span>
                                     </button>
-                                </td>
-                            </tr>
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- REQUESTS PANEL -->
-    <div id="panel-requests" style="display:none">
-        <div class="records-toolbar">
-            <div class="search-bar" style="flex:1">
-                <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
-                <input type="text" placeholder="Search by name, receipt…" oninput="filterApprove(this.value)" />
-            </div>
-        </div>
-        <div class="data-table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Request ID</th>
-                        <th>Transaction ID</th>
-                        <th>Payor</th>
-                        <th>Reason</th>
-                        <th>Date</th>
-                        <th>Requested By</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="approve-tbody">
-                    @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
-                    {
-                        <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No modification requests found.</td></tr>
-                    }
-                    else
-                    {
-                        @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
-                        {
-                            var txnID  = "TXN-" + req.PaymentID.ToString("D6");
-                            var payee  = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
-                            var reqBy  = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
-                            var isPending = req.Status == "Pending";
-
-                            <tr data-requestid="@req.RequestID">
-                                <td style="font-weight:700;color:var(--text-2)">REQ-@req.RequestID.ToString("D6")</td>
-                                <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
-                                <td>@payee</td>
-                                <td>@(req.Reason ?? "—")</td>
-                                <td style="color:var(--text-3)">@req.CreatedAt.ToString("MMM dd, yyyy")</td>
-                                <td>@reqBy</td>
-                                <td><span class="request-status status-text-@req.Status.ToLower()">@req.Status</span></td>
-                                <td style="white-space:nowrap">
-                                    @if (isPending)
+                                    @if (isCollector && !record.HasPendingRequest)
                                     {
-                                        <button class="action-approve-btn" onclick="openApprove(@req.RequestID)" title="Approve">
-                                            <span class="btn-icon">✓</span>
-                                        </button>
-                                        <button class="action-reject-btn" onclick="openReject(@req.RequestID)" title="Reject">
-                                            <span class="btn-icon">✕</span>
+                                        <button class="action-modify-btn" onclick="openModifyRequest(@record.PaymentID, '@txnID')" title="Request Modification">
+                                            <span class="btn-icon">✎</span>
                                         </button>
                                     }
-                                    <button class="action-view-btn" onclick="viewRecord(@req.PaymentID, '@txnID', '@payee', '—', '—', '@req.CreatedAt.ToString("MMM dd, yyyy")', '—', '@req.Status', '—', '@(req.Reason ?? "")')" title="View">
-                                        <span class="btn-icon">
-                                            <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
-                                        </span>
-                                    </button>
+                                    @if (isCollector && record.HasPendingRequest)
+                                    {
+                                        <span style="font-size:11px;color:var(--orange);font-weight:600;margin-left:4px">Pending</span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -171,6 +119,76 @@
             </table>
         </div>
     </div>
+<!-- REQUESTS PANEL — Officer/Admin only -->
+    @if (isOfficerOrAdmin)
+    {
+        <div id="panel-requests" style="display:none">
+            <div class="records-toolbar">
+                <div class="search-bar" style="flex:1">
+                    <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <input type="text" placeholder="Search by name, receipt…" oninput="filterApprove(this.value)" />
+                </div>
+            </div>
+            <div class="data-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Transaction ID</th>
+                            <th>Payor</th>
+                            <th>Reason</th>
+                            <th>Date</th>
+                            <th>Requested By</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="approve-tbody">
+                        @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
+                        {
+                            <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No modification requests found.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
+                            {
+                                var txnID  = "TXN-" + req.PaymentID.ToString("D6");
+                                var payee  = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
+                                var reqBy  = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
+                                var isPending = req.Status == "Pending";
+
+                                <tr data-requestid="@req.RequestID">
+                                    <td style="font-weight:700;color:var(--text-2)">REQ-@req.RequestID.ToString("D6")</td>
+                                    <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
+                                    <td>@payee</td>
+                                    <td>@(req.Reason ?? "—")</td>
+                                    <td style="color:var(--text-3)">@req.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                    <td>@reqBy</td>
+                                    <td><span class="request-status status-text-@req.Status.ToLower()">@req.Status</span></td>
+                                    <td style="white-space:nowrap">
+                                        @if (isPending)
+                                        {
+                                           <button class="action-approve-btn" onclick="openApprove(@req.RequestID, @req.PaymentID)" title="Approve">
+                                                <span class="btn-icon">✓</span>
+                                            </button>
+                                            <button class="action-reject-btn" onclick="openReject(@req.RequestID)" title="Reject">
+                                                <span class="btn-icon">✕</span>
+                                            </button>
+                                        }
+                                        <button class="action-view-btn" onclick="viewRecord('@txnID', '@payee', '—', '—', '@req.CreatedAt.ToString("MMM dd, yyyy")', '—', '@req.Status', '—', '@(req.Reason ?? "")')" title="View">
+                                            <span class="btn-icon">
+                                                <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
+                                            </span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 </div>
 
 <!-- View Record Modal -->
@@ -184,11 +202,67 @@
     </div>
 </div>
 
-<!-- Confirm Approve Modal -->
+<!-- Request Modification Modal — Collector fills in proposed changes -->
+<div class="modal-overlay" id="modal-modify-request">
+    <div class="modal" style="max-width:500px;max-height:85vh;overflow-y:auto">
+        <div class="modal-title">Request Modification</div>
+        <div class="modal-sub" id="modal-modify-sub">Propose changes to this payment record.</div>
+        <input type="hidden" id="modify-payment-id" />
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Reason for Modification *</label>
+            <textarea class="form-input" id="modify-reason" placeholder="e.g. Wrong amount entered…" style="min-height:60px;width:100%;margin-top:4px"></textarea>
+        </div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--green);margin:10px 0 6px;padding-bottom:4px;border-bottom:1.5px solid var(--green-light)">Proposed Changes</div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">OR Number</label>
+            <input type="text" class="form-input" id="modify-or" placeholder="Proposed OR number" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Date Issued</label>
+            <input type="date" class="form-input" id="modify-date" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Collection Type</label>
+            <select class="form-select" id="modify-type">
+                <option value="">-- No Change --</option>
+                @if (ViewBag.RevenueTypes != null)
+                {
+                    foreach (var type in ViewBag.RevenueTypes)
+                    {
+                        <option value="@type.TypeID">@type.Name</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Payment Method</label>
+            <select class="form-select" id="modify-method">
+                <option value="">-- No Change --</option>
+                <option value="Cash">Cash</option>
+                <option value="Check">Check</option>
+                <option value="Online Transfer">Online Transfer</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Total Amount (₱)</label>
+            <input type="number" class="form-input" id="modify-amount" placeholder="Proposed amount" step="0.01" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Remarks</label>
+            <textarea class="form-input" id="modify-remarks" placeholder="Optional remarks" style="min-height:50px;width:100%"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-modify-request')">Cancel</button>
+            <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="submitModifyRequest()">Submit Request</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Approve Modal — Officer reviews proposed changes -->
 <div class="modal-overlay" id="modal-confirm-approve">
     <div class="modal">
         <div class="modal-title">Approve Modification?</div>
-        <div class="modal-sub">This will approve the requested modification and update the payment record.</div>
+        <div class="modal-sub">The proposed changes will be applied to the payment record.</div>
         <div class="modal-actions">
             <button class="btn-secondary" onclick="closeModal('modal-confirm-approve')">Cancel</button>
             <button class="btn-primary" onclick="confirmApprove()">Yes, Approve</button>
@@ -212,6 +286,9 @@
     </div>
 </div>
 
+
 @section Scripts {
     <script src="~/js/records.js"></script>
 }
+
+    

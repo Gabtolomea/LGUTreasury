@@ -62,12 +62,32 @@
                         <th></th>
                     </tr>
                 </thead>
-                <tbody id="reports-tbody">
-                    @if (ViewBag.RecentReports == null || ViewBag.RecentReports.Count == 0)
-                    {
-                        <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No reports generated yet.</td></tr>
-                    }
-                </tbody>
+                 <tbody id="reports-tbody">
+                   @if (ViewBag.RecentReports == null || ViewBag.RecentReports.Count == 0)
+    {
+        <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No reports generated yet.</td></tr>
+    }
+    else
+    {
+        foreach (var report in ViewBag.RecentReports)
+        {
+            <tr>
+                <td>@report.ReportType</td>
+                <td>@report.ReportType</td>
+                <td>@ViewData["FullName"]</td>
+                <td>@report.GeneratedAt.ToString("MMM dd, yyyy hh:mm tt")</td>
+                <td>@report.Format</td>
+                <td>
+                    <div class="action-btns">
+                        <button class="icon-btn" title="Download" onclick="showToast('Downloading...')">
+                            <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        }
+    }
+</tbody>
             </table>
         </div>
     </div>
@@ -93,5 +113,10 @@
             showToast('Generating report...');
             window.location.href = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
         }
+           document.addEventListener('DOMContentLoaded', function() {
+           const today = new Date().toISOString().split('T')[0];
+           document.getElementById('report-from').max = today;
+           document.getElementById('report-to').max = today;
+         });
     </script>
 }

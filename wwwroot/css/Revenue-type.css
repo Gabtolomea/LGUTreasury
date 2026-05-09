@@ -71,7 +71,7 @@
     font-size: 12px; font-weight: 600; color: white;
     cursor: pointer; font-family: inherit; transition: background .15s;
 }
-.add-row-btn:hover { background: var(--green-dark); }
+.add-row-btn:hover { background: var(--orange-dark); }
 
 /* Modal */
 .modal-overlay {

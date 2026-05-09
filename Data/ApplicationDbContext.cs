@@ -16,6 +16,11 @@ namespace LGUTreasury.Data
         public DbSet<RevenueType> RevenueTypes { get; set; }
         public DbSet<RevenuePolicy> RevenuePolicies { get; set; }
         public DbSet<PaymentRecord> PaymentRecords { get; set; }
-        public DbSet<RecordLineItem> RecordLineItems { get; set; }
+        public DbSet<RecordLineItem> RecordLineItems { get; set; } 
+
+        public DbSet<ReportLog> ReportLog { get; set; }
+
+        public DbSet<EditRequest> Editrequests { get; set; }
     }
+    
 }

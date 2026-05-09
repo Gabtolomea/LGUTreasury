@@ -29,11 +29,8 @@
 
         /* TOP NAV */
         .topnav {
-            height: 80px;
-            background: #388E3C;
-            display: flex;
-            align-items: center;
-            padding: 0 24px;
+            height: 80px; background: #388E3C;
+            display: flex; align-items: center; padding: 0 24px;
             position: sticky; top: 0; z-index: 200;
             justify-content: space-between;
         }
@@ -59,6 +56,12 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 13px; font-weight: 700; color: white; cursor: pointer;
         }
+        .topnav-role-badge {
+            background: rgba(255,255,255,.15); color: white;
+            font-size: 10px; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; padding: 3px 10px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,.3);
+        }
 
         /* APP BODY */
         .app-body { display: flex; flex: 1; min-height: 0; }
@@ -66,8 +69,7 @@
         /* SIDEBAR */
         .sidebar {
             width: 300px; flex-shrink: 0;
-            background: white;
-            border-right: 1px solid #E0E0E0;
+            background: white; border-right: 1px solid #E0E0E0;
             display: flex; flex-direction: column;
             padding: 20px 16px;
             height: calc(100vh - 80px);
@@ -207,6 +209,7 @@
             <p style="margin:0"><span class="lgu-text">LGU</span><span class="rev-text">Revenue</span></p>
         </div>
         <div class="topnav-right">
+            <div class="topnav-role-badge">@ViewData["Role"]</div>
             <div class="topnav-user-pill">@ViewData["FullName"]</div>
             <div class="topnav-avatar">@ViewData["Initials"]</div>
         </div>
@@ -214,35 +217,55 @@
 
     <!-- APP BODY -->
     <div class="app-body">
-
-        <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="sidebar-section-label">Main</div>
+
+            @* Workspace — ALL roles *@
             <a asp-controller="Home" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "dashboard" ? "active" : "")">
                 <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/></svg>
                 Workspace
             </a>
-            <a asp-controller="Record" asp-action="Create" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "record" ? "active" : "")">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Record Payment
-            </a>
+
+            @* Record Payment — Officer and Admin only *@
+            @if (ViewData["Role"]?.ToString() == "Officer" || ViewData["Role"]?.ToString() == "Admin")
+            {
+                <a asp-controller="Record" asp-action="Create" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "record" ? "active" : "")">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6M5 11h4M5 5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Record Payment
+                </a>
+            }
+
+            @* Records — ALL roles *@
             <a asp-controller="Record" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "records" ? "active" : "")">
                 <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 Records
             </a>
-            <a asp-controller="RevenueType" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "revtype" ? "active" : "")">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Revenue Type
-            </a>
-            <div class="sidebar-section-label" style="margin-top:8px">Administration</div>
-            <a asp-controller="Report" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "report" ? "active" : "")">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 14V2h8l4 4v8H2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 2v4h4M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Generate Report
-            </a>
-            <a asp-controller="Request" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "approve" ? "active" : "")">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Requests
-            </a>
+
+            @* Revenue Type — Officer and Admin only *@
+            @if (ViewData["Role"]?.ToString() == "Officer" || ViewData["Role"]?.ToString() == "Admin")
+            {
+                <a asp-controller="RevenueType" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "revtype" ? "active" : "")">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Revenue Type
+                </a>
+
+                <div class="sidebar-section-label" style="margin-top:8px">Administration</div>
+
+                <a asp-controller="Report" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "report" ? "active" : "")">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 14V2h8l4 4v8H2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 2v4h4M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Generate Report
+                </a>
+            }
+
+            @* Account Requests — Admin only *@
+            @if (ViewData["Role"]?.ToString() == "Admin")
+            {
+                <a asp-controller="Admin" asp-action="AccountRequests" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "accountrequests" ? "active" : "")">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 9l1.5 1.5L15 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Account Requests
+                </a>
+            }
+
             <div style="flex:1"></div>
             <a asp-controller="Account" asp-action="Logout" class="logout-btn">
                 <svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4M12 13l4-4-4-4M16 9H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -250,7 +273,6 @@
             </a>
         </div>
 
-        <!-- MAIN CONTENT -->
         <div class="main-content">
             @RenderBody()
         </div>
