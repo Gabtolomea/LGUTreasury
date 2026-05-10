@@ -30,12 +30,20 @@
         </div>
     </div>
 
-    <!-- Tab Switcher — Officer/Admin only sees Modification Requests tab -->
+    <!-- Tab Switcher -->
     <div class="records-tabs">
         <button class="records-tab active" id="tab-records" onclick="switchTab('records')">
             <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             Payment Records
         </button>
+        @if (isCollector)
+        {
+            <button class="records-tab" id="tab-collection" onclick="switchTab('collection')">
+                <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                For Collection
+                <span class="tab-badge" id="collection-badge" style="background:var(--blue)">0</span>
+            </button>
+        }
         @if (isOfficerOrAdmin)
         {
             <button class="records-tab" id="tab-requests" onclick="switchTab('requests')">
@@ -81,10 +89,16 @@
                             var type     = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var amount   = record.TotalAmount.ToString("N2");
                             var date     = record.DateIssued.ToString("MMM dd, yyyy");
-                            var status   = record.HasPendingRequest ? "Pending" : "Posted";
                             var orNumber = record.OfficialReceipt ?? "—";
                             var method   = record.PaymentMethod ?? "—";
                             var remarks  = record.Remarks ?? "";
+
+                            // Status logic
+                            string status;
+                            string statusClass;
+                            if (record.HasPendingRequest) { status = "Pending"; statusClass = "pending"; }
+                            else if (record.IsCollected)  { status = "Collected"; statusClass = "collected"; }
+                            else                          { status = "Posted"; statusClass = "posted"; }
 
                             <tr>
                                 <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
@@ -92,10 +106,10 @@
                                 <td>@type</td>
                                 <td style="font-weight:600">₱ @amount</td>
                                 <td style="color:var(--text-3)">@date</td>
-                                <td><span class="status-text-@status.ToLower()">@status</span></td>
+                                <td><span class="status-text-@statusClass">@status</span></td>
                                 <td style="white-space:nowrap">
                                     <button class="action-view-btn"
-                                            onclick="viewRecord('@txnID', '@payee', '@type', '@amount', '@date', '@orNumber', '@status', '@method', '@remarks')"
+                                            onclick="viewRecord('@txnID','@payee','@type','@amount','@date','@orNumber','@status','@method','@remarks')"
                                             title="View">
                                         <span class="btn-icon">
                                             <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
@@ -107,10 +121,6 @@
                                             <span class="btn-icon">✎</span>
                                         </button>
                                     }
-                                    @if (isCollector && record.HasPendingRequest)
-                                    {
-                                        <span style="font-size:11px;color:var(--orange);font-weight:600;margin-left:4px">Pending</span>
-                                    }
                                 </td>
                             </tr>
                         }
@@ -119,7 +129,68 @@
             </table>
         </div>
     </div>
-<!-- REQUESTS PANEL — Officer/Admin only -->
+
+    <!-- FOR COLLECTION PANEL — Collector only -->
+    @if (isCollector)
+    {
+        <div id="panel-collection" style="display:none">
+            <div class="records-toolbar">
+                <div class="search-bar" style="flex:1">
+                    <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <input type="text" placeholder="Search by name or receipt…" oninput="filterCollection(this.value)" />
+                </div>
+            </div>
+            <div class="data-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Payor</th>
+                            <th>Collection Type</th>
+                            <th>Total Amount</th>
+                            <th>Date Issued</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="collection-tbody">
+                        @{
+                            var uncollected = Model.Where(r => !r.IsCollected && !r.HasPendingRequest).ToList();
+                        }
+                        @if (!uncollected.Any())
+                        {
+                            <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No pending collections.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var record in uncollected)
+                            {
+                                var txnID  = "TXN-" + record.PaymentID.ToString("D6");
+                                var payee  = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
+                                var type   = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+                                var amount = record.TotalAmount.ToString("N2");
+                                var date   = record.DateIssued.ToString("MMM dd, yyyy");
+
+                                <tr data-paymentid="@record.PaymentID">
+                                    <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
+                                    <td>@payee</td>
+                                    <td>@type</td>
+                                    <td style="font-weight:600">₱ @amount</td>
+                                    <td style="color:var(--text-3)">@date</td>
+                                    <td>
+                                        <button class="action-approve-btn" onclick="confirmCollection(@record.PaymentID)" title="Confirm Collection">
+                                            <span class="btn-icon">✓</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- REQUESTS PANEL — Officer/Admin only -->
     @if (isOfficerOrAdmin)
     {
         <div id="panel-requests" style="display:none">
@@ -152,9 +223,9 @@
                         {
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
-                                var txnID  = "TXN-" + req.PaymentID.ToString("D6");
-                                var payee  = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
-                                var reqBy  = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
+                                var txnID     = "TXN-" + req.PaymentID.ToString("D6");
+                                var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
+                                var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
 
                                 <tr data-requestid="@req.RequestID">
@@ -168,14 +239,14 @@
                                     <td style="white-space:nowrap">
                                         @if (isPending)
                                         {
-                                           <button class="action-approve-btn" onclick="openApprove(@req.RequestID, @req.PaymentID)" title="Approve">
+                                            <button class="action-approve-btn" onclick="openApprove(@req.RequestID)" title="Approve">
                                                 <span class="btn-icon">✓</span>
                                             </button>
                                             <button class="action-reject-btn" onclick="openReject(@req.RequestID)" title="Reject">
                                                 <span class="btn-icon">✕</span>
                                             </button>
                                         }
-                                        <button class="action-view-btn" onclick="viewRecord('@txnID', '@payee', '—', '—', '@req.CreatedAt.ToString("MMM dd, yyyy")', '—', '@req.Status', '—', '@(req.Reason ?? "")')" title="View">
+                                        <button class="action-view-btn" onclick="viewRequest(@req.RequestID, '@txnID', '@payee', '@(req.Reason ?? "")', '@req.CreatedAt.ToString("MMM dd, yyyy")', '@reqBy', '@req.Status', '@(req.ProposedOR ?? "")', '@(req.ProposedDate?.ToString("MMM dd, yyyy") ?? "")', '@(req.ProposedPaymentMethod ?? "")', '@(req.ProposedAmount?.ToString("N2") ?? "")', '@(req.ProposedRemarks ?? "")')" title="View">
                                             <span class="btn-icon">
                                                 <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
                                             </span>
@@ -202,7 +273,7 @@
     </div>
 </div>
 
-<!-- Request Modification Modal — Collector fills in proposed changes -->
+<!-- Request Modification Modal -->
 <div class="modal-overlay" id="modal-modify-request">
     <div class="modal" style="max-width:500px;max-height:85vh;overflow-y:auto">
         <div class="modal-title">Request Modification</div>
@@ -258,11 +329,12 @@
     </div>
 </div>
 
-<!-- Confirm Approve Modal — Officer reviews proposed changes -->
+<!-- Confirm Approve Modal -->
 <div class="modal-overlay" id="modal-confirm-approve">
     <div class="modal">
         <div class="modal-title">Approve Modification?</div>
         <div class="modal-sub">The proposed changes will be applied to the payment record.</div>
+        <div id="approve-proposed-changes" style="margin-bottom:14px"></div>
         <div class="modal-actions">
             <button class="btn-secondary" onclick="closeModal('modal-confirm-approve')">Cancel</button>
             <button class="btn-primary" onclick="confirmApprove()">Yes, Approve</button>
@@ -286,9 +358,6 @@
     </div>
 </div>
 
-
 @section Scripts {
     <script src="~/js/records.js"></script>
 }
-
-    

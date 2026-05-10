@@ -49,5 +49,8 @@ namespace LGUTreasury.Models
         public ICollection<RecordLineItem> RecordLineItems { get; set; } = new List<RecordLineItem>();
  
         public ICollection<EditRequest> EditRequests { get; set; } = new List<EditRequest>();
+
+        public bool IsCollected { get; set; } = false;
+        public DateTime? CollectedConfirmedAt { get; set; }
     }
 }

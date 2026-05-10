@@ -131,3 +131,5 @@
     font-family: inherit; text-decoration: none;
 }
 .action-link:hover { text-decoration: underline; }
+.status-text-collected { color: var(--blue);  font-weight: 700; font-size: 12px; }
+.status-text-approved  { color: var(--green); font-weight: 700; font-size: 12px; }

@@ -232,7 +232,27 @@ namespace LGUTreasury.Controllers
             return View(records);
         }
 
-        // POST: /Record/RequestModification — Collector submits proposed changes
+        // POST: /Record/ConfirmCollection — Collector confirms they collected
+        [HttpPost]
+        public async Task<IActionResult> ConfirmCollection(int PaymentID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var payment = await _context.PaymentRecords.FindAsync(PaymentID);
+            if (payment == null) return Json(new { success = false, message = "Payment not found." });
+
+            if (payment.IsCollected)
+                return Json(new { success = false, message = "Already confirmed as collected." });
+
+            payment.IsCollected = true;
+            payment.CollectedConfirmedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        // POST: /Record/RequestModification
         [HttpPost]
         public async Task<IActionResult> RequestModification(
             int PaymentID, string? Reason,
@@ -270,7 +290,7 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        // POST: /Record/ApproveRequest — Officer applies proposed changes
+        // POST: /Record/ApproveRequest
         [HttpPost]
         public async Task<IActionResult> ApproveRequest(int RequestID)
         {
@@ -278,8 +298,7 @@ namespace LGUTreasury.Controllers
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
 
             var request = await _context.Editrequests
-                .Include(r => r.PaymentRecord)
-                    .ThenInclude(p => p.RecordLineItems)
+                .Include(r => r.PaymentRecord).ThenInclude(p => p.RecordLineItems)
                 .FirstOrDefaultAsync(r => r.RequestID == RequestID);
 
             if (request == null) return Json(new { success = false, message = "Request not found." });
@@ -288,25 +307,19 @@ namespace LGUTreasury.Controllers
             {
                 if (!string.IsNullOrWhiteSpace(request.ProposedOR))
                     request.PaymentRecord.OfficialReceipt = request.ProposedOR;
-
                 if (request.ProposedDate.HasValue)
                     request.PaymentRecord.DateIssued = request.ProposedDate.Value;
-
                 if (!string.IsNullOrWhiteSpace(request.ProposedPaymentMethod))
                     request.PaymentRecord.PaymentMethod = request.ProposedPaymentMethod;
-
                 if (request.ProposedRemarks != null)
                     request.PaymentRecord.Remarks = request.ProposedRemarks;
-
                 if (request.ProposedTypeID.HasValue && request.ProposedTypeID.Value > 0)
                 {
                     var lineItem = request.PaymentRecord.RecordLineItems?.FirstOrDefault();
                     if (lineItem != null) lineItem.TypeID = request.ProposedTypeID.Value;
                 }
-
                 if (request.ProposedAmount.HasValue && request.ProposedAmount.Value > 0)
                     request.PaymentRecord.TotalAmount = request.ProposedAmount.Value;
-
                 request.PaymentRecord.HasPendingRequest = false;
             }
 
