@@ -14,15 +14,15 @@ namespace LGUTreasury.Models
         [Required]
         public int RequestedBy_UserID { get; set; }
  
-        public string? Reason { get; set; }
+        public string? Reason { get; set; }  // ← this is the message from Collector
  
         [Required]
         public string Status { get; set; } = "Pending";
-        // Values: "Pending", "Approved", "Rejected"
+        // Values: "Pending", "Resolved"
  
         public int? ReviewedBy_UserID { get; set; }
  
-        public string? ReviewNote { get; set; }
+        public string? ReviewNote { get; set; }  // ← Officer's reply/note
  
         public DateTime CreatedAt { get; set; } = DateTime.Now;
  
@@ -36,12 +36,5 @@ namespace LGUTreasury.Models
  
         [ForeignKey("ReviewedBy_UserID")]
         public UserAccount? ReviewedBy { get; set; }
-
-       public string? ProposedOR { get; set; }
-       public DateTime? ProposedDate { get; set; }
-       public int? ProposedTypeID { get; set; }
-       public string? ProposedPaymentMethod { get; set; }
-       public string? ProposedRemarks { get; set; }
-       public decimal? ProposedAmount { get; set; }
     }
 }

@@ -230,39 +230,61 @@
 
           <div class="stat-card hl-card" data-card-id="hl-card-1">
             <div class="stat-card-label">Total Collected</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">🪙</div><div class="stat-value">₱ @ViewBag.CollectedTotal</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><div class="stat-card-icon-row">
+    
+    <div class="stat-icon">
+        <svg xmlns="http://www.w3.org/2000/svg"
+             width="24"
+             height="24"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             class="lucide lucide-wallet">           
+            <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
+           
+            <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+        </svg>
+    </div>
+
+    <div class="stat-value">
+    </div>
+
+</div></div><div class="stat-value">₱ @ViewBag.CollectedTotal</div></div>
             <div class="stat-sub">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-2">
             <div class="stat-card-label">Payments Recorded</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">💳</div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive-icon lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
             <span class="stat-badge badge-green">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-3">
             <div class="stat-card-label">Requests for Approval</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">📨</div><div class="stat-value">@ViewBag.PendingRequests</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-pull-request-closed-icon lucide-git-pull-request-closed"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg></div><div class="stat-value">@ViewBag.PendingRequests</div></div>
             <span class="stat-badge badge-orange">Pending Approval</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-4">
             <div class="stat-card-label">Month-to-Date Collection</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">📆</div><div class="stat-value" style="font-size:20px">₱ @ViewBag.MtdTotal</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-fold-icon lucide-calendar-fold"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg></div><div class="stat-value" style="font-size:20px">₱ @ViewBag.MtdTotal</div></div>
             <div class="stat-sub" id="hl-mtd-sub">@ViewBag.DaysThisMonth days this month</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-green" id="hl-mtd-bar" style="width:73%"></div></div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-5">
             <div class="stat-card-label">Shift Tracker</div>
-            <div class="stat-card-icon-row"><div class="stat-icon">🕐</div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock2-icon lucide-clock-2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg></div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
             <div class="stat-sub" id="hl-shift-remain">– remaining</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-teal" id="hl-shift-bar" style="width:0%"></div></div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-6">
            <div class="stat-card-label">Top Revenue Today</div>
-           <div class="stat-card-icon-row"><div class="stat-icon">🏆</div><div class="stat-value" style="font-size:17px;line-height:1.2">@ViewBag.TopRevenueName</div></div>
+           <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy-icon lucide-trophy"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div><div class="stat-value" style="font-size:17px;line-height:1.2">@ViewBag.TopRevenueName</div></div>
            <div class="stat-sub">₱ @ViewBag.TopRevenueTotal · @ViewBag.TopRevenueCount transactions</div>
            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
          </div>
@@ -479,12 +501,12 @@
 
 // ── Customize Highlight Cards — 6 cards ──
 const ALL_CARDS = [
-  { id: 'hl-card-1', icon: '🪙', name: 'Total Collected' },
-  { id: 'hl-card-2', icon: '💳', name: 'Payments Recorded' },
-  { id: 'hl-card-3', icon: '📨', name: 'Requests for Approval' },
-  { id: 'hl-card-4', icon: '📆', name: 'Month-to-Date Collection' },
-  { id: 'hl-card-5', icon: '🕐', name: 'Shift Tracker' },
-  { id: 'hl-card-6', icon: '🏆', name: 'Top Revenue Today' },
+  { id: 'hl-card-1', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallet-icon lucide-wallet"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', name: 'Total Collected' },
+  { id: 'hl-card-2', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive-icon lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>', name: 'Payments Recorded' },
+  { id: 'hl-card-3', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-pull-request-closed-icon lucide-git-pull-request-closed"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg>', name: 'Requests for Approval' },
+  { id: 'hl-card-4', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-fold-icon lucide-calendar-fold"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>', name: 'Month-to-Date Collection' },
+  { id: 'hl-card-5', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock2-icon lucide-clock-2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg>', name: 'Shift Tracker' },
+  { id: 'hl-card-6', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy-icon lucide-trophy"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg>', name: 'Top Revenue Today' },
 ];
 
 let cardState    = ALL_CARDS.map(c => ({ ...c, visible: true }));

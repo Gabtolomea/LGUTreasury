@@ -21,6 +21,11 @@ namespace LGUTreasury.Data
         public DbSet<ReportLog> ReportLog { get; set; }
 
         public DbSet<EditRequest> Editrequests { get; set; }
+
+        public DbSet<LongTermPayee> LongTermPayees { get; set; }
+        public DbSet<AccountBillingType> AccountBillingTypes { get; set; }
+        public DbSet<BillingTypeOption> BillingTypeOptions { get; set; }
+        public DbSet<MonthlyBill> MonthlyBills { get; set; }
     }
     
 }

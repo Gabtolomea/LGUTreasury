@@ -1,0 +1,358 @@
+@model List<LGUTreasury.Models.LongTermPayee>
+@{
+    ViewData["Title"] = "Long Term Tenants";
+    ViewData["ActiveNav"] = "longterm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .lt-page { padding: 0 24px 32px; }
+    .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
+    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); font-size:16px; text-decoration:none; }
+    .page-title { font-size:20px; font-weight:700; color:var(--text); }
+    .page-sub { font-size:13px; color:var(--green); }
+
+    /* Widgets */
+    .widgets-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .widget-card { background:white; border-radius:14px; border:1px solid var(--gray-border); box-shadow:var(--shadow); padding:18px 22px; }
+    .widget-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); margin-bottom:8px; }
+    .widget-amount { font-size:24px; font-weight:800; color:var(--text); }
+    .widget-sub { font-size:12px; color:var(--text-3); margin-top:4px; }
+    .widget-card.collected-month .widget-amount { color:var(--green-dark); }
+    .widget-card.expected-month .widget-amount  { color:var(--blue); }
+    .widget-card.total-expected .widget-amount  { color:#7b2d8b; }
+    .widget-card.total-collected .widget-amount { color:var(--green-dark); }
+
+    /* Toolbar */
+    .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .search-bar { display:flex; align-items:center; gap:8px; background:white; border:1.5px solid var(--gray-border); border-radius:10px; padding:8px 14px; box-shadow:var(--shadow); flex:1; }
+    .search-bar input { border:none; outline:none; font-size:13px; font-family:inherit; color:var(--text); background:transparent; flex:1; }
+    .search-bar input::placeholder { color:var(--text-3); }
+    .btn-add { display:inline-flex; align-items:center; gap:6px; background:var(--green); color:white; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .btn-add:hover { background:var(--green-dark); }
+
+    /* Table */
+    .table-wrap { background:white; border-radius:12px; border:1px solid var(--gray-border); box-shadow:var(--shadow); overflow:hidden; }
+    .table-header { padding:13px 16px; border-bottom:1px solid var(--gray-border); display:flex; align-items:center; justify-content:space-between; }
+    .table-title { font-size:14px; font-weight:700; color:var(--text); }
+    .table-sub { font-size:12px; color:var(--text-3); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th { background:var(--green-light); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--green-dark); padding:10px 14px; text-align:left; }
+    tbody td { padding:11px 14px; border-bottom:1px solid #f0f0f0; color:var(--text); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:#fafafa; }
+    .action-btn { height:28px; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 12px; font-size:12px; font-weight:600; color:white; font-family:inherit; white-space:nowrap; }
+    .btn-view { background:var(--blue); }
+    .btn-view:hover { background:#2471a3; }
+
+    /* Modal */
+    .section-divider { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green); margin:14px 0 8px; padding-bottom:4px; border-bottom:1.5px solid var(--green-light); }
+    .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+    .form-group { display:flex; flex-direction:column; margin-bottom:12px; }
+    .form-label { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); margin-bottom:5px; }
+    .form-input { width:100%; padding:10px 14px; background:var(--gray-input); border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; transition:border-color .2s,background .2s; }
+    .form-input:focus { border-color:var(--green); background:white; }
+    .billing-type-row { display:flex; align-items:center; gap:8px; background:#f9fafb; border:1.5px solid var(--gray-border); border-radius:8px; padding:9px 12px; margin-bottom:6px; }
+    .billing-type-name { flex:1; font-size:13px; font-weight:600; color:var(--text); }
+    .billing-type-amount { font-size:13px; font-weight:700; color:var(--green-dark); margin-right:6px; }
+    .btn-remove-type { background:none; border:none; color:var(--red); font-size:16px; cursor:pointer; padding:0; flex-shrink:0; line-height:1; }
+    .btn-add-type { display:inline-flex; align-items:center; gap:6px; background:none; border:1.5px dashed var(--green); color:var(--green); font-size:12.5px; font-weight:600; padding:7px 12px; border-radius:7px; cursor:pointer; font-family:inherit; width:100%; justify-content:center; margin-top:4px; }
+    .btn-add-type:hover { background:var(--green-light); }
+    .add-type-form { background:#f0fdf4; border:1.5px solid var(--green-mid); border-radius:8px; padding:12px; margin-top:6px; display:none; }
+    .add-type-form.show { display:block; }
+    .empty-types { font-size:12px; color:var(--text-3); padding:10px; text-align:center; border:1.5px dashed var(--gray-border); border-radius:8px; }
+    .autocomplete-wrap { position:relative; }
+    .autocomplete-list { display:none; position:absolute; top:100%; left:0; right:0; background:white; border:1px solid var(--gray-border); border-radius:8px; box-shadow:var(--shadow); z-index:100; max-height:180px; overflow-y:auto; }
+    .autocomplete-list.open { display:block; }
+    .autocomplete-item { padding:9px 14px; font-size:13px; cursor:pointer; border-bottom:1px solid #f5f5f5; }
+    .autocomplete-item:last-child { border-bottom:none; }
+    .autocomplete-item:hover { background:var(--green-light); color:var(--green-dark); font-weight:600; }
+    .autocomplete-empty { padding:9px 14px; font-size:12px; color:var(--text-3); }
+</style>
+
+<div class="lt-page">
+    <div class="page-header-row">
+        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <div>
+            <div class="page-title">Long Term Tenants</div>
+            <div class="page-sub">Manage recurring billing for permanent tenants</div>
+        </div>
+    </div>
+
+    <!-- 4 WIDGETS -->
+    <div class="widgets-row">
+        <div class="widget-card expected-month">
+            <div class="widget-label">Expected This Month</div>
+            <div class="widget-amount">₱ @ViewBag.ExpectedThisMonth.ToString("N2")</div>
+            <div class="widget-sub">Total billed for @ViewBag.CurrentMonth</div>
+        </div>
+        <div class="widget-card collected-month">
+            <div class="widget-label">Collected This Month</div>
+            <div class="widget-amount">₱ @ViewBag.CollectedThisMonth.ToString("N2")</div>
+            <div class="widget-sub">Paid bills for @ViewBag.CurrentMonth</div>
+        </div>
+        <div class="widget-card total-expected">
+            <div class="widget-label">Total Expected</div>
+            <div class="widget-amount">₱ @ViewBag.TotalExpected.ToString("N2")</div>
+            <div class="widget-sub">All bills ever generated</div>
+        </div>
+        <div class="widget-card total-collected">
+            <div class="widget-label">Total Collected</div>
+            <div class="widget-amount">₱ @ViewBag.TotalCollected.ToString("N2")</div>
+            <div class="widget-sub">All paid bills ever</div>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <div class="search-bar">
+            <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search by name or address…" oninput="filterTenants(this.value)" />
+        </div>
+        <button class="btn-add" onclick="openModal('modal-add-tenant')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Add Tenant
+        </button>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap">
+        <div class="table-header">
+            <div class="table-title">Long Term Payees</div>
+            <div class="table-sub">Bills auto-generated every 20th of the month</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Account No.</th>
+                    <th>Tenant Name</th>
+                    <th>Address / Unit</th>
+                    <th>Billing Types</th>
+                    <th>Total Balance</th>
+                    <th>Start Month</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tenants-tbody">
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No tenants found.</td></tr>
+                }
+                else
+                {
+                    @foreach (var tenant in Model)
+                    {
+                        var accountNo    = "LTA-" + tenant.LongTermPayeeID.ToString("D6");
+                        var name         = $"{tenant.LastName}, {tenant.FirstName}";
+                        var billingTypes = tenant.AccountBillingTypes != null
+                            ? string.Join(" · ", tenant.AccountBillingTypes.Where(bt => bt.IsActive).Select(bt => bt.BillingTypeName))
+                            : "—";
+                        var balances = (Dictionary<int, decimal>)ViewBag.TotalBalances;
+                        var balance  = balances.ContainsKey(tenant.LongTermPayeeID)
+                                       ? balances[tenant.LongTermPayeeID] : 0;
+                        <tr>
+                            <td style="font-weight:700;color:var(--green-dark)">@accountNo</td>
+                            <td style="font-weight:600">@name</td>
+                            <td style="color:var(--text-3);font-size:12px">@(tenant.Address ?? "—")</td>
+                            <td style="font-size:12px">@billingTypes</td>
+                            <td style="font-weight:700;color:@(balance > 0 ? "var(--orange)" : "var(--green-dark)")">
+                                ₱ @balance.ToString("N2")
+                            </td>
+                            <td style="color:var(--text-3)">@tenant.StartMonth</td>
+                            <td>
+                                <a asp-action="Ledger" asp-route-id="@tenant.LongTermPayeeID" class="action-btn btn-view"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"></circle><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"></path></svg></a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD TENANT MODAL -->
+<div class="modal-overlay" id="modal-add-tenant">
+    <div class="modal" style="max-width:540px">
+        <div class="modal-title">Add Long Term Tenant</div>
+        <div class="modal-sub">Create a new recurring billing account for a tenant.</div>
+
+        <div class="section-divider">Tenant Information</div>
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">First Name *</label>
+                <input type="text" class="form-input" id="new-fname" placeholder="e.g. Juan" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Last Name *</label>
+                <input type="text" class="form-input" id="new-lname" placeholder="e.g. Cruz" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Middle Name</label>
+                <input type="text" class="form-input" id="new-mname" placeholder="Optional" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contact No.</label>
+                <input type="text" class="form-input" id="new-contact" placeholder="09XX-XXX-XXXX" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Address / Stall / Unit No.</label>
+            <input type="text" class="form-input" id="new-address" placeholder="e.g. Stall 12, Market Area" />
+        </div>
+
+        <div class="section-divider">Billing Configuration</div>
+        <div class="form-group">
+            <label class="form-label">Start Month *
+                <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">— Bills generated from this month onwards</span>
+            </label>
+            <input type="month" class="form-input" id="new-start-month" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Billing Types</label>
+            <div id="billing-types-list">
+                <div class="empty-types" id="no-types-msg">No billing types added yet.</div>
+            </div>
+            <button type="button" class="btn-add-type" onclick="showAddTypeForm()">
+                <svg width="13" height="13" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Add Billing Type
+            </button>
+            <div class="add-type-form" id="add-type-form">
+                <div class="form-group" style="margin-bottom:8px">
+                    <label class="form-label">Billing Type Name *</label>
+                    <div class="autocomplete-wrap">
+                        <input type="text" class="form-input" id="new-type-name"
+                               placeholder="Type to search or enter new…"
+                               oninput="filterTypeOptions(this.value)"
+                               autocomplete="off" />
+                        <div class="autocomplete-list" id="type-autocomplete"></div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:8px">
+                    <label class="form-label">Monthly Rate (₱) *</label>
+                    <input type="number" class="form-input" id="new-type-amount" placeholder="0.00" step="0.01" />
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <button type="button" class="btn-secondary" style="padding:7px 14px;font-size:12px" onclick="hideAddTypeForm()">Cancel</button>
+                    <button type="button" class="btn-primary" style="padding:7px 14px;font-size:12px" onclick="addBillingType()">Add</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-add-tenant')">Cancel</button>
+            <button class="btn-primary" onclick="createTenant()">Create Tenant</button>
+        </div>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+<script>
+let billingTypes = [];
+
+function filterTenants(query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll('#tenants-tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+async function filterTypeOptions(query) {
+    const list = document.getElementById('type-autocomplete');
+    const q = query.trim();
+    if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    const res     = await fetch('/LongTermTenant/GetBillingTypeOptions?query=' + encodeURIComponent(q));
+    const options = await res.json();
+    if (!options.length) {
+        list.innerHTML = '<div class="autocomplete-empty">Press Add to save "' + q + '" as new type</div>';
+    } else {
+        list.innerHTML = options.map(o => '<div class="autocomplete-item" onclick="selectTypeOption(\'' + o + '\')">' + o + '</div>').join('');
+    }
+    list.classList.add('open');
+}
+
+function selectTypeOption(name) {
+    document.getElementById('new-type-name').value = name;
+    document.getElementById('type-autocomplete').classList.remove('open');
+    document.getElementById('new-type-amount').focus();
+}
+
+document.addEventListener('click', function(e) {
+    const wrap = document.querySelector('.autocomplete-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+        const list = document.getElementById('type-autocomplete');
+        if (list) { list.classList.remove('open'); list.innerHTML = ''; }
+    }
+});
+
+function showAddTypeForm() {
+    document.getElementById('add-type-form').classList.add('show');
+    document.getElementById('new-type-name').value = '';
+    document.getElementById('new-type-amount').value = '';
+    document.getElementById('new-type-name').focus();
+}
+
+function hideAddTypeForm() { document.getElementById('add-type-form').classList.remove('show'); }
+
+function addBillingType() {
+    const name   = document.getElementById('new-type-name').value.trim();
+    const amount = parseFloat(document.getElementById('new-type-amount').value) || 0;
+    if (!name)   { showToast('Please enter a billing type name.', true); return; }
+    if (!amount) { showToast('Please enter a monthly rate.', true); return; }
+    billingTypes.push({ name, rate: amount });
+    renderBillingTypes();
+    hideAddTypeForm();
+}
+
+function renderBillingTypes() {
+    const list  = document.getElementById('billing-types-list');
+    const noMsg = document.getElementById('no-types-msg');
+    noMsg.style.display = billingTypes.length ? 'none' : '';
+    list.querySelectorAll('.billing-type-row').forEach(el => el.remove());
+    billingTypes.forEach((bt, i) => {
+        const row = document.createElement('div');
+        row.className = 'billing-type-row';
+        row.innerHTML = '<span class="billing-type-name">' + bt.name + '</span>'
+            + '<span class="billing-type-amount">₱ ' + bt.rate.toFixed(2) + ' / month</span>'
+            + '<button type="button" class="btn-remove-type" onclick="removeBillingType(' + i + ')">✕</button>';
+        list.insertBefore(row, noMsg);
+    });
+}
+
+function removeBillingType(i) { billingTypes.splice(i, 1); renderBillingTypes(); }
+
+async function createTenant() {
+    const fname = document.getElementById('new-fname').value.trim();
+    const lname = document.getElementById('new-lname').value.trim();
+    const start = document.getElementById('new-start-month').value;
+    if (!fname || !lname)     { showToast('Please enter first and last name.', true); return; }
+    if (!start)               { showToast('Please select a start month.', true); return; }
+    if (!billingTypes.length) { showToast('Please add at least one billing type.', true); return; }
+
+    const payload = {
+        firstName: fname, lastName: lname,
+        middleName: document.getElementById('new-mname').value.trim(),
+        contactNumber: document.getElementById('new-contact').value.trim(),
+        address: document.getElementById('new-address').value.trim(),
+        startMonth: start, billGenerationDay: 20, billingTypes
+    };
+
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/CreateTenant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token ? token.value : '' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            closeModal('modal-add-tenant');
+            showToast('Tenant created successfully!');
+            billingTypes = [];
+            renderBillingTypes();
+            setTimeout(() => window.location.reload(), 1200);
+        } else { showToast(result.message || 'Failed to create tenant.', true); }
+    } catch (err) { showToast('Error creating tenant.', true); }
+}
+</script>
+}

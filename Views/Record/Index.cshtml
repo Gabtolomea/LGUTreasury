@@ -21,6 +21,28 @@
     </script>
 }
 
+@if (isCollector)
+{
+    <!-- Inject all records as JSON for client-side filtering -->
+    <script>
+        const allCollectorRecords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Select(r => new {
+                paymentID    = r.PaymentID,
+                txnID        = "TXN-" + r.PaymentID.ToString("D6"),
+                payee        = r.Payee != null ? r.Payee.Lastname + ", " + r.Payee.Firstname : "—",
+                type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
+                amount       = r.TotalAmount,
+                date         = r.DateIssued.ToString("yyyy-MM-dd"),
+                dateDisplay  = r.DateIssued.ToString("MMM dd, yyyy"),
+                orNumber     = r.OfficialReceipt ?? "—",
+                method       = r.PaymentMethod ?? "—",
+                remarks      = r.Remarks ?? "",
+                collector    = r.CollectedBy != null ? r.CollectedBy.LastName + ", " + r.CollectedBy.FirstName : "—"
+            })
+        ));
+    </script>
+}
+
 <div class="records-page-wrap">
     <div class="page-header-row">
         <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
@@ -38,17 +60,16 @@
         </button>
         @if (isCollector)
         {
-            <button class="records-tab" id="tab-collection" onclick="switchTab('collection')">
-                <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                For Collection
-                <span class="tab-badge" id="collection-badge" style="background:var(--blue)">0</span>
+            <button class="records-tab" id="tab-mycollections" onclick="switchTab('mycollections')">
+                <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M2 12V5l6-3 6 3v7" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 12V9h4v3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                My Collections
             </button>
         }
         @if (isOfficerOrAdmin)
         {
             <button class="records-tab" id="tab-requests" onclick="switchTab('requests')">
                 <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Modification Requests
+                Messages
                 <span class="tab-badge" id="tab-badge">0</span>
             </button>
         }
@@ -71,6 +92,7 @@
                         <th>Collection Type</th>
                         <th>Total Amount</th>
                         <th>Date Issued</th>
+                        <th>Collected By</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -78,27 +100,26 @@
                 <tbody id="records-tbody">
                     @if (!Model.Any())
                     {
-                        <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No records found.</td></tr>
+                        <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No records found.</td></tr>
                     }
                     else
                     {
                         @foreach (var record in Model)
                         {
-                            var txnID    = "TXN-" + record.PaymentID.ToString("D6");
-                            var payee    = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
-                            var type     = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
-                            var amount   = record.TotalAmount.ToString("N2");
-                            var date     = record.DateIssued.ToString("MMM dd, yyyy");
-                            var orNumber = record.OfficialReceipt ?? "—";
-                            var method   = record.PaymentMethod ?? "—";
-                            var remarks  = record.Remarks ?? "";
+                            var txnID     = "TXN-" + record.PaymentID.ToString("D6");
+                            var payee     = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
+                            var type      = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+                            var amount    = record.TotalAmount.ToString("N2");
+                            var date      = record.DateIssued.ToString("MMM dd, yyyy");
+                            var orNumber  = record.OfficialReceipt ?? "—";
+                            var method    = record.PaymentMethod ?? "—";
+                            var remarks   = record.Remarks ?? "";
+                            var collector = record.CollectedBy != null ? $"{record.CollectedBy.LastName}, {record.CollectedBy.FirstName}" : "—";
 
-                            // Status logic
                             string status;
                             string statusClass;
                             if (record.HasPendingRequest) { status = "Pending"; statusClass = "pending"; }
-                            else if (record.IsCollected)  { status = "Collected"; statusClass = "collected"; }
-                            else                          { status = "Posted"; statusClass = "posted"; }
+                            else                          { status = "Posted";  statusClass = "posted"; }
 
                             <tr>
                                 <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
@@ -106,10 +127,11 @@
                                 <td>@type</td>
                                 <td style="font-weight:600">₱ @amount</td>
                                 <td style="color:var(--text-3)">@date</td>
+                                <td style="color:var(--text-3)">@collector</td>
                                 <td><span class="status-text-@statusClass">@status</span></td>
                                 <td style="white-space:nowrap">
                                     <button class="action-view-btn"
-                                            onclick="viewRecord('@txnID','@payee','@type','@amount','@date','@orNumber','@status','@method','@remarks')"
+                                            onclick="viewRecord('@txnID','@payee','@type','@amount','@date','@orNumber','@status','@method','@remarks','@collector')"
                                             title="View">
                                         <span class="btn-icon">
                                             <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
@@ -117,7 +139,13 @@
                                     </button>
                                     @if (isCollector && !record.HasPendingRequest)
                                     {
-                                        <button class="action-modify-btn" onclick="openModifyRequest(@record.PaymentID, '@txnID')" title="Request Modification">
+                                        <button class="action-modify-btn" onclick="openSendMessage(@record.PaymentID, '@txnID')" title="Send Message">
+                                            <span class="btn-icon">✎</span>
+                                        </button>
+                                    }
+                                    @if (isOfficerOrAdmin)
+                                    {
+                                        <button class="action-modify-btn" onclick="openEditRecord(@record.PaymentID, '@txnID')" title="Edit Record">
                                             <span class="btn-icon">✎</span>
                                         </button>
                                     }
@@ -130,16 +158,46 @@
         </div>
     </div>
 
-    <!-- FOR COLLECTION PANEL — Collector only -->
+    <!-- MY COLLECTIONS PANEL — Collector only -->
     @if (isCollector)
     {
-        <div id="panel-collection" style="display:none">
-            <div class="records-toolbar">
-                <div class="search-bar" style="flex:1">
-                    <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    <input type="text" placeholder="Search by name or receipt…" oninput="filterCollection(this.value)" />
+        <div id="panel-mycollections" style="display:none">
+
+            <!-- Filter Bar -->
+            <div class="records-toolbar" style="flex-wrap:wrap;gap:8px">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                    <button class="filter-btn active" id="filter-today"     onclick="setCollectionFilter('today')">Today</button>
+                    <button class="filter-btn"         id="filter-yesterday" onclick="setCollectionFilter('yesterday')">Yesterday</button>
+                    <button class="filter-btn"         id="filter-week"      onclick="setCollectionFilter('week')">This Week</button>
+                    <button class="filter-btn"         id="filter-custom"    onclick="setCollectionFilter('custom')">Custom Range</button>
+                </div>
+                <div id="custom-range-inputs" style="display:none;align-items:center;gap:6px">
+                    <input type="date" class="form-input" id="filter-from" style="width:140px;padding:7px 10px;font-size:12px" oninput="applyCollectionFilter()" />
+                    <span style="font-size:12px;color:var(--text-3)">to</span>
+                    <input type="date" class="form-input" id="filter-to"   style="width:140px;padding:7px 10px;font-size:12px" oninput="applyCollectionFilter()" />
                 </div>
             </div>
+
+            <!-- Stat Widgets -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+                <div class="stat-widget">
+                    <div class="stat-widget-label">Total Collected</div>
+                    <div class="stat-widget-value" id="stat-total">₱ 0.00</div>
+                    <div class="stat-widget-sub" id="stat-period">Today</div>
+                </div>
+                <div class="stat-widget">
+                    <div class="stat-widget-label">No. of Transactions</div>
+                    <div class="stat-widget-value" id="stat-count">0</div>
+                    <div class="stat-widget-sub" id="stat-count-sub">records</div>
+                </div>
+                <div class="stat-widget">
+                    <div class="stat-widget-label">Average per Transaction</div>
+                    <div class="stat-widget-value" id="stat-avg">₱ 0.00</div>
+                    <div class="stat-widget-sub">per record</div>
+                </div>
+            </div>
+
+            <!-- Collections Table -->
             <div class="data-table-wrap">
                 <table class="data-table">
                     <thead>
@@ -149,67 +207,38 @@
                             <th>Collection Type</th>
                             <th>Total Amount</th>
                             <th>Date Issued</th>
-                            <th>Action</th>
+                            <th>OR Number</th>
+                            <th>Method</th>
                         </tr>
                     </thead>
-                    <tbody id="collection-tbody">
-                        @{
-                            var uncollected = Model.Where(r => !r.IsCollected && !r.HasPendingRequest).ToList();
-                        }
-                        @if (!uncollected.Any())
-                        {
-                            <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No pending collections.</td></tr>
-                        }
-                        else
-                        {
-                            @foreach (var record in uncollected)
-                            {
-                                var txnID  = "TXN-" + record.PaymentID.ToString("D6");
-                                var payee  = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
-                                var type   = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
-                                var amount = record.TotalAmount.ToString("N2");
-                                var date   = record.DateIssued.ToString("MMM dd, yyyy");
-
-                                <tr data-paymentid="@record.PaymentID">
-                                    <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
-                                    <td>@payee</td>
-                                    <td>@type</td>
-                                    <td style="font-weight:600">₱ @amount</td>
-                                    <td style="color:var(--text-3)">@date</td>
-                                    <td>
-                                        <button class="action-approve-btn" onclick="confirmCollection(@record.PaymentID)" title="Confirm Collection">
-                                            <span class="btn-icon">✓</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        }
+                    <tbody id="mycollections-tbody">
+                        <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No records found for this period.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     }
 
-    <!-- REQUESTS PANEL — Officer/Admin only -->
+    <!-- MESSAGES PANEL — Officer/Admin only -->
     @if (isOfficerOrAdmin)
     {
         <div id="panel-requests" style="display:none">
             <div class="records-toolbar">
                 <div class="search-bar" style="flex:1">
                     <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    <input type="text" placeholder="Search by name, receipt…" oninput="filterApprove(this.value)" />
+                    <input type="text" placeholder="Search by name or receipt…" oninput="filterApprove(this.value)" />
                 </div>
             </div>
             <div class="data-table-wrap">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Request ID</th>
+                            <th>Message ID</th>
                             <th>Transaction ID</th>
                             <th>Payor</th>
-                            <th>Reason</th>
+                            <th>Message</th>
                             <th>Date</th>
-                            <th>Requested By</th>
+                            <th>Sent By</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -217,7 +246,7 @@
                     <tbody id="approve-tbody">
                         @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
                         {
-                            <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No modification requests found.</td></tr>
+                            <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No messages found.</td></tr>
                         }
                         else
                         {
@@ -229,7 +258,7 @@
                                 var isPending = req.Status == "Pending";
 
                                 <tr data-requestid="@req.RequestID">
-                                    <td style="font-weight:700;color:var(--text-2)">REQ-@req.RequestID.ToString("D6")</td>
+                                    <td style="font-weight:700;color:var(--text-2)">MSG-@req.RequestID.ToString("D6")</td>
                                     <td style="font-weight:700;color:var(--green-dark)">@txnID</td>
                                     <td>@payee</td>
                                     <td>@(req.Reason ?? "—")</td>
@@ -239,14 +268,11 @@
                                     <td style="white-space:nowrap">
                                         @if (isPending)
                                         {
-                                            <button class="action-approve-btn" onclick="openApprove(@req.RequestID)" title="Approve">
+                                            <button class="action-approve-btn" onclick="openResolve(@req.RequestID, '@txnID')" title="Mark Resolved">
                                                 <span class="btn-icon">✓</span>
                                             </button>
-                                            <button class="action-reject-btn" onclick="openReject(@req.RequestID)" title="Reject">
-                                                <span class="btn-icon">✕</span>
-                                            </button>
                                         }
-                                        <button class="action-view-btn" onclick="viewRequest(@req.RequestID, '@txnID', '@payee', '@(req.Reason ?? "")', '@req.CreatedAt.ToString("MMM dd, yyyy")', '@reqBy', '@req.Status', '@(req.ProposedOR ?? "")', '@(req.ProposedDate?.ToString("MMM dd, yyyy") ?? "")', '@(req.ProposedPaymentMethod ?? "")', '@(req.ProposedAmount?.ToString("N2") ?? "")', '@(req.ProposedRemarks ?? "")')" title="View">
+                                        <button class="action-view-btn" onclick="viewMessage(@req.RequestID, '@txnID', '@payee', '@(req.Reason ?? "")', '@req.CreatedAt.ToString("MMM dd, yyyy")', '@reqBy', '@req.Status', '@(req.ReviewNote ?? "")')" title="View">
                                             <span class="btn-icon">
                                                 <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
                                             </span>
@@ -273,87 +299,101 @@
     </div>
 </div>
 
-<!-- Request Modification Modal -->
-<div class="modal-overlay" id="modal-modify-request">
-    <div class="modal" style="max-width:500px;max-height:85vh;overflow-y:auto">
-        <div class="modal-title">Request Modification</div>
-        <div class="modal-sub" id="modal-modify-sub">Propose changes to this payment record.</div>
-        <input type="hidden" id="modify-payment-id" />
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Reason for Modification *</label>
-            <textarea class="form-input" id="modify-reason" placeholder="e.g. Wrong amount entered…" style="min-height:60px;width:100%;margin-top:4px"></textarea>
-        </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--green);margin:10px 0 6px;padding-bottom:4px;border-bottom:1.5px solid var(--green-light)">Proposed Changes</div>
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">OR Number</label>
-            <input type="text" class="form-input" id="modify-or" placeholder="Proposed OR number" />
-        </div>
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Date Issued</label>
-            <input type="date" class="form-input" id="modify-date" />
-        </div>
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Collection Type</label>
-            <select class="form-select" id="modify-type">
-                <option value="">-- No Change --</option>
-                @if (ViewBag.RevenueTypes != null)
-                {
-                    foreach (var type in ViewBag.RevenueTypes)
+<!-- Edit Record Modal — Officer/Admin only -->
+@if (isOfficerOrAdmin)
+{
+    <div class="modal-overlay" id="modal-edit-record">
+        <div class="modal" style="max-width:500px">
+            <div class="modal-title">Edit Payment Record</div>
+            <div class="modal-sub" id="modal-edit-sub"></div>
+            <input type="hidden" id="edit-payment-id" />
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">OR Number *</label>
+                <input type="text" class="form-input" id="edit-or" />
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">Date Issued *</label>
+                <input type="date" class="form-input" id="edit-date" />
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">Payment Method</label>
+                <select class="form-select" id="edit-method">
+                    <option value="">Select Method</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Check">Check</option>
+                    <option value="Online Transfer">Online Transfer</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">Collected By *</label>
+                <select class="form-select" id="edit-collector">
+                    <option value="">— Select Collector —</option>
+                    @if (ViewBag.Collectors != null)
                     {
-                        <option value="@type.TypeID">@type.Name</option>
+                        foreach (var c in (IEnumerable<LGUTreasury.Models.UserAccount>)ViewBag.Collectors)
+                        {
+                            <option value="@c.UserID">@c.LastName, @c.FirstName</option>
+                        }
                     }
-                }
-            </select>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">Total Amount (₱)</label>
+                <input type="number" class="form-input" id="edit-amount" step="0.01" />
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label">Remarks</label>
+                <textarea class="form-input" id="edit-remarks" style="min-height:60px;width:100%"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('modal-edit-record')">Cancel</button>
+                <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="submitEditRecord()">Save Changes</button>
+            </div>
         </div>
+    </div>
+}
+
+<!-- Send Message Modal — Collector only -->
+<div class="modal-overlay" id="modal-send-message">
+    <div class="modal" style="max-width:480px">
+        <div class="modal-title">Send Message to Officer</div>
+        <div class="modal-sub" id="modal-message-sub">Describe what you want changed in this record.</div>
+        <input type="hidden" id="message-payment-id" />
         <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Payment Method</label>
-            <select class="form-select" id="modify-method">
-                <option value="">-- No Change --</option>
-                <option value="Cash">Cash</option>
-                <option value="Check">Check</option>
-                <option value="Online Transfer">Online Transfer</option>
-            </select>
-        </div>
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Total Amount (₱)</label>
-            <input type="number" class="form-input" id="modify-amount" placeholder="Proposed amount" step="0.01" />
-        </div>
-        <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Remarks</label>
-            <textarea class="form-input" id="modify-remarks" placeholder="Optional remarks" style="min-height:50px;width:100%"></textarea>
+            <label class="form-label">Message *</label>
+            <textarea class="form-input" id="message-reason" placeholder="e.g. Wrong amount entered, should be ₱500.00…" style="min-height:80px;width:100%;margin-top:4px"></textarea>
         </div>
         <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeModal('modal-modify-request')">Cancel</button>
-            <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="submitModifyRequest()">Submit Request</button>
+            <button class="btn-secondary" onclick="closeModal('modal-send-message')">Cancel</button>
+            <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="submitMessage()">Send Message</button>
         </div>
     </div>
 </div>
 
-<!-- Confirm Approve Modal -->
-<div class="modal-overlay" id="modal-confirm-approve">
-    <div class="modal">
-        <div class="modal-title">Approve Modification?</div>
-        <div class="modal-sub">The proposed changes will be applied to the payment record.</div>
-        <div id="approve-proposed-changes" style="margin-bottom:14px"></div>
+<!-- Resolve Message Modal — Officer/Admin only -->
+<div class="modal-overlay" id="modal-resolve-message">
+    <div class="modal" style="max-width:480px">
+        <div class="modal-title">Mark as Resolved</div>
+        <div class="modal-sub" id="modal-resolve-sub">Add an optional note for the collector.</div>
+        <input type="hidden" id="resolve-request-id" />
+        <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Review Note (optional)</label>
+            <textarea class="form-input" id="resolve-note" placeholder="e.g. Record has been updated accordingly…" style="min-height:70px;width:100%;margin-top:4px"></textarea>
+        </div>
         <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeModal('modal-confirm-approve')">Cancel</button>
-            <button class="btn-primary" onclick="confirmApprove()">Yes, Approve</button>
+            <button class="btn-secondary" onclick="closeModal('modal-resolve-message')">Cancel</button>
+            <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="confirmResolve()">Mark Resolved</button>
         </div>
     </div>
 </div>
 
-<!-- Confirm Reject Modal -->
-<div class="modal-overlay" id="modal-confirm-reject">
-    <div class="modal">
-        <div class="modal-title">Reject Modification?</div>
-        <div class="modal-sub">Provide an optional reason for rejection.</div>
-        <div style="margin-bottom:14px">
-            <label class="form-label">Reason (optional)</label>
-            <textarea class="form-input" id="reject-reason" placeholder="e.g. Incorrect amount entered" style="min-height:80px;width:100%;margin-top:6px"></textarea>
-        </div>
+<!-- View Message Modal -->
+<div class="modal-overlay" id="modal-view-message">
+    <div class="modal" style="max-width:480px">
+        <div class="modal-title">Message Details</div>
+        <div id="modal-message-content"></div>
         <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeModal('modal-confirm-reject')">Cancel</button>
-            <button style="padding:10px 20px;background:var(--red);border:none;border-radius:8px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit" onclick="confirmReject()">Reject</button>
+            <button class="btn-secondary" onclick="closeModal('modal-view-message')">Close</button>
         </div>
     </div>
 </div>

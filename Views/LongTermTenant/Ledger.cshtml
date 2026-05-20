@@ -1,0 +1,345 @@
+@model LGUTreasury.Models.LongTermPayee
+@{
+    ViewData["Title"] = "Tenant Ledger";
+    ViewData["ActiveNav"] = "longterm";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var allBills  = Model.MonthlyBills?.OrderBy(b => b.BillingMonth).ToList();
+    var accountNo = "LTA-" + Model.LongTermPayeeID.ToString("D6");
+    var fullName  = $"{Model.LastName}, {Model.FirstName}";
+}
+
+<style>
+    .lt-page { padding:0 24px 32px; }
+    .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
+    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); font-size:16px; text-decoration:none; }
+    .page-title { font-size:20px; font-weight:700; color:var(--text); }
+    .page-sub { font-size:13px; color:var(--green); }
+
+    .btn-add { display:inline-flex; align-items:center; gap:6px; background:var(--green); color:white; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .btn-add:hover { background:var(--green-dark); }
+    .btn-outline { display:inline-flex; align-items:center; gap:6px; background:white; color:var(--green); border:1.5px solid var(--green); border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .btn-outline:hover { background:var(--green-light); }
+
+    .table-wrap { background:white; border-radius:12px; border:1px solid var(--gray-border); box-shadow:var(--shadow); overflow:hidden; }
+    .table-header { padding:13px 16px; border-bottom:1px solid var(--gray-border); display:flex; align-items:center; justify-content:space-between; }
+    .table-title { font-size:14px; font-weight:700; color:var(--text); }
+    .table-sub { font-size:12px; color:var(--text-3); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th { background:var(--green-light); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--green-dark); padding:10px 14px; text-align:left; }
+    tbody td { padding:11px 14px; border-bottom:1px solid #f0f0f0; color:var(--text); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:#fafafa; }
+
+    .action-btn { height:28px; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 10px; font-size:12px; font-weight:600; color:white; font-family:inherit; white-space:nowrap; margin-right:3px; text-decoration:none; }
+    .btn-pay    { background:var(--green); }
+    .btn-pay:hover { background:var(--green-dark); }
+    .btn-unpay  { background:var(--orange); }
+    .btn-unpay:hover { background:#c56e00; }
+    .btn-edit   { background:#c56e00; }
+    .btn-edit:hover { background:#b86902; }
+    .btn-pdf    { background:#455a64; }
+    .btn-pdf:hover { background:#263238; }
+
+    .status-paid   { color:var(--green-dark); font-weight:700; font-size:12px; }
+    .status-unpaid { color:var(--orange); font-weight:700; font-size:12px; }
+
+    .form-group { display:flex; flex-direction:column; margin-bottom:12px; }
+    .form-label { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); margin-bottom:5px; }
+    .form-input { width:100%; padding:10px 14px; background:var(--gray-input); border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; transition:border-color .2s,background .2s; }
+    .form-input:focus { border-color:var(--green); background:white; }
+    .form-input[readonly] { background:#f5f5f5; color:var(--text-3); }
+    .form-select { width:100%; padding:10px 14px; background:var(--gray-input); border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; cursor:pointer; appearance:none; }
+    .form-select:focus { border-color:var(--green); background:white; }
+
+    @@media print {
+        .lt-page > .page-header-row .btn-add,
+        .lt-page > .page-header-row .btn-outline,
+        .table-header, .action-btn,
+        thead th:last-child, tbody td:last-child { display:none !important; }
+        .table-wrap { box-shadow:none; border:1px solid #ccc; }
+        .print-header { display:block !important; }
+    }
+    .print-header { display:none; margin-bottom:16px; }
+</style>
+
+<div class="lt-page">
+    <div class="page-header-row">
+        <a asp-action="Index" class="back-btn">←</a>
+        <div style="flex:1">
+            <div class="page-title">@fullName</div>
+            <div class="page-sub">@accountNo · @(Model.Address ?? "No address") · Bills every @Model.BillGenerationDay of the month</div>
+        </div>
+        <
+            
+        <button class="btn-add" onclick="openModal('modal-add-bill')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Add Missing Bill
+        </button>
+    </div>
+
+  
+
+
+
+
+
+    <!-- BILLS TABLE -->
+    <div class="table-wrap">
+        <div class="table-header">
+            <div class="table-title">Billing Ledger</div>
+            <div class="table-sub">@(allBills?.Count ?? 0) total bills</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bill ID</th>
+                    <th>Billing Month</th>
+                    <th>Billing Type</th>
+                    <th>Amount</th>
+                    <th>OR Number</th>
+                    <th>Date Paid</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (allBills == null || !allBills.Any())
+                {
+                    <tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">No bills found.</td></tr>
+                }
+                else
+                {
+                    @foreach (var bill in allBills)
+                    {
+                        var billNo       = "BILL-" + bill.MonthlyBillID.ToString("D6");
+                        var monthDisplay = DateTime.TryParse(bill.BillingMonth + "-01", out var d)
+                                           ? d.ToString("MMMM yyyy") : bill.BillingMonth;
+                        var isPaid = bill.Status == "Paid";
+                        <tr>
+                            <td style="font-weight:700;color:@(isPaid ? "var(--green-dark)" : "var(--orange)")">@billNo</td>
+                            <td>@monthDisplay</td>
+                            <td style="color:var(--text-3)">@(bill.BillingType ?? "—")</td>
+                            <td style="font-weight:600">₱ @bill.BilledAmount.ToString("N2")</td>
+                            <td>@(bill.ORNumber ?? "—")</td>
+                            <td style="color:var(--text-3)">@(bill.PaidAt?.ToString("MMM dd, yyyy") ?? "—")</td>
+                            <td>
+                                @if (isPaid)
+                                {
+                                    <span class="status-paid">✓ Paid</span>
+                                }
+                                else
+                                {
+                                    <span class="status-unpaid">● Unpaid</span>
+                                }
+                            </td>
+                            <td style="white-space:nowrap">
+                                <button class="action-btn btn-edit" onclick="openEditAmount(@bill.MonthlyBillID, '@billNo', '@monthDisplay', @bill.BilledAmount)">
+                                    <span class="btn-icon">✎</span>
+                                </button>
+                                @if (!isPaid)
+                                {
+                                    <button class="action-btn btn-pay" onclick="openMarkPaid(@bill.MonthlyBillID, '@billNo', '@monthDisplay')">
+                                        Mark Paid
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="action-btn btn-unpay" onclick="markUnpaid(@bill.MonthlyBillID, '@billNo', '@monthDisplay')">
+                                        Mark Unpaid
+                                    </button>
+                                }
+                                <a href="/LongTermTenant/PrintBill/@bill.MonthlyBillID" target="_blank" class="action-btn btn-pdf">
+                                    <svg width="11" height="11" fill="none" viewBox="0 0 16 16" style="margin-right:3px"><path d="M8 2v8M5 7l3 3 3-3M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    PDF
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Mark as Paid Modal -->
+<div class="modal-overlay" id="modal-mark-paid">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-title">Mark as Paid</div>
+        <div class="modal-sub">Enter the OR number to confirm payment.</div>
+        <input type="hidden" id="paid-bill-id" />
+        <div class="form-group">
+            <label class="form-label">Bill</label>
+            <input type="text" class="form-input" id="paid-bill-display" readonly />
+        </div>
+        <div class="form-group">
+            <label class="form-label">OR Number *</label>
+            <input type="text" class="form-input" id="paid-or" placeholder="e.g. OR-00200" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-mark-paid')">Cancel</button>
+            <button class="btn-primary" onclick="confirmMarkPaid()">Confirm Payment</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Amount Modal -->
+<div class="modal-overlay" id="modal-edit-amount">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-title">Edit Bill Amount</div>
+        <div class="modal-sub">Update the billed amount for this month.</div>
+        <input type="hidden" id="edit-amount-bill-id" />
+        <div class="form-group">
+            <label class="form-label">Bill</label>
+            <input type="text" class="form-input" id="edit-amount-display" readonly />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Amount (₱) *</label>
+            <input type="number" class="form-input" id="edit-amount-value" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-edit-amount')">Cancel</button>
+            <button class="btn-primary" onclick="confirmEditAmount()">Save Amount</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Missing Bill Modal -->
+<div class="modal-overlay" id="modal-add-bill">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-title">Add Missing Bill</div>
+        <div class="modal-sub">Manually post a bill for a specific month.</div>
+        <div class="form-group">
+            <label class="form-label">Billing Month *</label>
+            <input type="month" class="form-input" id="add-bill-month" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Billing Type *</label>
+            <select class="form-select" id="add-bill-type">
+                <option value="">— Select Billing Type —</option>
+                @if (Model.AccountBillingTypes != null)
+                {
+                    foreach (var bt in Model.AccountBillingTypes.Where(bt => bt.IsActive))
+                    {
+                        <option value="@bt.AccountBillingTypeID" data-rate="@bt.MonthlyRate" data-name="@bt.BillingTypeName">
+                            @bt.BillingTypeName — ₱ @bt.MonthlyRate.ToString("N2")
+                        </option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Amount (₱) *</label>
+            <input type="number" class="form-input" id="add-bill-amount" step="0.01" placeholder="Auto-filled from billing type" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
+            <button class="btn-primary" onclick="submitAddBill()">Add Bill</button>
+        </div>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+<script>
+const tenantID = @Model.LongTermPayeeID;
+
+document.getElementById('add-bill-type')?.addEventListener('change', function() {
+    const rate = this.options[this.selectedIndex].getAttribute('data-rate');
+    document.getElementById('add-bill-amount').value = rate || '';
+});
+
+function openMarkPaid(billID, billNo, month) {
+    document.getElementById('paid-bill-id').value      = billID;
+    document.getElementById('paid-bill-display').value = billNo + ' — ' + month;
+    document.getElementById('paid-or').value           = '';
+    openModal('modal-mark-paid');
+}
+
+async function confirmMarkPaid() {
+    const billID   = document.getElementById('paid-bill-id').value;
+    const orNumber = document.getElementById('paid-or').value.trim();
+    if (!orNumber) { showToast('Please enter an OR number.', true); return; }
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/MarkPaid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ BillID: billID, ORNumber: orNumber })
+        });
+        const result = await res.json();
+        if (result.success) { closeModal('modal-mark-paid'); showToast('Bill marked as paid!'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+async function markUnpaid(billID, billNo, month) {
+    if (!confirm('Mark ' + billNo + ' (' + month + ') as unpaid? The OR number will be removed.')) return;
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/MarkUnpaid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ BillID: billID })
+        });
+        const result = await res.json();
+        if (result.success) { showToast('Bill marked as unpaid.'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+function openEditAmount(billID, billNo, month, currentAmount) {
+    document.getElementById('edit-amount-bill-id').value = billID;
+    document.getElementById('edit-amount-display').value = billNo + ' — ' + month;
+    document.getElementById('edit-amount-value').value   = currentAmount;
+    openModal('modal-edit-amount');
+}
+
+async function confirmEditAmount() {
+    const billID = document.getElementById('edit-amount-bill-id').value;
+    const amount = parseFloat(document.getElementById('edit-amount-value').value) || 0;
+    if (amount <= 0) { showToast('Please enter a valid amount.', true); return; }
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/UpdateBillAmount', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ BillID: billID, BilledAmount: amount })
+        });
+        const result = await res.json();
+        if (result.success) { closeModal('modal-edit-amount'); showToast('Amount updated!'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+async function submitAddBill() {
+    const month      = document.getElementById('add-bill-month').value;
+    const typeSelect = document.getElementById('add-bill-type');
+    const typeID     = typeSelect.value;
+    const typeName   = typeSelect.options[typeSelect.selectedIndex]?.getAttribute('data-name') || '';
+    const amount     = parseFloat(document.getElementById('add-bill-amount').value) || 0;
+    if (!month)  { showToast('Please select a billing month.', true); return; }
+    if (!typeID) { showToast('Please select a billing type.', true); return; }
+    if (!amount) { showToast('Please enter an amount.', true); return; }
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/AddBill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ TenantID: tenantID, BillingMonth: month, AccountBillingTypeID: typeID, BillingType: typeName, BilledAmount: amount })
+        });
+        const result = await res.json();
+        if (result.success) { closeModal('modal-add-bill'); showToast('Bill added!'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    ['modal-mark-paid', 'modal-add-bill', 'modal-edit-amount'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
+    });
+});
+</script>
+}

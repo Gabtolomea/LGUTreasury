@@ -3,6 +3,7 @@ using System;
 using LGUTreasury.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,61 +11,16 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LGUTreasury.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516170601_RemoveProposedFields")]
+    partial class RemoveProposedFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
-
-            modelBuilder.Entity("LGUTreasury.Models.AccountBillingType", b =>
-                {
-                    b.Property<int>("AccountBillingTypeID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<string>("BillingTypeName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("LongTermPayeeID")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("MonthlyRate")
-                        .HasColumnType("decimal(12,2)");
-
-                    b.HasKey("AccountBillingTypeID");
-
-                    b.HasIndex("LongTermPayeeID");
-
-                    b.ToTable("AccountBillingTypes");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.BillingTypeOption", b =>
-                {
-                    b.Property<int>("BillingTypeOptionID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("BillingTypeOptionID");
-
-                    b.ToTable("BillingTypeOptions");
-                });
 
             modelBuilder.Entity("LGUTreasury.Models.EditRequest", b =>
                 {
@@ -106,93 +62,6 @@ namespace LGUTreasury.Migrations
                     b.HasIndex("ReviewedBy_UserID");
 
                     b.ToTable("Editrequests");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.LongTermPayee", b =>
-                {
-                    b.Property<int>("LongTermPayeeID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<string>("Address")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("BillGenerationDay")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ContactNumber")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("MiddleName")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("StartMonth")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Suffix")
-                        .HasColumnType("longtext");
-
-                    b.HasKey("LongTermPayeeID");
-
-                    b.ToTable("LongTermPayees");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.MonthlyBill", b =>
-                {
-                    b.Property<int>("MonthlyBillID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<int>("AccountBillingTypeID")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("BilledAmount")
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<string>("BillingMonth")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("BillingType")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("LongTermPayeeID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ORNumber")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("PaidAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("MonthlyBillID");
-
-                    b.HasIndex("AccountBillingTypeID");
-
-                    b.HasIndex("LongTermPayeeID");
-
-                    b.ToTable("MonthlyBills");
                 });
 
             modelBuilder.Entity("LGUTreasury.Models.Payee", b =>
@@ -479,17 +348,6 @@ namespace LGUTreasury.Migrations
                     b.ToTable("UserAccounts");
                 });
 
-            modelBuilder.Entity("LGUTreasury.Models.AccountBillingType", b =>
-                {
-                    b.HasOne("LGUTreasury.Models.LongTermPayee", "LongTermPayee")
-                        .WithMany("AccountBillingTypes")
-                        .HasForeignKey("LongTermPayeeID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("LongTermPayee");
-                });
-
             modelBuilder.Entity("LGUTreasury.Models.EditRequest", b =>
                 {
                     b.HasOne("LGUTreasury.Models.PaymentRecord", "PaymentRecord")
@@ -513,25 +371,6 @@ namespace LGUTreasury.Migrations
                     b.Navigation("RequestedBy");
 
                     b.Navigation("ReviewedBy");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.MonthlyBill", b =>
-                {
-                    b.HasOne("LGUTreasury.Models.AccountBillingType", "AccountBillingType")
-                        .WithMany("MonthlyBills")
-                        .HasForeignKey("AccountBillingTypeID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LGUTreasury.Models.LongTermPayee", "LongTermPayee")
-                        .WithMany("MonthlyBills")
-                        .HasForeignKey("LongTermPayeeID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AccountBillingType");
-
-                    b.Navigation("LongTermPayee");
                 });
 
             modelBuilder.Entity("LGUTreasury.Models.PaymentRecord", b =>
@@ -592,18 +431,6 @@ namespace LGUTreasury.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.AccountBillingType", b =>
-                {
-                    b.Navigation("MonthlyBills");
-                });
-
-            modelBuilder.Entity("LGUTreasury.Models.LongTermPayee", b =>
-                {
-                    b.Navigation("AccountBillingTypes");
-
-                    b.Navigation("MonthlyBills");
                 });
 
             modelBuilder.Entity("LGUTreasury.Models.PaymentRecord", b =>

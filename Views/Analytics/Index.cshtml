@@ -1,0 +1,354 @@
+@{
+    ViewData["Title"] = "Analytics";
+    ViewData["ActiveNav"] = "analytics";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .analytics-page { padding:0 24px 32px; }
+    .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
+    .page-title { font-size:20px; font-weight:700; color:var(--text); }
+    .page-sub { font-size:13px; color:var(--green); }
+
+    /* Filter Bar */
+    .filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-btn { padding:7px 16px; background:white; border:1.5px solid var(--gray-border); border-radius:8px; font-size:12px; font-weight:600; color:var(--text-2); cursor:pointer; font-family:inherit; transition:all .2s; white-space:nowrap; }
+    .filter-btn:hover { background:var(--green-light); border-color:var(--green); color:var(--green-dark); }
+    .filter-btn.active { background:var(--green); border-color:var(--green); color:white; }
+    .custom-range { display:none; align-items:center; gap:6px; }
+    .custom-range.show { display:flex; }
+    .custom-range input { padding:7px 10px; background:white; border:1.5px solid var(--gray-border); border-radius:8px; font-size:12px; font-family:inherit; outline:none; }
+    .custom-range input:focus { border-color:var(--green); }
+    .btn-apply { padding:7px 14px; background:var(--green); color:white; border:none; border-radius:8px; font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; }
+
+    /* Period Labels */
+    .period-labels { display:flex; align-items:center; gap:16px; margin-bottom:16px; font-size:12px; }
+    .period-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; }
+    .dot-current { background:#388E3C; }
+    .dot-compare { background:#A5D6A7; }
+
+    /* Summary Widgets */
+    .summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+    .summary-card { background:white; border-radius:12px; border:1px solid var(--gray-border); box-shadow:var(--shadow); padding:14px 18px; }
+    .summary-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); margin-bottom:8px; }
+    .summary-current { font-size:22px; font-weight:800; color:var(--green-dark); }
+    .summary-compare { font-size:13px; color:var(--text-3); margin-top:3px; }
+    .summary-change { font-size:12px; font-weight:700; margin-top:4px; }
+    .change-up   { color:var(--green-dark); }
+    .change-down { color:var(--red); }
+    .change-same { color:var(--text-3); }
+
+    /* Section */
+    .chart-section { margin-bottom:28px; }
+    .section-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--green-light); display:flex; align-items:center; gap:8px; }
+    .section-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+    /* Chart Cards */
+    .charts-grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
+    .chart-card { background:white; border-radius:12px; border:1px solid var(--gray-border); box-shadow:var(--shadow); padding:16px 20px; }
+    .chart-card-title { font-size:12px; font-weight:700; color:var(--text-2); margin-bottom:12px; text-transform:uppercase; letter-spacing:.04em; }
+    .chart-wrap { position:relative; }
+    .chart-wrap.bar  { height:220px; }
+    .chart-wrap.pie  { height:220px; }
+
+    /* Loading */
+    .loading-overlay { display:flex; align-items:center; justify-content:center; height:220px; color:var(--text-3); font-size:13px; }
+
+    /* No data */
+    .no-data { display:flex; align-items:center; justify-content:center; height:220px; color:var(--text-3); font-size:13px; flex-direction:column; gap:6px; }
+</style>
+
+<div class="analytics-page">
+    <div class="page-header-row">
+        <div>
+            <div class="page-title">Revenue Analytics</div>
+            <div class="page-sub">Compare revenue across periods and sources</div>
+        </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+        <button class="filter-btn" id="f-today"     onclick="setFilter('today')">Today</button>
+        <button class="filter-btn" id="f-yesterday" onclick="setFilter('yesterday')">Yesterday</button>
+        <button class="filter-btn" id="f-thisweek"  onclick="setFilter('thisweek')">This Week</button>
+        <button class="filter-btn active" id="f-thismonth" onclick="setFilter('thismonth')">This Month</button>
+        <button class="filter-btn" id="f-thisyear"  onclick="setFilter('thisyear')">This Year</button>
+        <button class="filter-btn" id="f-custom"    onclick="setFilter('custom')">Custom Range</button>
+        <div class="custom-range" id="custom-range">
+            <input type="date" id="custom-from" />
+            <span style="color:var(--text-3);font-size:12px">to</span>
+            <input type="date" id="custom-to" />
+            <button class="btn-apply" onclick="applyCustom()">Apply</button>
+        </div>
+    </div>
+
+    <!-- PERIOD LABELS -->
+    <div class="period-labels">
+        <span><span class="period-dot dot-current"></span><strong id="label-current">This Month</strong></span>
+        <span style="color:var(--text-3)">vs</span>
+        <span><span class="period-dot dot-compare"></span><span id="label-compare" style="color:var(--text-3)">Last Month</span></span>
+    </div>
+
+    <!-- SUMMARY WIDGETS -->
+    <div class="summary-row">
+        <div class="summary-card">
+            <div class="summary-title">One-Time Payments</div>
+            <div class="summary-current" id="sum-onetime-current">₱ 0.00</div>
+            <div class="summary-compare" id="sum-onetime-compare">vs ₱ 0.00</div>
+            <div class="summary-change" id="sum-onetime-change"></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-title">Long Term Bills</div>
+            <div class="summary-current" id="sum-longterm-current">₱ 0.00</div>
+            <div class="summary-compare" id="sum-longterm-compare">vs ₱ 0.00</div>
+            <div class="summary-change" id="sum-longterm-change"></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-title">Combined Revenue</div>
+            <div class="summary-current" id="sum-combined-current">₱ 0.00</div>
+            <div class="summary-compare" id="sum-combined-compare">vs ₱ 0.00</div>
+            <div class="summary-change" id="sum-combined-change"></div>
+        </div>
+    </div>
+
+    <!-- ONE-TIME PAYMENTS SECTION -->
+    <div class="chart-section">
+        <div class="section-title">
+            <div class="section-dot" style="background:var(--blue)"></div>
+            One-Time Payments: by Revenue Type
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">Collection by Revenue Type</div>
+                <div class="chart-wrap bar"><canvas id="chart-onetime-bar"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">Revenue Type Distribution</div>
+                <div class="chart-wrap pie"><canvas id="chart-onetime-pie"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LONG TERM BILLS SECTION -->    
+    <div class="chart-section">
+        <div class="section-title">
+            <div class="section-dot" style="background:#7b2d8b"></div>
+            Long Term Tenant Bills: by Billing Type
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">Collection by Billing Type</div>
+                <div class="chart-wrap bar"><canvas id="chart-longterm-bar"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">Billing Type Distribution</div>
+                <div class="chart-wrap pie"><canvas id="chart-longterm-pie"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COMBINED SECTION -->
+    <div class="chart-section">
+        <div class="section-title">
+            <div class="section-dot" style="background:var(--green)"></div>
+            Combined Revenue: One-Time vs Long Term
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">Revenue by Source</div>
+                <div class="chart-wrap bar"><canvas id="chart-combined-bar"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">Revenue Source Distribution</div>
+                <div class="chart-wrap pie"><canvas id="chart-combined-pie"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+let currentFilter = 'thismonth';
+let charts = {};
+
+const COLORS = {
+    current:  '#388E3C',
+    currentBg:'rgba(56,142,60,0.8)',
+    compare:  '#A5D6A7',
+    compareBg:'rgba(165,214,167,0.8)',
+    pie: ['#388E3C','#2196F3','#FF9800','#9C27B0','#F44336','#009688','#FF5722','#3F51B5','#CDDC39','#00BCD4']
+};
+
+function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('f-' + filter)?.classList.add('active');
+    const customRange = document.getElementById('custom-range');
+    customRange.classList.toggle('show', filter === 'custom');
+    if (filter !== 'custom') loadData();
+}
+
+function applyCustom() {
+    const from = document.getElementById('custom-from').value;
+    const to   = document.getElementById('custom-to').value;
+    if (!from || !to) { showToast('Please select a date range.', true); return; }
+    if (from > to)    { showToast('From date cannot be after To date.', true); return; }
+    loadData();
+}
+
+async function loadData() {
+    const from = document.getElementById('custom-from').value;
+    const to   = document.getElementById('custom-to').value;
+    let url    = `/Analytics/GetData?filter=${currentFilter}`;
+    if (currentFilter === 'custom') url += `&from=${from}&to=${to}`;
+
+    try {
+        const res  = await fetch(url);
+        const data = await res.json();
+        renderAll(data);
+    } catch (err) { showToast('Error loading analytics data.', true); }
+}
+
+function fmt(val) {
+    return '₱ ' + parseFloat(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderChange(elID, current, compare) {
+    const el   = document.getElementById(elID);
+    if (!el) return;
+    if (compare === 0 && current === 0) { el.textContent = ''; return; }
+    if (compare === 0) { el.textContent = '▲ New'; el.className = 'summary-change change-up'; return; }
+    const pct  = ((current - compare) / compare * 100).toFixed(1);
+    if (current > compare) {
+        el.textContent  = `▲ ${pct}% from last period`;
+        el.className    = 'summary-change change-up';
+    } else if (current < compare) {
+        el.textContent  = `▼ ${Math.abs(pct)}% from last period`;
+        el.className    = 'summary-change change-down';
+    } else {
+        el.textContent  = '→ No change';
+        el.className    = 'summary-change change-same';
+    }
+}
+
+function renderAll(data) {
+    // Period labels
+    document.getElementById('label-current').textContent = data.labels.current;
+    document.getElementById('label-compare').textContent = data.labels.compare;
+
+    // Summary widgets
+    document.getElementById('sum-onetime-current').textContent  = fmt(data.oneTime.totalCurrent);
+    document.getElementById('sum-onetime-compare').textContent  = `vs ${fmt(data.oneTime.totalCompare)}`;
+    renderChange('sum-onetime-change', data.oneTime.totalCurrent, data.oneTime.totalCompare);
+
+    document.getElementById('sum-longterm-current').textContent = fmt(data.longTerm.totalCurrent);
+    document.getElementById('sum-longterm-compare').textContent = `vs ${fmt(data.longTerm.totalCompare)}`;
+    renderChange('sum-longterm-change', data.longTerm.totalCurrent, data.longTerm.totalCompare);
+
+    document.getElementById('sum-combined-current').textContent = fmt(data.combined.totalCurrent);
+    document.getElementById('sum-combined-compare').textContent = `vs ${fmt(data.combined.totalCompare)}`;
+    renderChange('sum-combined-change', data.combined.totalCurrent, data.combined.totalCompare);
+
+    // Charts
+    renderBarChart('chart-onetime-bar',   data.oneTime.labels,   data.oneTime.current,   data.oneTime.compare,   data.labels.current, data.labels.compare);
+    renderPieChart('chart-onetime-pie',   data.oneTime.pieLabels, data.oneTime.pieCurrent);
+    renderBarChart('chart-longterm-bar',  data.longTerm.labels,  data.longTerm.current,  data.longTerm.compare,  data.labels.current, data.labels.compare);
+    renderPieChart('chart-longterm-pie',  data.longTerm.pieLabels, data.longTerm.pieCurrent);
+    renderBarChart('chart-combined-bar',  data.combined.labels,  data.combined.current,  data.combined.compare,  data.labels.current, data.labels.compare);
+    renderPieChart('chart-combined-pie',  data.combined.labels,  data.combined.current);
+}
+
+function renderBarChart(id, labels, current, compare, currentLabel, compareLabel) {
+    if (charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id)?.getContext('2d');
+    if (!ctx) return;
+
+    charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: currentLabel,
+                    data: current,
+                    backgroundColor: COLORS.currentBg,
+                    borderColor: COLORS.current,
+                    borderWidth: 1.5,
+                    borderRadius: 4
+                },
+                {
+                    label: compareLabel,
+                    data: compare,
+                    backgroundColor: COLORS.compareBg,
+                    borderColor: COLORS.compare,
+                    borderWidth: 1.5,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ₱ ${parseFloat(ctx.raw).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Inter' } } },
+                y: {
+                    grid: { color: '#f0f0f0' },
+                    ticks: {
+                        font: { size: 11, family: 'Inter' },
+                        callback: v => '₱ ' + v.toLocaleString('en-PH')
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderPieChart(id, labels, data) {
+    if (charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id)?.getContext('2d');
+    if (!ctx) return;
+
+    const total = data.reduce((a, b) => a + b, 0);
+    if (total === 0) return;
+
+    charts[id] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: COLORS.pie.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 8 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const pct = (ctx.raw / total * 100).toFixed(1);
+                            return ` ${ctx.label}: ₱ ${parseFloat(ctx.raw).toLocaleString('en-PH', { minimumFractionDigits: 2 })} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => loadData());
+</script>
+}

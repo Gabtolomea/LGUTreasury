@@ -43,8 +43,8 @@
     width: 26px; height: 26px; border: none; border-radius: 6px;
     cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
-.action-edit-btn { background: var(--green); }
-.action-edit-btn:hover { background: var(--green-dark); }
+.action-edit-btn { background: #c56e00; }
+.action-edit-btn:hover { background:#683f0a; }
 .action-remove-btn { background: var(--red); }
 .action-remove-btn:hover { background: #a93226; }
 .btn-icon-rev { display: flex; align-items: center; justify-content: center; }

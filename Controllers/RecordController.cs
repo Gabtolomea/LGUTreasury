@@ -78,18 +78,23 @@ namespace LGUTreasury.Controllers
         {
             var payment = await _context.PaymentRecords
                 .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
+                .Include(p => p.CollectedBy)
                 .FirstOrDefaultAsync(p => p.PaymentID == paymentID);
 
             if (payment == null) return Json(new { success = false });
 
             return Json(new {
-                success = true,
-                officialReceipt = payment.OfficialReceipt,
-                dateIssued = payment.DateIssued.ToString("yyyy-MM-dd"),
-                paymentMethod = payment.PaymentMethod,
-                remarks = payment.Remarks,
-                totalAmount = payment.TotalAmount,
-                typeID = payment.RecordLineItems?.FirstOrDefault()?.TypeID,
+                success            = true,
+                officialReceipt    = payment.OfficialReceipt,
+                dateIssued         = payment.DateIssued.ToString("yyyy-MM-dd"),
+                paymentMethod      = payment.PaymentMethod,
+                remarks            = payment.Remarks,
+                totalAmount        = payment.TotalAmount,
+                collectedBy_UserID = payment.CollectedBy_UserID,
+                collectedByName    = payment.CollectedBy != null
+                    ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}"
+                    : "—",
+                typeID   = payment.RecordLineItems?.FirstOrDefault()?.TypeID,
                 typeName = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name
             });
         }
@@ -104,20 +109,11 @@ namespace LGUTreasury.Controllers
             if (role == "Collector") return RedirectToAction("Index");
 
             ViewData["ActiveNav"] = "record";
-            ViewData["FullName"] = HttpContext.Session.GetString("FullName");
-            ViewData["Role"] = role;
-            ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
+            ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
+            ViewData["Role"]      = role;
+            ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
-            ViewBag.RevenueTypes = await _context.RevenueTypes
-                .Include(r => r.RevenuePolicies)
-                .Where(r => r.IsActive)
-                .Select(r => new {
-                    r.TypeID, r.Name, r.BaseRate,
-                    SurchargeRate = r.RevenuePolicies.FirstOrDefault() != null ? r.RevenuePolicies.FirstOrDefault()!.SurchargeRate : 0,
-                    InterestRate  = r.RevenuePolicies.FirstOrDefault() != null ? r.RevenuePolicies.FirstOrDefault()!.InterestRate  : 0
-                })
-                .ToListAsync();
-
+            await ReloadCreateViewBags();
             return View();
         }
 
@@ -129,7 +125,7 @@ namespace LGUTreasury.Controllers
             string? ResidenceAddress, string OfficialReceipt,
             DateTime DateIssued, string? Remarks, string? PaymentMethod,
             int TypeID, decimal TotalBaseAmount, decimal TotalSurcharge,
-            decimal TotalInterest, decimal TotalAmount)
+            decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return RedirectToAction("Login", "Account");
@@ -137,21 +133,28 @@ namespace LGUTreasury.Controllers
             if (DateIssued.Date > DateTime.Today)
             {
                 TempData["Error"] = "Date issued cannot be in the future.";
-                await ReloadRevenueTypes();
+                await ReloadCreateViewBags();
                 return View();
             }
 
             if (!PayeeID.HasValue && string.IsNullOrWhiteSpace(FirstName))
             {
                 TempData["Error"] = "Please select or add a payor first.";
-                await ReloadRevenueTypes();
+                await ReloadCreateViewBags();
                 return View();
             }
 
             if (TypeID == 0)
             {
                 TempData["Error"] = "Please select a collection type.";
-                await ReloadRevenueTypes();
+                await ReloadCreateViewBags();
+                return View();
+            }
+
+            if (CollectedBy_UserID == 0)
+            {
+                TempData["Error"] = "Please select a collector.";
+                await ReloadCreateViewBags();
                 return View();
             }
 
@@ -176,7 +179,7 @@ namespace LGUTreasury.Controllers
             var payment = new PaymentRecord
             {
                 OfficialReceipt = OfficialReceipt, PayeeID = payeeID,
-                DateIssued = DateIssued, CollectedBy_UserID = userID.Value,
+                DateIssued = DateIssued, CollectedBy_UserID = CollectedBy_UserID,
                 Remarks = Remarks, PaymentMethod = PaymentMethod,
                 TotalBaseAmount = TotalBaseAmount, TotalSurcharge = TotalSurcharge,
                 TotalInterest = TotalInterest, TotalAmount = TotalAmount,
@@ -205,12 +208,13 @@ namespace LGUTreasury.Controllers
 
             var role = HttpContext.Session.GetString("Role");
             ViewData["ActiveNav"] = "records";
-            ViewData["FullName"] = HttpContext.Session.GetString("FullName");
-            ViewData["Role"] = role;
-            ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
+            ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
+            ViewData["Role"]      = role;
+            ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
             var records = await _context.PaymentRecords
-                .Include(p => p.Payee).Include(p => p.CollectedBy)
+                .Include(p => p.Payee)
+                .Include(p => p.CollectedBy)
                 .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
                 .OrderByDescending(p => p.DateIssued)
                 .ToListAsync();
@@ -218,7 +222,7 @@ namespace LGUTreasury.Controllers
             if (role == "Officer" || role == "Admin")
             {
                 ViewBag.EditRequests = await _context.Editrequests
-                    .Include(r => r.PaymentRecord).ThenInclude(p => p.Payee)
+                    .Include(r => r.PaymentRecord).ThenInclude(p => p!.Payee)
                     .Include(r => r.RequestedBy)
                     .OrderByDescending(r => r.CreatedAt)
                     .ToListAsync();
@@ -229,59 +233,78 @@ namespace LGUTreasury.Controllers
                 .Select(r => new { r.TypeID, r.Name })
                 .ToListAsync();
 
+            ViewBag.Collectors = await _context.UserAccounts
+                .Where(u => u.Role == "Collector" && u.IsActive == true)
+                .ToListAsync();
+
             return View(records);
         }
 
-        // POST: /Record/ConfirmCollection — Collector confirms they collected
+        // POST: /Record/EditRecord
         [HttpPost]
-        public async Task<IActionResult> ConfirmCollection(int PaymentID)
+        public async Task<IActionResult> EditRecord(
+            int PaymentID, string OfficialReceipt, DateTime DateIssued,
+            string? PaymentMethod, string? Remarks, decimal TotalAmount,
+            int CollectedBy_UserID)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
 
-            var payment = await _context.PaymentRecords.FindAsync(PaymentID);
-            if (payment == null) return Json(new { success = false, message = "Payment not found." });
+            var role = HttpContext.Session.GetString("Role");
+            if (role == "Collector") return Json(new { success = false, message = "Unauthorized." });
 
-            if (payment.IsCollected)
-                return Json(new { success = false, message = "Already confirmed as collected." });
+            var payment = await _context.PaymentRecords
+                .Include(p => p.RecordLineItems)
+                .FirstOrDefaultAsync(p => p.PaymentID == PaymentID);
 
-            payment.IsCollected = true;
-            payment.CollectedConfirmedAt = DateTime.Now;
+            if (payment == null) return Json(new { success = false, message = "Record not found." });
+
+            // Update payment record
+            payment.OfficialReceipt    = OfficialReceipt;
+            payment.DateIssued         = DateIssued;
+            payment.PaymentMethod      = PaymentMethod;
+            payment.Remarks            = Remarks;
+            payment.TotalAmount        = TotalAmount;
+            payment.TotalBaseAmount    = TotalAmount;
+            payment.CollectedBy_UserID = CollectedBy_UserID;
+
+            // Update line item so analytics LineTotal stays in sync
+            var lineItem = payment.RecordLineItems?.FirstOrDefault();
+            if (lineItem != null)
+            {
+                lineItem.LineTotal        = TotalAmount;
+                lineItem.BaseAmount       = TotalAmount;
+                lineItem.SurchargeAmount  = 0;
+                lineItem.InterestAmount   = 0;
+            }
+
             await _context.SaveChangesAsync();
-
             return Json(new { success = true });
         }
 
-        // POST: /Record/RequestModification
+        // POST: /Record/SendMessage
         [HttpPost]
-        public async Task<IActionResult> RequestModification(
-            int PaymentID, string? Reason,
-            string? ProposedOR, string? ProposedDate,
-            int? ProposedTypeID, string? ProposedPaymentMethod,
-            string? ProposedRemarks, decimal? ProposedAmount)
+        public async Task<IActionResult> SendMessage(int PaymentID, string? Reason)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            if (string.IsNullOrWhiteSpace(Reason))
+                return Json(new { success = false, message = "Please enter a message." });
 
             var payment = await _context.PaymentRecords.FindAsync(PaymentID);
             if (payment == null) return Json(new { success = false, message = "Payment not found." });
 
             if (payment.HasPendingRequest)
-                return Json(new { success = false, message = "This record already has a pending request." });
+                return Json(new { success = false, message = "This record already has a pending message." });
 
             var request = new EditRequest
             {
-                PaymentID = PaymentID,
+                PaymentID          = PaymentID,
                 RequestedBy_UserID = userID.Value,
-                Reason = Reason,
-                ProposedOR = ProposedOR,
-                ProposedDate = string.IsNullOrWhiteSpace(ProposedDate) ? null : DateTime.Parse(ProposedDate),
-                ProposedTypeID = ProposedTypeID,
-                ProposedPaymentMethod = ProposedPaymentMethod,
-                ProposedRemarks = ProposedRemarks,
-                ProposedAmount = ProposedAmount,
-                Status = "Pending",
-                CreatedAt = DateTime.Now
+                Reason             = Reason,
+                Status             = "Pending",
+                CreatedAt          = DateTime.Now
             };
             _context.Editrequests.Add(request);
             payment.HasPendingRequest = true;
@@ -290,50 +313,9 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        // POST: /Record/ApproveRequest
+        // POST: /Record/ResolveMessage
         [HttpPost]
-        public async Task<IActionResult> ApproveRequest(int RequestID)
-        {
-            var userID = HttpContext.Session.GetInt32("UserID");
-            if (userID == null) return Json(new { success = false, message = "Not logged in." });
-
-            var request = await _context.Editrequests
-                .Include(r => r.PaymentRecord).ThenInclude(p => p.RecordLineItems)
-                .FirstOrDefaultAsync(r => r.RequestID == RequestID);
-
-            if (request == null) return Json(new { success = false, message = "Request not found." });
-
-            if (request.PaymentRecord != null)
-            {
-                if (!string.IsNullOrWhiteSpace(request.ProposedOR))
-                    request.PaymentRecord.OfficialReceipt = request.ProposedOR;
-                if (request.ProposedDate.HasValue)
-                    request.PaymentRecord.DateIssued = request.ProposedDate.Value;
-                if (!string.IsNullOrWhiteSpace(request.ProposedPaymentMethod))
-                    request.PaymentRecord.PaymentMethod = request.ProposedPaymentMethod;
-                if (request.ProposedRemarks != null)
-                    request.PaymentRecord.Remarks = request.ProposedRemarks;
-                if (request.ProposedTypeID.HasValue && request.ProposedTypeID.Value > 0)
-                {
-                    var lineItem = request.PaymentRecord.RecordLineItems?.FirstOrDefault();
-                    if (lineItem != null) lineItem.TypeID = request.ProposedTypeID.Value;
-                }
-                if (request.ProposedAmount.HasValue && request.ProposedAmount.Value > 0)
-                    request.PaymentRecord.TotalAmount = request.ProposedAmount.Value;
-                request.PaymentRecord.HasPendingRequest = false;
-            }
-
-            request.Status = "Approved";
-            request.ReviewedBy_UserID = userID.Value;
-            request.ReviewedAt = DateTime.Now;
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true });
-        }
-
-        // POST: /Record/RejectRequest
-        [HttpPost]
-        public async Task<IActionResult> RejectRequest(int RequestID, string? ReviewNote)
+        public async Task<IActionResult> ResolveMessage(int RequestID, string? ReviewNote)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
@@ -342,12 +324,12 @@ namespace LGUTreasury.Controllers
                 .Include(r => r.PaymentRecord)
                 .FirstOrDefaultAsync(r => r.RequestID == RequestID);
 
-            if (request == null) return Json(new { success = false, message = "Request not found." });
+            if (request == null) return Json(new { success = false, message = "Message not found." });
 
-            request.Status = "Rejected";
+            request.Status            = "Resolved";
             request.ReviewedBy_UserID = userID.Value;
-            request.ReviewNote = ReviewNote;
-            request.ReviewedAt = DateTime.Now;
+            request.ReviewNote        = ReviewNote;
+            request.ReviewedAt        = DateTime.Now;
 
             if (request.PaymentRecord != null)
                 request.PaymentRecord.HasPendingRequest = false;
@@ -356,7 +338,7 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        private async Task ReloadRevenueTypes()
+        private async Task ReloadCreateViewBags()
         {
             ViewBag.RevenueTypes = await _context.RevenueTypes
                 .Include(r => r.RevenuePolicies)
@@ -366,6 +348,10 @@ namespace LGUTreasury.Controllers
                     SurchargeRate = r.RevenuePolicies.FirstOrDefault() != null ? r.RevenuePolicies.FirstOrDefault()!.SurchargeRate : 0,
                     InterestRate  = r.RevenuePolicies.FirstOrDefault() != null ? r.RevenuePolicies.FirstOrDefault()!.InterestRate  : 0
                 })
+                .ToListAsync();
+
+            ViewBag.Collectors = await _context.UserAccounts
+                .Where(u => u.Role == "Collector" && u.IsActive == true)
                 .ToListAsync();
         }
 
@@ -380,10 +366,10 @@ namespace LGUTreasury.Controllers
 
     public class SavePayeeRequest
     {
-        public string FirstName { get; set; } = "";
-        public string? MiddleName { get; set; }
-        public string LastName { get; set; } = "";
-        public string? Suffix { get; set; }
+        public string FirstName      { get; set; } = "";
+        public string? MiddleName    { get; set; }
+        public string LastName       { get; set; } = "";
+        public string? Suffix        { get; set; }
         public string? ContactNumber { get; set; }
         public string? ResidenceAddress { get; set; }
     }

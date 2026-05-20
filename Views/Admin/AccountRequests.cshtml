@@ -56,6 +56,7 @@
                                 <select class="role-select" id="role-@user.UserID" style="padding:6px 10px;border:1.5px solid var(--gray-border);border-radius:6px;font-size:13px;font-family:inherit;background:white;cursor:pointer">
                                     <option value="Collector">Collector</option>
                                     <option value="Officer">Officer</option>
+                                    <option value="Admin">Admin</option>
                                 </select>
                             </td>
                             <td style="white-space:nowrap">
@@ -128,7 +129,6 @@
         rejectTarget = userID;
         openModal('modal-confirm-reject');
     }
-
     async function confirmReject() {
         if (!rejectTarget) return;
         const token = document.querySelector('input[name=__RequestVerificationToken]');
