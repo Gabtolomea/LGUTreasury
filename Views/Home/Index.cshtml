@@ -104,21 +104,35 @@
 }
 .search-bar input::placeholder { color: var(--text-3); }
 
-/* ── Recent Records Panel ── */
+/* ── Panel ── */
 .panel { background: white; border-radius: 12px; border: 1px solid var(--gray-border); box-shadow: var(--shadow); overflow: hidden; }
-.panel-header { padding: 12px 16px; border-bottom: 1px solid var(--gray-border); display: flex; align-items: center; justify-content: space-between; }
+.panel-header { padding: 12px 16px; border-bottom: 1px solid var(--gray-border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .panel-title { font-size: 13px; font-weight: 700; color: var(--text); }
-.panel-sub   { font-size: 12px; color: var(--green); font-weight: 600; }
+.panel-sub   { font-size: 12px; color: var(--green); font-weight: 600; text-decoration: none; }
 
-.record-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #f0f0f0; gap: 10px; transition: background .15s; cursor: pointer; }
-.record-row:hover { background: #fafafa; }
-.record-row:last-child { border-bottom: none; }
-.avatar-circle { width: 34px; height: 34px; border-radius: 50%; background: var(--green); color: white; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.record-info   { flex: 1; min-width: 0;  }
-.record-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.record-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.record-amount { font-size: 13px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; flex-shrink: 0; }
-.record-time   { font-size: 10.5px; color: var(--text-3); text-align: right; }
+/* ── Collector Leaderboard ── */
+.leaderboard-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.leaderboard-filters input[type="date"] {
+  padding: 5px 10px; border: 1.5px solid var(--gray-border);
+  border-radius: 7px; font-size: 12px; font-family: inherit;
+  color: var(--text); background: var(--gray-input); outline: none;
+}
+.leaderboard-filters input[type="date"]:focus { border-color: var(--green); background: white; }
+.leaderboard-filters button {
+  padding: 5px 12px; background: var(--green); color: white;
+  border: none; border-radius: 7px; font-size: 12px;
+  font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.leaderboard-filters button:hover { background: var(--green-dark); }
+
+.collector-row { padding: 10px 16px; border-bottom: 1px solid #f5f5f5; }
+.collector-row:last-child { border-bottom: none; }
+.collector-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.collector-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.collector-amount { font-size: 12.5px; font-weight: 700; color: var(--green-dark); }
+.collector-bar-bg { height: 6px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+.collector-bar-fill { height: 6px; background: var(--green); border-radius: 4px; transition: width .6s ease; }
+.collector-meta { font-size: 11px; color: var(--text-3); margin-top: 3px; }
 
 /* ── Bar Chart ── */
 .chart-wrap { padding: 12px 16px; }
@@ -221,7 +235,7 @@
       <input type="text" placeholder="Search payments, names, or receipts…">
     </div>
 
-    <!-- Highlights Carousel — 6 cards (removed Daily Target) -->
+    <!-- Highlights Carousel -->
     <div class="highlights-outer" id="highlights-outer">
       <button class="hl-customize-btn" id="hl-customize-btn" title="Customize cards" onclick="openCustomizeModal()">⚙</button>
       <button class="hl-arrow hl-arrow-prev" id="hl-prev">‹</button>
@@ -229,65 +243,46 @@
         <div class="highlights-track" id="highlights-track">
 
           <div class="stat-card hl-card" data-card-id="hl-card-1">
-            <div class="stat-card-label">Total Collected</div>
-            <div class="stat-card-icon-row"><div class="stat-icon"><div class="stat-card-icon-row">
-    
-    <div class="stat-icon">
-        <svg xmlns="http://www.w3.org/2000/svg"
-             width="24"
-             height="24"
-             viewBox="0 0 24 24"
-             fill="none"
-             stroke="currentColor"
-             stroke-width="2"
-             stroke-linecap="round"
-             stroke-linejoin="round"
-             class="lucide lucide-wallet">           
-            <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
-           
-            <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
-        </svg>
-    </div>
-
-    <div class="stat-value">
-    </div>
-
-</div></div><div class="stat-value">₱ @ViewBag.CollectedTotal</div></div>
+            <div class="stat-card-label">Total Recorded</div>
+            <div class="stat-card-icon-row">
+              <div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></div>
+              <div class="stat-value">₱ @ViewBag.CollectedTotal</div>
+            </div>
             <div class="stat-sub">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-2">
             <div class="stat-card-label">Payments Recorded</div>
-            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive-icon lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
             <span class="stat-badge badge-green">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-3">
             <div class="stat-card-label">Requests for Approval</div>
-            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-pull-request-closed-icon lucide-git-pull-request-closed"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg></div><div class="stat-value">@ViewBag.PendingRequests</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg></div><div class="stat-value">@ViewBag.PendingRequests</div></div>
             <span class="stat-badge badge-orange">Pending Approval</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-4">
             <div class="stat-card-label">Month-to-Date Collection</div>
-            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-fold-icon lucide-calendar-fold"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg></div><div class="stat-value" style="font-size:20px">₱ @ViewBag.MtdTotal</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg></div><div class="stat-value" style="font-size:20px">₱ @ViewBag.MtdTotal</div></div>
             <div class="stat-sub" id="hl-mtd-sub">@ViewBag.DaysThisMonth days this month</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-green" id="hl-mtd-bar" style="width:73%"></div></div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-5">
             <div class="stat-card-label">Shift Tracker</div>
-            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock2-icon lucide-clock-2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg></div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg></div><div class="stat-value" id="hl-shift-time" style="font-size:22px">--:--</div></div>
             <div class="stat-sub" id="hl-shift-remain">– remaining</div>
             <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-teal" id="hl-shift-bar" style="width:0%"></div></div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-6">
-           <div class="stat-card-label">Top Revenue Today</div>
-           <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy-icon lucide-trophy"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div><div class="stat-value" style="font-size:17px;line-height:1.2">@ViewBag.TopRevenueName</div></div>
-           <div class="stat-sub">₱ @ViewBag.TopRevenueTotal · @ViewBag.TopRevenueCount transactions</div>
-           <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
-         </div>
+            <div class="stat-card-label">Top Revenue Today</div>
+            <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div><div class="stat-value" style="font-size:17px;line-height:1.2">@ViewBag.TopRevenueName</div></div>
+            <div class="stat-sub">₱ @ViewBag.TopRevenueTotal · @ViewBag.TopRevenueCount transactions</div>
+            <div class="hl-progress-bg"><div class="hl-progress-fill hl-fill-blue" style="width:42%"></div></div>
+          </div>
 
         </div>
       </div>
@@ -295,33 +290,51 @@
     </div>
     <div class="hl-dots" id="hl-dots"></div>
 
-    <!-- Recent Records Panel -->
+    <!-- Collector Leaderboard -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Recent Payments</div>
-        <a asp-controller="Record" asp-action="Index" class="panel-sub">View all →</a>
+        <div class="panel-title">Collector Leaderboard</div>
+        <form method="get" class="leaderboard-filters" id="leaderboard-form">
+          <input type="date" name="from" value="@ViewBag.LeaderboardFrom" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+          <span style="font-size:12px;color:var(--text-3)">to</span>
+          <input type="date" name="to"   value="@ViewBag.LeaderboardTo"   max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+          <button type="submit">Apply</button>
+        </form>
       </div>
 
-      @if (ViewBag.RecentRecords != null && ViewBag.RecentRecords.Count > 0)
+      @{
+          var leaderboard = ViewBag.Leaderboard as IEnumerable<dynamic>;
+          var maxAmount   = leaderboard?.Any() == true ? (decimal)leaderboard.Max(c => c.Total) : 1m;
+      }
+
+      @if (leaderboard == null || !leaderboard.Any())
       {
-          foreach (RecentRecordViewModel r in ViewBag.RecentRecords)
-          {
-              <div class="record-row">
-                <div class="avatar-circle">@r.Initials</div>
-                <div class="record-info">
-                  <div class="record-name">@r.PayeeName</div>
-                  <div class="record-meta">@r.Type · @r.ReceiptNo</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0"><div class="record-amount">₱ @r.Amount</div><div class="record-time">@r.Time</div></div>
-              </div>
-          }
+          <div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">No collections found for this period.</div>
       }
       else
       {
-          <div style="padding:16px;text-align:center;color:var(--text-3);font-size:13px">No payments recorded yet.</div>
+          int rank = 1;
+          foreach (var c in leaderboard)
+          {
+              decimal pct = maxAmount > 0 ? Math.Round((decimal)c.Total / maxAmount * 100, 1) : 0;
+              <div class="collector-row">
+                  <div class="collector-top">
+                      <div class="collector-name">
+                          <span style="color:var(--text-3);font-size:11px;margin-right:6px">#@rank</span>
+                          @c.Name
+                      </div>
+                      <div class="collector-amount">₱ @((decimal)c.Total)</div>
+                  </div>
+                  <div class="collector-bar-bg">
+                      <div class="collector-bar-fill" style="width:@pct%"></div>
+                  </div>
+                  <div class="collector-meta">@c.Count transactions · @pct% of top</div>
+              </div>
+              rank++;
+          }
       }
 
-      <!-- Bar chart with Week / Month filter -->
+      <!-- Bar chart -->
       <div class="chart-wrap">
         <div class="chart-header">
           <div class="chart-title">Collections</div>
@@ -332,22 +345,22 @@
                     onclick="window.location.href='/?filter=month'">This Month</button>
           </div>
         </div>
-       <div class="bars">
-    @{
-        var barHeights = ViewBag.BarHeights as List<int> ?? new List<int> { 10,10,10,10,10,10,10 };
-        var barLabels  = ViewBag.BarLabels  as List<string> ?? new List<string> { "Mon","Tue","Wed","Thu","Fri","Sat","Sun" };
-        var todayLabel = DateTime.Today.ToString("ddd");
-    }
-    @for (int i = 0; i < 7; i++)
-    {
-        var h = barHeights.Count > i ? barHeights[i] : 4;
-        var l = barLabels.Count  > i ? barLabels[i]  : "—";
-        <div class="bar-col">
-            <div class="bar @(l == todayLabel ? "today" : "")" style="height:@(h < 4 ? 4 : h)%"></div>
-            <div class="bar-label">@l</div>
+        <div class="bars">
+          @{
+              var barHeights = ViewBag.BarHeights as List<int> ?? new List<int> { 10,10,10,10,10,10,10 };
+              var barLabels  = ViewBag.BarLabels  as List<string> ?? new List<string> { "Mon","Tue","Wed","Thu","Fri","Sat","Sun" };
+              var todayLabel = DateTime.Today.ToString("ddd");
+          }
+          @for (int i = 0; i < 7; i++)
+          {
+              var h = barHeights.Count > i ? barHeights[i] : 4;
+              var l = barLabels.Count  > i ? barLabels[i]  : "—";
+              <div class="bar-col">
+                  <div class="bar @(l == todayLabel ? "today" : "")" style="height:@(h < 4 ? 4 : h)%"></div>
+                  <div class="bar-label">@l</div>
+              </div>
+          }
         </div>
-    }
-</div>
       </div>
     </div>
 
@@ -380,7 +393,6 @@
       </div>
     </div>
 
-    <!-- Recent Requests — real data from DB -->
     <div>
       <div class="rh-header">
         <div class="rh-title">My Recent Requests</div>
@@ -391,9 +403,9 @@
       {
           foreach (var req in ViewBag.RecentRequests)
           {
-              var dotClass = req.Status == "Approved" ? "dot-approved" : (req.Status == "Rejected" ? "dot-rejected" : "dot-pending");
+              var dotClass  = req.Status == "Approved" ? "dot-approved" : (req.Status == "Rejected" ? "dot-rejected" : "dot-pending");
               var pillClass = req.Status == "Approved" ? "pill-approved" : (req.Status == "Rejected" ? "pill-rejected" : "pill-pending");
-              var txnID = "TXN-" + ((int)req.PaymentID).ToString("D6");
+              var txnID     = "TXN-" + ((int)req.PaymentID).ToString("D6");
               <div class="rh-item">
                 <div class="rh-dot @dotClass"></div>
                 <div>
@@ -430,7 +442,6 @@
 
 @section Scripts {
 <script>
-// ── Highlights Carousel — 6 cards now ──
 (function () {
   const TOTAL_CARDS = 6;
   const VISIBLE     = 3;
@@ -438,7 +449,6 @@
   const MAX_OFFSET  = TOTAL_CARDS - VISIBLE;
 
   let offset = 0;
-
   const track    = document.getElementById('highlights-track');
   const viewport = document.getElementById('highlights-viewport');
   const prevBtn  = document.getElementById('hl-prev');
@@ -463,17 +473,15 @@
 
   prevBtn.addEventListener('click', () => goTo(offset - STEP));
   nextBtn.addEventListener('click', () => goTo(offset + STEP));
-
   let touchStartX = 0;
   viewport.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
   viewport.addEventListener('touchend', e => {
     const dx = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(dx) > 40) goTo(dx < 0 ? offset + STEP : offset - STEP);
   }, { passive: true });
-
   goTo(0);
   window.addEventListener('resize', () => goTo(offset));
-  // Shift tracker
+
   function updateShift() {
     const n = new Date();
     const shiftStart = new Date(n); shiftStart.setHours(8, 0, 0, 0);
@@ -484,8 +492,8 @@
     const timeEl   = document.getElementById('hl-shift-time');
     const remainEl = document.getElementById('hl-shift-remain');
     const barEl    = document.getElementById('hl-shift-bar');
-    if (timeEl)   timeEl.textContent   = hh + ':' + mm;
-    if (barEl)    barEl.style.width    = pct + '%';
+    if (timeEl)   timeEl.textContent = hh + ':' + mm;
+    if (barEl)    barEl.style.width  = pct + '%';
     if (remainEl) {
       if (n < shiftStart)    remainEl.textContent = 'Shift not started';
       else if (n > shiftEnd) remainEl.textContent = 'Shift ended';
@@ -499,23 +507,19 @@
   setInterval(updateShift, 60000);
 })();
 
-// ── Customize Highlight Cards — 6 cards ──
 const ALL_CARDS = [
-  { id: 'hl-card-1', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallet-icon lucide-wallet"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', name: 'Total Collected' },
-  { id: 'hl-card-2', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive-icon lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>', name: 'Payments Recorded' },
-  { id: 'hl-card-3', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-pull-request-closed-icon lucide-git-pull-request-closed"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg>', name: 'Requests for Approval' },
-  { id: 'hl-card-4', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-fold-icon lucide-calendar-fold"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>', name: 'Month-to-Date Collection' },
-  { id: 'hl-card-5', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock2-icon lucide-clock-2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg>', name: 'Shift Tracker' },
-  { id: 'hl-card-6', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy-icon lucide-trophy"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg>', name: 'Top Revenue Today' },
+  { id: 'hl-card-1', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', name: 'Total Collected' },
+  { id: 'hl-card-2', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>', name: 'Payments Recorded' },
+  { id: 'hl-card-3', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg>', name: 'Requests for Approval' },
+  { id: 'hl-card-4', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>', name: 'Month-to-Date Collection' },
+  { id: 'hl-card-5', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4-2"/></svg>', name: 'Shift Tracker' },
+  { id: 'hl-card-6', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg>', name: 'Top Revenue Today' },
 ];
 
-let cardState    = ALL_CARDS.map(c => ({ ...c, visible: true }));
+let cardState = ALL_CARDS.map(c => ({ ...c, visible: true }));
 let dragSrcIndex = null;
 
-function openCustomizeModal() {
-  renderCustomizeList();
-  openModal('modal-customize');
-}
+function openCustomizeModal() { renderCustomizeList(); openModal('modal-customize'); }
 
 function renderCustomizeList() {
   const list = document.getElementById('cust-card-list');
@@ -525,42 +529,17 @@ function renderCustomizeList() {
     item.className = 'cust-card-item';
     item.draggable = true;
     item.dataset.index = i;
-    item.innerHTML = `
-      <span class="cust-drag-handle">⠿</span>
-      <span class="cust-card-icon">${card.icon}</span>
-      <span class="cust-card-name">${card.name}</span>
-      <button class="cust-toggle ${card.visible ? 'on' : ''}" onclick="toggleCard(${i})" title="${card.visible ? 'Hide' : 'Show'}"></button>
-    `;
-    item.addEventListener('dragstart', () => {
-      dragSrcIndex = i;
-      setTimeout(() => item.classList.add('dragging'), 0);
-    });
-    item.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', e => {
-      e.preventDefault();
-      document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('drop', e => {
-      e.preventDefault();
-      if (dragSrcIndex === null || dragSrcIndex === i) return;
-      const moved = cardState.splice(dragSrcIndex, 1)[0];
-      cardState.splice(i, 0, moved);
-      dragSrcIndex = null;
-      renderCustomizeList();
-    });
+    item.innerHTML = `<span class="cust-drag-handle">⠿</span><span class="cust-card-icon">${card.icon}</span><span class="cust-card-name">${card.name}</span><button class="cust-toggle ${card.visible ? 'on' : ''}" onclick="toggleCard(${i})"></button>`;
+    item.addEventListener('dragstart', () => { dragSrcIndex = i; setTimeout(() => item.classList.add('dragging'), 0); });
+    item.addEventListener('dragend', () => { item.classList.remove('dragging'); document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over')); });
+    item.addEventListener('dragover', e => { e.preventDefault(); document.querySelectorAll('.cust-card-item').forEach(el => el.classList.remove('drag-over')); item.classList.add('drag-over'); });
+    item.addEventListener('drop', e => { e.preventDefault(); if (dragSrcIndex === null || dragSrcIndex === i) return; const moved = cardState.splice(dragSrcIndex, 1)[0]; cardState.splice(i, 0, moved); dragSrcIndex = null; renderCustomizeList(); });
     list.appendChild(item);
   });
 }
 
 function toggleCard(index) {
-  if (cardState[index].visible && cardState.filter(c => c.visible).length <= 1) {
-    showToast('At least 1 card must remain visible.', true);
-    return;
-  }
+  if (cardState[index].visible && cardState.filter(c => c.visible).length <= 1) { showToast('At least 1 card must remain visible.', true); return; }
   cardState[index].visible = !cardState[index].visible;
   renderCustomizeList();
 }

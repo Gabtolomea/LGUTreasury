@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -31,7 +31,7 @@
         }
 
 
-@@keyframes fadeSlideIn {
+/*@@keyframes fadeSlideIn {
     from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0); }
 }
@@ -40,9 +40,9 @@
     flex: 1;
     overflow-y: auto;
     background: #f0f0f0;
-    animation: fadeSlideIn .3s ease forwards;
+    animation: fadeSlideIn .5s ease forwards;
 }
-
+*/
         /* TOP NAV */
         .topnav {
             height: 80px; background: #388E3C;
@@ -336,7 +336,7 @@
 
 
  
-document.querySelectorAll('a[href]:not([target="_blank"])').forEach(link => {
+/*document.querySelectorAll('a[href]:not([target="_blank"])').forEach(link => {
     link.addEventListener('click', function(e) {
         const href = this.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript') || href === '') return;
@@ -347,7 +347,7 @@ document.querySelectorAll('a[href]:not([target="_blank"])').forEach(link => {
         mc.style.transform = 'translateY(-20px)';
         setTimeout(() => { window.location.href = href; }, 220);
     });
-});
+});*/
 
 
 
