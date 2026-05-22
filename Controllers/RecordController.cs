@@ -212,13 +212,55 @@ namespace LGUTreasury.Controllers
             ViewData["Role"]      = role;
             ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
-            var records = await _context.PaymentRecords
+            var today = DateTime.Today;
+
+            // ── Parse filter params ───────────────────────────────────────
+            var fromStr      = Request.Query["from"].ToString();
+            var toStr        = Request.Query["to"].ToString();
+            var collectorStr = Request.Query["collectorId"].ToString();
+
+            var filterFrom = DateTime.TryParse(fromStr, out var pFrom)
+                ? pFrom.Date
+                : (DateTime?)null;
+
+            var filterTo = DateTime.TryParse(toStr, out var pTo)
+                ? pTo.Date
+                : (DateTime?)null;
+
+            var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0
+                ? pCol
+                : (int?)null;
+
+            // Pass back to view so inputs retain their values
+            ViewBag.FilterFrom        = filterFrom?.ToString("yyyy-MM-dd") ?? "";
+            ViewBag.FilterTo          = filterTo?.ToString("yyyy-MM-dd") ?? "";
+            ViewBag.FilterCollectorId = filterCollectorId ?? 0;
+
+            // ── Build records query ───────────────────────────────────────
+            var query = _context.PaymentRecords
                 .Include(p => p.Payee)
                 .Include(p => p.CollectedBy)
                 .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
+                .AsQueryable();
+
+            if (filterFrom.HasValue)
+                query = query.Where(p => p.DateIssued.Date >= filterFrom.Value);
+
+            if (filterTo.HasValue)
+                query = query.Where(p => p.DateIssued.Date <= filterTo.Value);
+
+            if (filterCollectorId.HasValue)
+                query = query.Where(p => p.CollectedBy_UserID == filterCollectorId.Value);
+
+            var records = await query
                 .OrderByDescending(p => p.DateIssued)
                 .ToListAsync();
 
+            // ── Filter stats ──────────────────────────────────────────────
+            ViewBag.FilteredTotal = records.Sum(p => p.TotalAmount).ToString("N2");
+            ViewBag.FilteredCount = records.Count;
+
+            // ── Messages (Officer/Admin) ──────────────────────────────────
             if (role == "Officer" || role == "Admin")
             {
                 ViewBag.EditRequests = await _context.Editrequests
@@ -235,6 +277,7 @@ namespace LGUTreasury.Controllers
 
             ViewBag.Collectors = await _context.UserAccounts
                 .Where(u => u.Role == "Collector" && u.IsActive == true)
+                .OrderBy(u => u.LastName)
                 .ToListAsync();
 
             return View(records);
@@ -259,7 +302,6 @@ namespace LGUTreasury.Controllers
 
             if (payment == null) return Json(new { success = false, message = "Record not found." });
 
-            // Update payment record
             payment.OfficialReceipt    = OfficialReceipt;
             payment.DateIssued         = DateIssued;
             payment.PaymentMethod      = PaymentMethod;
@@ -268,14 +310,13 @@ namespace LGUTreasury.Controllers
             payment.TotalBaseAmount    = TotalAmount;
             payment.CollectedBy_UserID = CollectedBy_UserID;
 
-            // Update line item so analytics LineTotal stays in sync
             var lineItem = payment.RecordLineItems?.FirstOrDefault();
             if (lineItem != null)
             {
-                lineItem.LineTotal        = TotalAmount;
-                lineItem.BaseAmount       = TotalAmount;
-                lineItem.SurchargeAmount  = 0;
-                lineItem.InterestAmount   = 0;
+                lineItem.LineTotal       = TotalAmount;
+                lineItem.BaseAmount      = TotalAmount;
+                lineItem.SurchargeAmount = 0;
+                lineItem.InterestAmount  = 0;
             }
 
             await _context.SaveChangesAsync();
@@ -366,11 +407,11 @@ namespace LGUTreasury.Controllers
 
     public class SavePayeeRequest
     {
-        public string FirstName      { get; set; } = "";
-        public string? MiddleName    { get; set; }
-        public string LastName       { get; set; } = "";
-        public string? Suffix        { get; set; }
-        public string? ContactNumber { get; set; }
+        public string FirstName         { get; set; } = "";
+        public string? MiddleName       { get; set; }
+        public string LastName          { get; set; } = "";
+        public string? Suffix           { get; set; }
+        public string? ContactNumber    { get; set; }
         public string? ResidenceAddress { get; set; }
     }
 }

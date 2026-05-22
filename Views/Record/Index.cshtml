@@ -10,6 +10,54 @@
 
 <link rel="stylesheet" href="~/css/records.css" />
 
+<style>
+/* ── Records Filter Bar ── */
+.records-filter-bar {
+    display: flex; align-items: flex-end; gap: 10px;
+    flex-wrap: wrap;
+    background: white; border: 1px solid var(--gray-border);
+    border-radius: 10px; padding: 12px 16px;
+    box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.filter-field { display: flex; flex-direction: column; gap: 4px; }
+.filter-field label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.filter-field input[type="date"],
+.filter-field select {
+    padding: 7px 10px; border: 1.5px solid var(--gray-border);
+    border-radius: 7px; font-size: 12.5px; font-family: inherit;
+    color: var(--text); background: var(--gray-input); outline: none;
+    min-width: 140px;
+}
+.filter-field input[type="date"]:focus,
+.filter-field select:focus { border-color: var(--green); background: white; }
+.filter-actions { display: flex; gap: 6px; align-items: flex-end; }
+.filter-apply-btn {
+    padding: 7px 16px; background: var(--green); color: white;
+    border: none; border-radius: 7px; font-size: 12.5px;
+    font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.filter-apply-btn:hover { background: var(--green-dark); }
+.filter-clear-btn {
+    padding: 7px 12px; background: white; color: var(--text-2);
+    border: 1.5px solid var(--gray-border); border-radius: 7px;
+    font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.filter-clear-btn:hover { border-color: var(--text-2); }
+
+/* ── Records Stats Widgets ── */
+.records-stats-row {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    margin-bottom: 12px;
+}
+.records-stat-card {
+    background: white; border: 1px solid var(--gray-border);
+    border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow);
+}
+.records-stat-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+.records-stat-value { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
+.records-stat-sub { font-size: 11.5px; color: var(--green); font-weight: 500; margin-top: 3px; }
+</style>
+
 @Html.AntiForgeryToken()
 
 @if (TempData["Toast"] != null)
@@ -23,7 +71,6 @@
 
 @if (isCollector)
 {
-    <!-- Inject all records as JSON for client-side filtering -->
     <script>
         const allCollectorRecords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.Select(r => new {
@@ -77,12 +124,73 @@
 
     <!-- RECORDS PANEL -->
     <div id="panel-records">
+
+        <!-- Filter Bar -->
+        <form method="get" action="/Record/Index" class="records-filter-bar">
+            <div class="filter-field">
+                <label>From</label>
+                <input type="date" name="from" value="@ViewBag.FilterFrom" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="filter-field">
+                <label>To</label>
+                <input type="date" name="to" value="@ViewBag.FilterTo" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="filter-field">
+                <label>Collector</label>
+                <select name="collectorId">
+                    <option value="0">All Collectors</option>
+                    @if (ViewBag.Collectors != null)
+                    {
+                        foreach (var c in (IEnumerable<LGUTreasury.Models.UserAccount>)ViewBag.Collectors)
+                        {
+                            if ((int)ViewBag.FilterCollectorId == c.UserID)
+                            {
+                                <option value="@c.UserID" selected>@c.LastName, @c.FirstName</option>
+                            }
+                            else
+                            {
+                                <option value="@c.UserID">@c.LastName, @c.FirstName</option>
+                            }
+                        }
+                    }
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="filter-apply-btn">Apply</button>
+                <a href="/Record/Index" class="filter-clear-btn">Clear</a>
+            </div>
+        </form>
+
+        <!-- Stats Widgets -->
+        <div class="records-stats-row">
+            <div class="records-stat-card">
+                <div class="records-stat-label">Total Amount</div>
+                <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
+                <div class="records-stat-sub">
+                    @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
+                    {
+                        <span>Filtered results</span>
+                    }
+                    else
+                    {
+                        <span>All records</span>
+                    }
+                </div>
+            </div>
+            <div class="records-stat-card">
+                <div class="records-stat-label">Transactions</div>
+                <div class="records-stat-value">@ViewBag.FilteredCount</div>
+                <div class="records-stat-sub">payment records</div>
+            </div>
+        </div>
+
         <div class="records-toolbar">
             <div class="search-bar" style="flex:1">
                 <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
                 <input type="text" placeholder="Search by name, receipt, or type…" oninput="filterRecords(this.value)" />
             </div>
         </div>
+
         <div class="data-table-wrap">
             <table class="data-table">
                 <thead>
@@ -163,7 +271,6 @@
     {
         <div id="panel-mycollections" style="display:none">
 
-            <!-- Filter Bar -->
             <div class="records-toolbar" style="flex-wrap:wrap;gap:8px">
                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                     <button class="filter-btn active" id="filter-today"     onclick="setCollectionFilter('today')">Today</button>
@@ -178,7 +285,6 @@
                 </div>
             </div>
 
-            <!-- Stat Widgets -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
                 <div class="stat-widget">
                     <div class="stat-widget-label">Total Collected</div>
@@ -197,7 +303,6 @@
                 </div>
             </div>
 
-            <!-- Collections Table -->
             <div class="data-table-wrap">
                 <table class="data-table">
                     <thead>

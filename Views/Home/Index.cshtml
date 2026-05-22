@@ -110,7 +110,7 @@
 .panel-title { font-size: 13px; font-weight: 700; color: var(--text); }
 .panel-sub   { font-size: 12px; color: var(--green); font-weight: 600; text-decoration: none; }
 
-/* ── Collector Leaderboard ── */
+/* ── Collector Filters ── */
 .leaderboard-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .leaderboard-filters input[type="date"] {
   padding: 5px 10px; border: 1.5px solid var(--gray-border);
@@ -125,14 +125,16 @@
 }
 .leaderboard-filters button:hover { background: var(--green-dark); }
 
-.collector-row { padding: 10px 16px; border-bottom: 1px solid #f5f5f5; }
+/* ── Collector Row ── */
+.collector-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid #f5f5f5; gap: 12px;
+}
 .collector-row:last-child { border-bottom: none; }
-.collector-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.collector-info { display: flex; flex-direction: column; gap: 2px; }
 .collector-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
-.collector-amount { font-size: 12.5px; font-weight: 700; color: var(--green-dark); }
-.collector-bar-bg { height: 6px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
-.collector-bar-fill { height: 6px; background: var(--green); border-radius: 4px; transition: width .6s ease; }
-.collector-meta { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.collector-empid { font-size: 11px; color: var(--text-3); }
+.collector-amount { font-size: 13px; font-weight: 700; color: var(--green-dark); white-space: nowrap; }
 
 /* ── Bar Chart ── */
 .chart-wrap { padding: 12px 16px; }
@@ -248,13 +250,13 @@
               <div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></div>
               <div class="stat-value">₱ @ViewBag.CollectedTotal</div>
             </div>
-            <div class="stat-sub">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</div>
+            <div class="stat-sub">@ViewBag.LeaderboardFrom to @ViewBag.LeaderboardTo</div>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-2">
             <div class="stat-card-label">Payments Recorded</div>
             <div class="stat-card-icon-row"><div class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></div><div class="stat-value">@ViewBag.PaymentsCount</div></div>
-            <span class="stat-badge badge-green">@(ViewData["CurrentFilter"]?.ToString() == "week" ? "This Week" : "This Month")</span>
+            <span class="stat-badge badge-green">@ViewBag.LeaderboardFrom to @ViewBag.LeaderboardTo</span>
           </div>
 
           <div class="stat-card hl-card" data-card-id="hl-card-3">
@@ -290,10 +292,10 @@
     </div>
     <div class="hl-dots" id="hl-dots"></div>
 
-    <!-- Collector Leaderboard -->
+    <!-- Collector Summary -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">Collector Leaderboard</div>
+        <div class="panel-title">Collector Summary</div>
         <form method="get" class="leaderboard-filters" id="leaderboard-form">
           <input type="date" name="from" value="@ViewBag.LeaderboardFrom" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
           <span style="font-size:12px;color:var(--text-3)">to</span>
@@ -304,7 +306,6 @@
 
       @{
           var leaderboard = ViewBag.Leaderboard as IEnumerable<dynamic>;
-          var maxAmount   = leaderboard?.Any() == true ? (decimal)leaderboard.Max(c => c.Total) : 1m;
       }
 
       @if (leaderboard == null || !leaderboard.Any())
@@ -313,24 +314,15 @@
       }
       else
       {
-          int rank = 1;
           foreach (var c in leaderboard)
           {
-              decimal pct = maxAmount > 0 ? Math.Round((decimal)c.Total / maxAmount * 100, 1) : 0;
               <div class="collector-row">
-                  <div class="collector-top">
-                      <div class="collector-name">
-                          <span style="color:var(--text-3);font-size:11px;margin-right:6px">#@rank</span>
-                          @c.Name
-                      </div>
-                      <div class="collector-amount">₱ @((decimal)c.Total)</div>
+                  <div class="collector-info">
+                      <div class="collector-name">@c.Name</div>
+                      <div class="collector-empid">ID: @c.EmployeeID</div>
                   </div>
-                  <div class="collector-bar-bg">
-                      <div class="collector-bar-fill" style="width:@pct%"></div>
-                  </div>
-                  <div class="collector-meta">@c.Count transactions · @pct% of top</div>
+                  <div class="collector-amount">₱ @((decimal)c.Total)</div>
               </div>
-              rank++;
           }
       }
 
@@ -508,7 +500,7 @@
 })();
 
 const ALL_CARDS = [
-  { id: 'hl-card-1', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', name: 'Total Collected' },
+  { id: 'hl-card-1', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', name: 'Total Recorded' },
   { id: 'hl-card-2', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>', name: 'Payments Recorded' },
   { id: 'hl-card-3', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="m21 3-6 6"/><path d="m21 9-6-6"/><path d="M18 11.5V15"/><circle cx="18" cy="18" r="3"/></svg>', name: 'Requests for Approval' },
   { id: 'hl-card-4', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20a2 2 0 0 0 2 2h10a2.4 2.4 0 0 0 1.706-.706l3.588-3.588A2.4 2.4 0 0 0 21 16V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><path d="M15 22v-5a1 1 0 0 1 1-1h5"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>', name: 'Month-to-Date Collection' },
