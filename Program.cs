@@ -13,6 +13,29 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 var app = builder.Build();
 
+// ── Seed default admin ────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.EnsureCreated();
+
+    if (!context.UserAccounts.Any(u => u.Role == "Admin"))
+    {
+        context.UserAccounts.Add(new LGUTreasury.Models.UserAccount
+        {
+            EmployeeID   = "ADMIN001",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@1234"),
+            Role         = "Admin",
+            Status       = "Active",
+            FirstName    = "System",
+            LastName     = "Administrator",
+            IsActive     = true,
+            CreatedAt    = DateTime.Now
+        });
+        context.SaveChanges();
+    }
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

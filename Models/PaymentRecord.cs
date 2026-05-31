@@ -52,5 +52,7 @@ namespace LGUTreasury.Models
 
         public bool IsCollected { get; set; } = false;
         public DateTime? CollectedConfirmedAt { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 }

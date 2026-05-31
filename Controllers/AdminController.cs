@@ -26,9 +26,9 @@ namespace LGUTreasury.Controllers
                 return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "accountrequests";
-            ViewData["FullName"] = HttpContext.Session.GetString("FullName");
-            ViewData["Role"] = role;
-            ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
+            ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
+            ViewData["Role"]      = role;
+            ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
             var pendingAccounts = await _context.UserAccounts
                 .Where(u => u.Status == "Pending")
@@ -55,7 +55,7 @@ namespace LGUTreasury.Controllers
                 return Json(new { success = false, message = "Account not found." });
 
             user.Status = "Active";
-            user.Role = role;
+            user.Role   = role;
             await _context.SaveChangesAsync();
 
             return Json(new { success = true });
@@ -78,6 +78,57 @@ namespace LGUTreasury.Controllers
                 return Json(new { success = false, message = "Account not found." });
 
             _context.UserAccounts.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        // GET: /Admin/ManageUsers
+        public async Task<IActionResult> ManageUsers()
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null)
+                return RedirectToAction("Login", "Account");
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Admin")
+                return RedirectToAction("Index", "Home");
+
+            ViewData["ActiveNav"] = "manageusers";
+            ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
+            ViewData["Role"]      = role;
+            ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
+
+            var users = await _context.UserAccounts
+                .Where(u => u.Status == "Active")
+                .OrderBy(u => u.LastName)
+                .ToListAsync();
+
+            return View(users);
+        }
+
+        // POST: /Admin/ResetPassword
+        [HttpPost]
+        public async Task<IActionResult> ResetPassword(int userID, string newPassword)
+        {
+            var adminID = HttpContext.Session.GetInt32("UserID");
+            if (adminID == null)
+                return Json(new { success = false, message = "Not logged in." });
+
+            var adminRole = HttpContext.Session.GetString("Role");
+            if (adminRole != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+                return Json(new { success = false, message = "Password must be at least 6 characters." });
+
+            var user = await _context.UserAccounts.FindAsync(userID);
+            if (user == null)
+                return Json(new { success = false, message = "User not found." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.OtpCode      = null;
+            user.OtpExpiry    = null;
             await _context.SaveChangesAsync();
 
             return Json(new { success = true });

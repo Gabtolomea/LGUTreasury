@@ -3,6 +3,7 @@ using System;
 using LGUTreasury.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LGUTreasury.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260528162347_AddDeletedByNameToDeletedRecord")]
+    partial class AddDeletedByNameToDeletedRecord
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -80,9 +83,6 @@ namespace LGUTreasury.Migrations
 
                     b.Property<DateTime>("DeletedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("DeletedByName")
-                        .HasColumnType("longtext");
 
                     b.Property<int?>("DeletedByUserID")
                         .HasColumnType("int");
@@ -486,9 +486,6 @@ namespace LGUTreasury.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Email")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("EmployeeID")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -506,12 +503,6 @@ namespace LGUTreasury.Migrations
 
                     b.Property<string>("MiddleName")
                         .HasColumnType("longtext");
-
-                    b.Property<string>("OtpCode")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("OtpExpiry")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()

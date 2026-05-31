@@ -35,6 +35,12 @@ namespace LGUTreasury.Models
 
         public string Status { get; set; } = "Pending";
 
+        public string? Email { get; set; }
+
+        public string? OtpCode { get; set; }
+
+        public DateTime? OtpExpiry { get; set; }
+ 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

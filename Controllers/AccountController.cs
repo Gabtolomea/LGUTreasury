@@ -98,6 +98,7 @@ public async Task<IActionResult> Register(RegisterViewModel model)
         LastName = model.LastName,
         Suffix = model.Suffix,
         ContactNumber = model.ContactNumber,
+        Email = model.Email,
         Address = model.Address,
         IsActive = true,
         CreatedAt = DateTime.Now

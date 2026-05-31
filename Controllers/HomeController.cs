@@ -150,12 +150,13 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
-        private string GetInitials(string? fullName)
-        {
-            if (string.IsNullOrEmpty(fullName)) return "?";
-            var parts = fullName.Split(' ');
-            if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
-            return fullName[0].ToString().ToUpper();
-        }
+      private string GetInitials(string? fullName)
+{
+    if (string.IsNullOrWhiteSpace(fullName)) return "?";
+    var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    if (parts.Length == 1 && parts[0].Length > 0) return parts[0][0].ToString().ToUpper();
+    return "?";
+}
     }
 }

@@ -1,0 +1,80 @@
+@{
+    ViewData["Title"] = "Verify OTP";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify OTP — LGU Revenue Record System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/auth.css" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Inter', sans-serif; }
+        :root {
+            --green: #388E3C; --green-dark: #2E7D32; --green-light: #C8E6C9;
+            --gray-input: #ebebeb; --gray-border: #E0E0E0;
+            --text: #1a1a1a; --text-2: #444; --text-3: #888;
+            --red: #c0392b; --shadow: 0 2px 12px rgba(0,0,0,.08);
+        }
+        body { display: flex; min-height: 100vh; }
+        .form-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; padding: 14px; background: var(--gray-input); border: 1.5px solid transparent; border-radius: 8px; font-size: 22px; font-weight: 700; font-family: 'Inter', sans-serif; color: var(--text); text-align: center; letter-spacing: 10px; transition: border-color .2s, background .2s; outline: none; }
+        .form-input:focus { border-color: #388E3C; background: white; }
+        .btn-primary { width: 100%; padding: 14px; background: #388E3C; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; letter-spacing: .04em; }
+        .btn-primary:hover { background: #2E7D32; }
+        .resend-link { font-size: 13px; color: var(--green); font-weight: 600; text-decoration: none; }
+        .resend-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="auth-left" style="width:42%">
+        <img src="~/images/lgu.png" alt="LGU Logo" onerror="this.style.display='none'" />
+        <div class="auth-left-title"><span>LGU</span> Revenue<br>Record System</div>
+        <div class="auth-left-desc">Enter the 6-digit OTP sent to your registered email. It expires in 10 minutes.</div>
+        <div class="auth-left-footer">Republic of the Philippines &nbsp;·&nbsp; Local Government Unit of Ginatilan</div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-card login-card-wrap">
+            <div class="auth-card-header">
+                <div class="auth-card-label">Municipality of Ginatilan</div>
+                <div class="auth-card-title">Enter OTP</div>
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div style="background:#fdecea;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
+                    @TempData["Error"]
+                </div>
+            }
+            @if (TempData["Success"] != null)
+            {
+                <div style="background:#f0fdf4;color:#388E3C;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
+                    @TempData["Success"]
+                </div>
+            }
+
+            <p style="font-size:13px;color:var(--text-3);margin-bottom:18px">Check your email for the 6-digit OTP and enter it below.</p>
+
+            <form asp-action="VerifyOtp" asp-controller="ForgotPassword" method="post">
+                @Html.AntiForgeryToken()
+                <div class="auth-form-group" style="margin-bottom:18px">
+                    <label class="form-label">One-Time Password</label>
+                    <input type="text" class="form-input" name="OtpCode" placeholder="000000" maxlength="6" inputmode="numeric" required />
+                </div>
+                <button type="submit" class="btn-primary">VERIFY OTP</button>
+            </form>
+
+            <div style="text-align:center;margin-top:16px">
+                <a href="@Url.Action("ResendOtp", "ForgotPassword")" class="resend-link">Didn't receive it? Resend OTP</a>
+            </div>
+            <div class="auth-switch-link" style="margin-top:10px">
+                <a asp-action="Index" asp-controller="ForgotPassword">← Back</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -14,7 +14,6 @@ namespace LGUTreasury.Controllers
             _context = context;
         }
 
-        // GET: /Record/SearchPayee
         [HttpGet]
         public async Task<IActionResult> SearchPayee(string query)
         {
@@ -33,7 +32,6 @@ namespace LGUTreasury.Controllers
             return Json(results);
         }
 
-        // POST: /Record/SavePayee
         [HttpPost]
         public async Task<IActionResult> SavePayee([FromBody] SavePayeeRequest req)
         {
@@ -61,7 +59,6 @@ namespace LGUTreasury.Controllers
             });
         }
 
-        // GET: /Record/GetNextTransactionID
         [HttpGet]
         public async Task<IActionResult> GetNextTransactionID()
         {
@@ -72,7 +69,6 @@ namespace LGUTreasury.Controllers
             return Json(new { transactionID = "TXN-" + (lastID + 1).ToString("D6") });
         }
 
-        // GET: /Record/GetPaymentDetails
         [HttpGet]
         public async Task<IActionResult> GetPaymentDetails(int paymentID)
         {
@@ -92,14 +88,12 @@ namespace LGUTreasury.Controllers
                 totalAmount        = payment.TotalAmount,
                 collectedBy_UserID = payment.CollectedBy_UserID,
                 collectedByName    = payment.CollectedBy != null
-                    ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}"
-                    : "—",
+                    ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 typeID   = payment.RecordLineItems?.FirstOrDefault()?.TypeID,
                 typeName = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name
             });
         }
 
-        // GET: /Record/Create
         public async Task<IActionResult> Create()
         {
             var userID = HttpContext.Session.GetInt32("UserID");
@@ -117,7 +111,6 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
-        // POST: /Record/Create
         [HttpPost]
         public async Task<IActionResult> Create(
             int? PayeeID, string? FirstName, string? LastName,
@@ -200,7 +193,6 @@ namespace LGUTreasury.Controllers
             return RedirectToAction("Index");
         }
 
-        // GET: /Record/Index
         public async Task<IActionResult> Index()
         {
             var userID = HttpContext.Session.GetInt32("UserID");
@@ -212,61 +204,48 @@ namespace LGUTreasury.Controllers
             ViewData["Role"]      = role;
             ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
-            var today = DateTime.Today;
-
-            // ── Parse filter params ───────────────────────────────────────
             var fromStr      = Request.Query["from"].ToString();
             var toStr        = Request.Query["to"].ToString();
             var collectorStr = Request.Query["collectorId"].ToString();
 
-            var filterFrom = DateTime.TryParse(fromStr, out var pFrom)
-                ? pFrom.Date
-                : (DateTime?)null;
+            var filterFrom = DateTime.TryParse(fromStr, out var pFrom) ? pFrom.Date : (DateTime?)null;
+            var filterTo   = DateTime.TryParse(toStr,   out var pTo)   ? pTo.Date   : (DateTime?)null;
+            var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0 ? pCol : (int?)null;
 
-            var filterTo = DateTime.TryParse(toStr, out var pTo)
-                ? pTo.Date
-                : (DateTime?)null;
-
-            var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0
-                ? pCol
-                : (int?)null;
-
-            // Pass back to view so inputs retain their values
             ViewBag.FilterFrom        = filterFrom?.ToString("yyyy-MM-dd") ?? "";
             ViewBag.FilterTo          = filterTo?.ToString("yyyy-MM-dd") ?? "";
             ViewBag.FilterCollectorId = filterCollectorId ?? 0;
 
-            // ── Build records query ───────────────────────────────────────
             var query = _context.PaymentRecords
                 .Include(p => p.Payee)
                 .Include(p => p.CollectedBy)
                 .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
+                .Where(p => !p.IsDeleted)
                 .AsQueryable();
 
             if (filterFrom.HasValue)
                 query = query.Where(p => p.DateIssued.Date >= filterFrom.Value);
-
             if (filterTo.HasValue)
                 query = query.Where(p => p.DateIssued.Date <= filterTo.Value);
-
             if (filterCollectorId.HasValue)
                 query = query.Where(p => p.CollectedBy_UserID == filterCollectorId.Value);
 
-            var records = await query
-                .OrderByDescending(p => p.DateIssued)
-                .ToListAsync();
+            var records = await query.OrderByDescending(p => p.DateIssued).ToListAsync();
 
-            // ── Filter stats ──────────────────────────────────────────────
             ViewBag.FilteredTotal = records.Sum(p => p.TotalAmount).ToString("N2");
             ViewBag.FilteredCount = records.Count;
 
-            // ── Messages (Officer/Admin) ──────────────────────────────────
             if (role == "Officer" || role == "Admin")
             {
                 ViewBag.EditRequests = await _context.Editrequests
                     .Include(r => r.PaymentRecord).ThenInclude(p => p!.Payee)
                     .Include(r => r.RequestedBy)
                     .OrderByDescending(r => r.CreatedAt)
+                    .ToListAsync();
+
+                ViewBag.DeletedRecords = await _context.DeletedRecords
+                    .Include(d => d.DeletedBy)
+                    .OrderByDescending(d => d.DeletedAt)
                     .ToListAsync();
             }
 
@@ -283,7 +262,6 @@ namespace LGUTreasury.Controllers
             return View(records);
         }
 
-        // POST: /Record/EditRecord
         [HttpPost]
         public async Task<IActionResult> EditRecord(
             int PaymentID, string OfficialReceipt, DateTime DateIssued,
@@ -323,7 +301,106 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        // POST: /Record/SendMessage
+        // POST: /Record/DeleteRecord
+        [HttpPost]
+        public async Task<IActionResult> DeleteRecord(int PaymentID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var payment = await _context.PaymentRecords
+                .Include(p => p.Payee)
+                .Include(p => p.CollectedBy)
+                .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
+                .FirstOrDefaultAsync(p => p.PaymentID == PaymentID);
+
+            if (payment == null) return Json(new { success = false, message = "Record not found." });
+
+            var user = await _context.UserAccounts.FindAsync(userID);
+
+            var deleted = new DeletedRecord
+            {
+                PaymentID        = payment.PaymentID,
+                PayeeName        = payment.Payee != null ? $"{payment.Payee.Lastname}, {payment.Payee.Firstname}" : "—",
+                CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
+                CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
+                DeletedBy_UserID = userID.Value,
+                DeletedByName    = user != null ? $"{user.LastName}, {user.FirstName}" : "—",
+                DeletedAt        = DateTime.Now
+            };
+
+            _context.DeletedRecords.Add(deleted);
+            payment.IsDeleted = true;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        // POST: /Record/RestoreRecord
+        [HttpPost]
+        public async Task<IActionResult> RestoreRecord(int DeletedRecordID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var deletedRecord = await _context.DeletedRecords
+                .FirstOrDefaultAsync(d => d.DeletedRecordID == DeletedRecordID);
+
+            if (deletedRecord == null) return Json(new { success = false, message = "Record not found." });
+
+            var payment = await _context.PaymentRecords
+                .FirstOrDefaultAsync(p => p.PaymentID == deletedRecord.PaymentID);
+
+            if (payment == null) return Json(new { success = false, message = "Original record not found." });
+
+            payment.IsDeleted = false;
+            _context.DeletedRecords.Remove(deletedRecord);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        // POST: /Record/PermanentDelete
+        [HttpPost]
+        public async Task<IActionResult> PermanentDelete(int DeletedRecordID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var deletedRecord = await _context.DeletedRecords
+                .FirstOrDefaultAsync(d => d.DeletedRecordID == DeletedRecordID);
+
+            if (deletedRecord == null) return Json(new { success = false, message = "Record not found." });
+
+            var payment = await _context.PaymentRecords
+                .Include(p => p.RecordLineItems)
+                .FirstOrDefaultAsync(p => p.PaymentID == deletedRecord.PaymentID);
+
+            if (payment != null)
+            {
+                if (payment.RecordLineItems != null)
+                    _context.RecordLineItems.RemoveRange(payment.RecordLineItems);
+                _context.PaymentRecords.Remove(payment);
+            }
+
+            _context.DeletedRecords.Remove(deletedRecord);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
         [HttpPost]
         public async Task<IActionResult> SendMessage(int PaymentID, string? Reason)
         {
@@ -354,7 +431,6 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        // POST: /Record/ResolveMessage
         [HttpPost]
         public async Task<IActionResult> ResolveMessage(int RequestID, string? ReviewNote)
         {

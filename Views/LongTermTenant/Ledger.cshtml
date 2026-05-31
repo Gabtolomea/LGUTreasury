@@ -96,7 +96,7 @@
                     <th>Bill ID</th>
                     <th>Billing Month</th>
                     <th>Billing Type</th>
-                    <th>Amount</th>
+                    <th>Balance</th>
                     <th>OR Number</th>
                     <th>Date Paid</th>
                     <th>Status</th>
@@ -140,7 +140,7 @@
                                 @if (!isPaid)
                                 {
                                     <button class="action-btn btn-pay" onclick="openMarkPaid(@bill.MonthlyBillID, '@billNo', '@monthDisplay')">
-                                        Mark Paid
+                                        Pay
                                     </button>
                                 }
                                 else

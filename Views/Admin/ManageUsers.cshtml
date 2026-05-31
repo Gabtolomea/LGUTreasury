@@ -1,0 +1,153 @@
+@using LGUTreasury.Models
+@model IEnumerable<UserAccount>
+@{
+    ViewData["Title"] = "Manage Users";
+    ViewData["ActiveNav"] = "manageusers";
+}
+
+<link rel="stylesheet" href="~/css/records.css" />
+
+@Html.AntiForgeryToken()
+
+<div class="records-page-wrap">
+    <div class="page-header-row">
+        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <div style="flex:1">
+            <div class="page-title">Manage Users</div>
+            <div class="page-sub">View active accounts and reset passwords</div>
+        </div>
+    </div>
+
+    <div class="records-toolbar">
+        <div class="search-bar" style="flex:1">
+            <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Search by name or ID…" oninput="filterUsers(this.value)" />
+        </div>
+    </div>
+
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Contact</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="users-tbody">
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">No active users found.</td></tr>
+                }
+                else
+                {
+                    @foreach (var user in Model)
+                    {
+                        var fullName = $"{user.LastName}, {user.FirstName}";
+                        <tr data-userid="@user.UserID">
+                            <td style="font-weight:700;color:var(--green-dark)">@user.EmployeeID</td>
+                            <td>@fullName</td>
+                            <td>
+                                <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;
+                                    background:@(user.Role == "Admin" ? "#fdecea" : user.Role == "Officer" ? "#fff3e0" : "var(--green-light)");
+                                    color:@(user.Role == "Admin" ? "var(--red)" : user.Role == "Officer" ? "var(--orange)" : "var(--green)")">
+                                    @user.Role
+                                </span>
+                            </td>
+                            <td style="color:var(--text-3)">
+                                @if (string.IsNullOrEmpty(user.Email))
+                                {
+                                    <span style="color:#ccc;font-style:italic">No email</span>
+                                }
+                                else
+                                {
+                                    @user.Email
+                                }
+                            </td>
+                            <td style="color:var(--text-3)">@(user.ContactNumber ?? "—")</td>
+                            <td>
+                                <button class="action-modify-btn" onclick="openResetPassword(@user.UserID, '@fullName')" title="Reset Password">
+                                    <span class="btn-icon">🔑</span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="modal-reset-password">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-title">Reset Password</div>
+        <div class="modal-sub" id="modal-reset-sub">Set a new password for this user.</div>
+        <input type="hidden" id="reset-user-id" />
+        <div class="form-group" style="margin-bottom:10px;margin-top:14px">
+            <label class="form-label">New Password</label>
+            <input type="password" class="form-input" id="reset-new-password" placeholder="At least 6 characters" />
+        </div>
+        <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-input" id="reset-confirm-password" placeholder="Re-enter new password" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-reset-password')">Cancel</button>
+            <button class="btn-primary" style="width:auto;padding:10px 22px;margin-top:0" onclick="submitResetPassword()">Reset Password</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    function filterUsers(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#users-tbody tr').forEach(tr => {
+            tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
+    function openResetPassword(userID, fullName) {
+        document.getElementById('reset-user-id').value = userID;
+        document.getElementById('modal-reset-sub').textContent = `Set a new password for ${fullName}.`;
+        document.getElementById('reset-new-password').value    = '';
+        document.getElementById('reset-confirm-password').value = '';
+        openModal('modal-reset-password');
+    }
+
+    async function submitResetPassword() {
+        const userID      = document.getElementById('reset-user-id').value;
+        const newPassword = document.getElementById('reset-new-password').value;
+        const confirm     = document.getElementById('reset-confirm-password').value;
+
+        if (!newPassword || newPassword.length < 6) {
+            showToast('Password must be at least 6 characters.', true);
+            return;
+        }
+        if (newPassword !== confirm) {
+            showToast('Passwords do not match.', true);
+            return;
+        }
+
+        const res  = await fetch('/Admin/ResetPassword', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': token
+            },
+            body: new URLSearchParams({ userID, newPassword })
+        });
+        const data = await res.json();
+
+        closeModal('modal-reset-password');
+        if (data.success) showToast('Password reset successfully.');
+        else showToast(data.message, true);
+    }
+</script>
+}

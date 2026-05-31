@@ -81,7 +81,7 @@
 
     <!-- 4 WIDGETS -->
     <div class="widgets-row">
-        <div class="widget-card expected-month">
+        <!--<div class="widget-card expected-month">
             <div class="widget-label">Expected This Month</div>
             <div class="widget-amount">₱ @ViewBag.ExpectedThisMonth.ToString("N2")</div>
             <div class="widget-sub">Total billed for @ViewBag.CurrentMonth</div>
@@ -90,14 +90,14 @@
             <div class="widget-label">Collected This Month</div>
             <div class="widget-amount">₱ @ViewBag.CollectedThisMonth.ToString("N2")</div>
             <div class="widget-sub">Paid bills for @ViewBag.CurrentMonth</div>
-        </div>
+        </div>-->
         <div class="widget-card total-expected">
-            <div class="widget-label">Total Expected</div>
+            <div class="widget-label">Total Receivables</div>
             <div class="widget-amount">₱ @ViewBag.TotalExpected.ToString("N2")</div>
             <div class="widget-sub">All bills ever generated</div>
         </div>
         <div class="widget-card total-collected">
-            <div class="widget-label">Total Collected</div>
+            <div class="widget-label">Actual Collected</div>
             <div class="widget-amount">₱ @ViewBag.TotalCollected.ToString("N2")</div>
             <div class="widget-sub">All paid bills ever</div>
         </div>
@@ -128,7 +128,7 @@
                     <th>Tenant Name</th>
                     <th>Address / Unit</th>
                     <th>Billing Types</th>
-                    <th>Total Balance</th>
+                    <th>Outstanding Balance</th>
                     <th>Start Month</th>
                     <th>Actions</th>
                 </tr>

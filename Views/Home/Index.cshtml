@@ -126,15 +126,15 @@
 .leaderboard-filters button:hover { background: var(--green-dark); }
 
 /* ── Collector Row ── */
-.collector-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; border-bottom: 1px solid #f5f5f5; gap: 12px;
-}
-.collector-row:last-child { border-bottom: none; }
-.collector-info { display: flex; flex-direction: column; gap: 2px; }
-.collector-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
-.collector-empid { font-size: 11px; color: var(--text-3); }
-.collector-amount { font-size: 13px; font-weight: 700; color: var(--green-dark); white-space: nowrap; }
+.collector-table { width: 100%; border-collapse: collapse; }
+.collector-table thead tr { border-bottom: 1px solid var(--gray-border); }
+.collector-table th { padding: 8px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); text-align: left; }
+.collector-table th.right { text-align: right; }
+.collector-table tbody tr { border-bottom: 1px solid #f5f5f5; }
+.collector-table tbody tr:last-child { border-bottom: none; }
+.collector-table td { padding: 10px 16px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.collector-table td.amount { font-weight: 700; color: var(--green-dark); text-align: right; }
+.collector-table td.muted { color: var(--text-3); font-weight: 500; }
 
 /* ── Bar Chart ── */
 .chart-wrap { padding: 12px 16px; }
@@ -314,16 +314,27 @@
       }
       else
       {
-          foreach (var c in leaderboard)
-          {
-              <div class="collector-row">
-                  <div class="collector-info">
-                      <div class="collector-name">@c.Name</div>
-                      <div class="collector-empid">ID: @c.EmployeeID</div>
-                  </div>
-                  <div class="collector-amount">₱ @((decimal)c.Total)</div>
-              </div>
-          }
+          <table class="collector-table">
+              <thead>
+                  <tr>
+                      <th>Name</th>
+                      <th>Employee ID</th>
+                      <th>Period</th>
+                      <th class="right">Amount Collected</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  @foreach (var c in leaderboard)
+                  {
+                      <tr>
+                          <td>@c.Name</td>
+                          <td class="muted">@c.EmployeeID</td>
+                          <td class="muted">@ViewBag.LeaderboardFrom – @ViewBag.LeaderboardTo</td>
+                          <td class="amount">₱ @((decimal)c.Total)</td>
+                      </tr>
+                  }
+              </tbody>
+          </table>
       }
 
       <!-- Bar chart -->
@@ -433,6 +444,7 @@
 </div>
 
 @section Scripts {
+
 <script>
 (function () {
   const TOTAL_CARDS = 6;

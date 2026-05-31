@@ -26,6 +26,8 @@ namespace LGUTreasury.Data
         public DbSet<AccountBillingType> AccountBillingTypes { get; set; }
         public DbSet<BillingTypeOption> BillingTypeOptions { get; set; }
         public DbSet<MonthlyBill> MonthlyBills { get; set; }
+
+        public DbSet<DeletedRecord> DeletedRecords { get; set; }
     }
     
 }
