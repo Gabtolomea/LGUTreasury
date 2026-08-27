@@ -254,3 +254,9 @@ C:\Users\gabriel tolomea\LGUTreasury\obj\Debug\net10.0\compressed\e06drbhiiu-{0}
 C:\Users\gabriel tolomea\LGUTreasury\obj\Debug\net10.0\compressed\x4m2rmqfd6-{0}-2bhfygxc9s-2bhfygxc9s.gz
 C:\Users\gabriel tolomea\LGUTreasury\obj\Debug\net10.0\compressed\0rv6zn2mqn-{0}-v6bcwx2e2v-v6bcwx2e2v.gz
 C:\Users\gabriel tolomea\LGUTreasury\obj\Debug\net10.0\compressed\4dvbz049ar-{0}-g2dl5rf744-g2dl5rf744.gz
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\web.config
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\appsettings.Development.json
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\appsettings.json
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\LGUTreasury.deps.json
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\LGUTreasury.runtimeconfig.json
+C:\Users\gabriel tolomea\LGUTreasury\bin\Debug\net10.0\publish\LGUTreasury.staticwebassets.endpoints.json

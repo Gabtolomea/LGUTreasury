@@ -57,6 +57,15 @@
       "targetGraphs": [
         "net10.0"
       ]
+    },
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json.",
+      "projectPath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
+      "targetGraphs": []
     }
   ]
 }
