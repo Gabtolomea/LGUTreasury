@@ -35,6 +35,19 @@
                 </select>
             </div>
             <div class="form-group">
+                <label class="form-label">Revenue Type</label>
+                <select class="form-select" id="report-category">
+                    <option value="">All Categories</option>
+                    @if (ViewBag.RevenueTypes != null)
+                    {
+                        foreach (var rt in ViewBag.RevenueTypes)
+                        {
+                            <option value="@rt.RevenueTypeID">@rt.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="form-group">
                 <label class="form-label">From Date</label>
                 <input type="date" class="form-input" id="report-from" />
             </div>
@@ -96,10 +109,11 @@
 @section Scripts {
     <script>
         function generateReport() {
-            const type   = document.getElementById('report-type').value;
-            const format = document.getElementById('report-format').value;
-            const from   = document.getElementById('report-from').value;
-            const to     = document.getElementById('report-to').value;
+            const type     = document.getElementById('report-type').value;
+            const format   = document.getElementById('report-format').value;
+            const from     = document.getElementById('report-from').value;
+            const to       = document.getElementById('report-to').value;
+            const category = document.getElementById('report-category').value;
 
             if (!from || !to) {
                 showToast('Please select a date range.', true);
@@ -111,7 +125,11 @@
             }
 
             showToast('Generating report...');
-            window.location.href = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
+            let url = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
+            if (category) {
+                url += '&revenueTypeId=' + category;
+            }
+            window.location.href = url;
         }
            document.addEventListener('DOMContentLoaded', function() {
            const today = new Date().toISOString().split('T')[0];

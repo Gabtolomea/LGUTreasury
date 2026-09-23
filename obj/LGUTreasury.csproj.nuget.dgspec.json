@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj": {}
+    "C:\\Users\\gabriel.tolomea\\LGUrevenue\\LGUTreasury\\LGUTreasury.csproj": {}
   },
   "projects": {
-    "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj": {
+    "C:\\Users\\gabriel.tolomea\\LGUrevenue\\LGUTreasury\\LGUTreasury.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
+        "projectUniqueName": "C:\\Users\\gabriel.tolomea\\LGUrevenue\\LGUTreasury\\LGUTreasury.csproj",
         "projectName": "LGUTreasury",
-        "projectPath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
-        "packagesPath": "C:\\Users\\gabriel tolomea\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\obj\\",
+        "projectPath": "C:\\Users\\gabriel.tolomea\\LGUrevenue\\LGUTreasury\\LGUTreasury.csproj",
+        "packagesPath": "C:\\Users\\gabriel.tolomea\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\gabriel.tolomea\\LGUrevenue\\LGUTreasury\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\gabriel tolomea\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\gabriel.tolomea\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
@@ -24,6 +24,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -38,10 +39,11 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.100"
+        "SdkAnalysisLevel": "10.0.400"
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "BCrypt.Net-Next": {
@@ -92,7 +94,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.401/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
