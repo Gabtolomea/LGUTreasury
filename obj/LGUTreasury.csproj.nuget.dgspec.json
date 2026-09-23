@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj": {}
+    "C:\\Users\\chuan\\Downloads\\JANICEEEE\\market\\LGUTreasury\\LGUTreasury.csproj": {}
   },
   "projects": {
-    "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj": {
+    "C:\\Users\\chuan\\Downloads\\JANICEEEE\\market\\LGUTreasury\\LGUTreasury.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
+        "projectUniqueName": "C:\\Users\\chuan\\Downloads\\JANICEEEE\\market\\LGUTreasury\\LGUTreasury.csproj",
         "projectName": "LGUTreasury",
-        "projectPath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\LGUTreasury.csproj",
-        "packagesPath": "C:\\Users\\gabriel tolomea\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\gabriel tolomea\\LGUTreasury\\obj\\",
+        "projectPath": "C:\\Users\\chuan\\Downloads\\JANICEEEE\\market\\LGUTreasury\\LGUTreasury.csproj",
+        "packagesPath": "C:\\Users\\chuan\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\chuan\\Downloads\\JANICEEEE\\market\\LGUTreasury\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\gabriel tolomea\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\chuan\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
