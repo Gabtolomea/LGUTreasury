@@ -35,14 +35,14 @@
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Revenue Type</label>
+                <label class="form-label">Revenue Category</label>
                 <select class="form-select" id="report-category">
                     <option value="">All Categories</option>
-                    @if (ViewBag.RevenueTypes != null)
+                    @if (ViewBag.RevenueCategories != null)
                     {
-                        foreach (var rt in ViewBag.RevenueTypes)
+                        foreach (var rc in ViewBag.RevenueCategories)
                         {
-                            <option value="@rt.RevenueTypeID">@rt.Name</option>
+                            <option value="@rc.CategoryID">@rc.Name</option>
                         }
                     }
                 </select>
@@ -127,7 +127,7 @@
             showToast('Generating report...');
             let url = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
             if (category) {
-                url += '&revenueTypeId=' + category;
+                url += '&categoryId=' + encodeURIComponent(category);
             }
             window.location.href = url;
         }
