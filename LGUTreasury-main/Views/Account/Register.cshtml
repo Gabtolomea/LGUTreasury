@@ -1,0 +1,145 @@
+@{
+    ViewData["Title"] = "Register";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register — LGU Revenue Record System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/auth.css" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Inter', sans-serif; }
+        :root {
+            --green: #388E3C; --green-dark: #2E7D32; --green-light: #C8E6C9;
+            --gray-input: #ebebeb; --gray-border: #E0E0E0;
+            --text: #1a1a1a; --text-2: #444; --text-3: #888;
+            --red: #c0392b; --shadow: 0 2px 12px rgba(0,0,0,.08);
+        }
+        body { display: flex; min-height: 100vh; }
+        .form-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; padding: 12px 14px; background: var(--gray-input); border: 1.5px solid transparent; border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); transition: border-color .2s, background .2s; outline: none; }
+        .form-input:focus { border-color: #388E3C; background: white; }
+        .btn-primary { width: 100%; padding: 14px; background: #388E3C; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; letter-spacing: .04em; }
+        .btn-primary:hover { background: #2E7D32; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #2E7D32; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow); z-index: 999; transform: translateY(80px); opacity: 0; transition: transform .3s, opacity .3s; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: var(--red); }
+    </style>
+</head>
+<body>
+    <div class="auth-left" style="width:36%">
+        <img src="~/images/lgu.png" alt="LGU Logo" onerror="this.style.display='none'" />
+        <div class="auth-left-title"><span>LGU</span> Revenue<br>Record System</div>
+        <div class="auth-left-desc">Secure, efficient revenue collection management for Local Government Units. Track payments, generate reports, and maintain full audit trails.</div>
+        <div class="auth-left-footer">Republic of the Philippines &nbsp;·&nbsp; Local Government Unit of Ginatilan</div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-card register-card-wrap">
+            <div class="auth-card-header">
+                <div class="auth-card-label">Municipality of Ginatilan</div>
+                <div class="auth-card-title">Create Account</div>
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div style="background:#fdecea;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
+                    @TempData["Error"]
+                </div>
+            }
+
+            <form asp-action="Register" asp-controller="Account" method="post">
+                @Html.AntiForgeryToken()
+
+                <!-- Account Credentials -->
+                <div class="form-section-label">Account Credentials</div>
+                <div class="auth-span-full" style="margin-bottom:10px">
+                    <label class="form-label">ID Number</label>
+                    <input type="text" class="form-input" name="EmployeeID" placeholder="Enter your assigned ID" required />
+                </div>
+                <div class="auth-grid-2" style="margin-bottom:10px">
+                    <div class="auth-form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" name="Password" placeholder="Create a password" required />
+                    </div>
+                    <div class="auth-form-group">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-input" name="ConfirmPassword" placeholder="Re-enter your password" required />
+                    </div>
+                </div>
+
+                <!-- Personal Information -->
+                <div class="form-section-label">Personal Information</div>
+                <div class="auth-grid-2" style="margin-bottom:10px">
+                    <div class="auth-form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-input" name="FirstName" placeholder="e.g. Juan" required />
+                    </div>
+                    <div class="auth-form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-input" name="LastName" placeholder="e.g. Cruz" required />
+                    </div>
+
+                  
+
+                </div>
+                <div class="auth-grid-2" style="margin-bottom:10px">
+                   
+                    <div class="auth-form-group">
+                        <label class="form-label">Middle Name</label>
+                        <input type="text" class="form-input" name="MiddleName" placeholder="Optional" />
+                    </div>
+                       
+                    <div class="auth-form-group">
+                        <label class="form-label">Suffix</label>
+                        <input type="text" class="form-input" name="Suffix" placeholder="Sr., Jr., III…" />
+                    </div>
+                </div>
+
+                <!-- Contact Details -->
+                <div class="form-section-label">Contact Details</div>
+                <div class="auth-grid-2" style="margin-bottom:10px">
+                    <div class="auth-form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" name="Email" placeholder="Optional" />
+                    </div>
+                    <div class="auth-form-group">
+                        <label class="form-label">Contact No.</label>
+                        <input type="text" class="form-input" name="ContactNumber" placeholder="09XX-XXX-XXXX" />
+                    </div>
+                </div>
+                <div class="auth-span-full" style="margin-bottom:18px">
+                    <label class="form-label">Address</label>
+                    <input type="text" class="form-input" name="Address" placeholder="Complete address" />
+                </div>
+
+                <!-- Note about role -->
+                <div style="background:#f0fdf4;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;font-size:12px;color:#388E3C;margin-bottom:16px">
+                    💡 Your account role will be assigned by the administrator after registration.
+                </div>
+
+                <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
+            </form>
+
+            <div class="auth-switch-link" style="margin-top:14px">
+                Already have an account? <a asp-action="Login" asp-controller="Account">Sign in here</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script>
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast' + (isError ? ' error' : '');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2800);
+        }
+    </script>
+</body>
+</html>
