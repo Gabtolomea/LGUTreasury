@@ -32,33 +32,6 @@ namespace LGUTreasury.Controllers
             return Json(results);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> SavePayee([FromBody] SavePayeeRequest req)
-        {
-            if (string.IsNullOrWhiteSpace(req.FirstName) || string.IsNullOrWhiteSpace(req.LastName))
-                return Json(new { success = false, message = "First and last name are required." });
-
-            var payee = new Payee
-            {
-                Firstname = req.FirstName, Middlename = req.MiddleName,
-                Lastname = req.LastName, Suffix = req.Suffix,
-                ContactNumber = req.ContactNumber, ResidenceAddress = req.ResidenceAddress,
-                CreatedAt = DateTime.Now
-            };
-            _context.Payees.Add(payee);
-            await _context.SaveChangesAsync();
-
-            return Json(new {
-                success = true,
-                payee = new {
-                    payeeID = payee.PayeeID, firstname = payee.Firstname,
-                    middlename = payee.Middlename, lastname = payee.Lastname,
-                    suffix = payee.Suffix, contactNumber = payee.ContactNumber,
-                    residenceAddress = payee.ResidenceAddress
-                }
-            });
-        }
-
         [HttpGet]
         public async Task<IActionResult> GetNextTransactionID()
         {
@@ -113,11 +86,9 @@ namespace LGUTreasury.Controllers
 
         [HttpPost]
         public async Task<IActionResult> Create(
-            int? PayeeID, string? FirstName, string? LastName,
-            string? MiddleName, string? Suffix, string? ContactNumber,
-            string? ResidenceAddress, string OfficialReceipt,
-            DateTime DateIssued, string? Remarks, string? PaymentMethod,
-            int TypeID, decimal TotalBaseAmount, decimal TotalSurcharge,
+            int? PayeeID, string OfficialReceipt, DateTime DateIssued,
+            string? Remarks, string? PaymentMethod, int TypeID,
+            decimal TotalBaseAmount, decimal TotalSurcharge,
             decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
@@ -130,9 +101,9 @@ namespace LGUTreasury.Controllers
                 return View();
             }
 
-            if (!PayeeID.HasValue && string.IsNullOrWhiteSpace(FirstName))
+            if (!PayeeID.HasValue || PayeeID.Value <= 0)
             {
-                TempData["Error"] = "Please select or add a payor first.";
+                TempData["Error"] = "Please select a payor first.";
                 await ReloadCreateViewBags();
                 return View();
             }
@@ -151,24 +122,7 @@ namespace LGUTreasury.Controllers
                 return View();
             }
 
-            int payeeID;
-            if (PayeeID.HasValue && PayeeID.Value > 0)
-            {
-                payeeID = PayeeID.Value;
-            }
-            else
-            {
-                var newPayee = new Payee
-                {
-                    Firstname = FirstName, Middlename = MiddleName, Lastname = LastName,
-                    Suffix = Suffix, ContactNumber = ContactNumber,
-                    ResidenceAddress = ResidenceAddress, CreatedAt = DateTime.Now
-                };
-                _context.Payees.Add(newPayee);
-                await _context.SaveChangesAsync();
-                payeeID = newPayee.PayeeID;
-            }
-
+            var payeeID = PayeeID.Value;
             var payment = new PaymentRecord
             {
                 OfficialReceipt = OfficialReceipt, PayeeID = payeeID,
@@ -479,15 +433,5 @@ namespace LGUTreasury.Controllers
             if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
             return fullName[0].ToString().ToUpper();
         }
-    }
-
-    public class SavePayeeRequest
-    {
-        public string FirstName         { get; set; } = "";
-        public string? MiddleName       { get; set; }
-        public string LastName          { get; set; } = "";
-        public string? Suffix           { get; set; }
-        public string? ContactNumber    { get; set; }
-        public string? ResidenceAddress { get; set; }
     }
 }

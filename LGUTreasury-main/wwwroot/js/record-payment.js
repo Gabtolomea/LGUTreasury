@@ -1,7 +1,5 @@
 // ─── RECORD PAYMENT PAGE ────────────────────────
 
-let selectedPayorID = null;
-
 // ─── FETCH NEXT TRANSACTION ID ───────────────────
 async function fetchNextTransactionID() {
     try {
@@ -24,7 +22,7 @@ async function searchPayors(query) {
         const results = await res.json();
 
         if (!results.length) {
-            dd.innerHTML = '<div class="payor-dd-empty">No payors found. <span onclick="openModal(\'payor-modal\')" style="color:var(--green);cursor:pointer;font-weight:700">Add new?</span></div>';
+            dd.innerHTML = '<div class="payor-dd-empty">No payors found.</div>';
             dd.classList.add('open');
             return;
         }
@@ -51,17 +49,11 @@ function selectPayorEncoded(encoded) {
 }
 
 function selectPayor(p) {
-    selectedPayorID = p.payeeID;
-
     document.getElementById('pay-payeeid').value = p.payeeID || '';
-    document.getElementById('pay-fname').value   = p.firstname || '';
-    document.getElementById('pay-mname').value   = p.middlename || '';
-    document.getElementById('pay-lname').value   = p.lastname || '';
-    document.getElementById('pay-suffix').value  = p.suffix || '';
-    document.getElementById('pay-contact').value = p.contactNumber || '';
-    document.getElementById('pay-address').value = p.residenceAddress || '';
 
     const full = [p.firstname, p.middlename, p.lastname, p.suffix].filter(Boolean).join(' ');
+    document.getElementById('pay-fullname').value = full;
+
     const meta = [p.contactNumber, p.residenceAddress].filter(Boolean).join(' · ');
     const initials = ((p.firstname || ' ')[0] + (p.lastname || ' ')[0]).toUpperCase();
 
@@ -78,52 +70,10 @@ function selectPayor(p) {
 }
 
 function clearPayor() {
-    selectedPayorID = null;
-    ['pay-payeeid','pay-fname','pay-mname','pay-lname','pay-suffix','pay-contact','pay-address']
-        .forEach(function(id) { document.getElementById(id).value = ''; });
+    document.getElementById('pay-payeeid').value = '';
+    document.getElementById('pay-fullname').value = '';
     document.getElementById('selected-payor-card').classList.add('hidden');
     document.getElementById('pay-txnid').value = '';
-}
-
-// ─── ADD NEW PAYOR (saves to DB) ─────────────────
-async function saveNewPayor() {
-    const fname = document.getElementById('new-fname').value.trim();
-    const lname = document.getElementById('new-lname').value.trim();
-    if (!fname || !lname) { showToast('First and last name are required.', true); return; }
-
-    const token = document.querySelector('input[name=__RequestVerificationToken]');
-
-    try {
-        const res = await fetch('/Record/SavePayee', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': token ? token.value : ''
-            },
-            body: JSON.stringify({
-                firstName:        fname,
-                middleName:       document.getElementById('new-mname').value.trim(),
-                lastName:         lname,
-                suffix:           document.getElementById('new-suffix').value.trim(),
-                contactNumber:    document.getElementById('new-contact').value.trim(),
-                residenceAddress: document.getElementById('new-address').value.trim()
-            })
-        });
-
-        const result = await res.json();
-        if (result.success) {
-            ['new-fname','new-mname','new-lname','new-suffix','new-contact','new-email','new-address']
-                .forEach(function(id) { document.getElementById(id).value = ''; });
-            closeModal('payor-modal');
-            selectPayor(result.payee);
-            showToast('Payor added and selected!');
-        } else {
-            showToast(result.message || 'Failed to save payor.', true);
-        }
-    } catch (err) {
-        showToast('Error saving payor.', true);
-        console.error(err);
-    }
 }
 
 // ─── COLLECTION TYPE MODAL ───────────────────────
@@ -188,11 +138,6 @@ document.addEventListener('click', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('date-issued');
     if (dateInput) dateInput.max = new Date().toISOString().split('T')[0];
-
-    const payorModal = document.getElementById('payor-modal');
-    if (payorModal) payorModal.addEventListener('click', function(e) {
-        if (e.target === this) closeModal('payor-modal');
-    });
 
     const revModal = document.getElementById('modal-revtype-picker');
     if (revModal) revModal.addEventListener('click', function(e) {
