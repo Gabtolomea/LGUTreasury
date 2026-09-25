@@ -95,7 +95,22 @@
 
 @section Scripts {
     <script>
+        function syncReportTypeWithDateRange() {
+            const from = document.getElementById('report-from').value;
+            const to = document.getElementById('report-to').value;
+
+            if (!from || !to || from > to) {
+                return;
+            }
+
+            if (from.slice(0, 7) === to.slice(0, 7)) {
+                document.getElementById('report-type').value = 'monthly';
+            }
+        }
+
         function generateReport() {
+            syncReportTypeWithDateRange();
+
             const type   = document.getElementById('report-type').value;
             const format = document.getElementById('report-format').value;
             const from   = document.getElementById('report-from').value;
@@ -113,10 +128,20 @@
             showToast('Generating report...');
             window.location.href = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
         }
-           document.addEventListener('DOMContentLoaded', function() {
-           const today = new Date().toISOString().split('T')[0];
-           document.getElementById('report-from').max = today;
-           document.getElementById('report-to').max = today;
-         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            const fromInput = document.getElementById('report-from');
+            const toInput = document.getElementById('report-to');
+
+            fromInput.max = today;
+            toInput.max = today;
+
+            fromInput.addEventListener('input', syncReportTypeWithDateRange);
+            toInput.addEventListener('input', syncReportTypeWithDateRange);
+            fromInput.addEventListener('change', syncReportTypeWithDateRange);
+            toInput.addEventListener('change', syncReportTypeWithDateRange);
+            syncReportTypeWithDateRange();
+        });
     </script>
 }
