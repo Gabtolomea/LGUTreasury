@@ -37,17 +37,20 @@ namespace LGUTreasury.Models
         public string? Remarks { get; set; }
  
         public bool HasPendingRequest { get; set; } = false;
- 
+  
         public DateTime CreatedAt { get; set; } = DateTime.Now;
- 
+
+        [StringLength(300)]
+        public string? PayorFullName { get; set; }
+  
         [ForeignKey("PayeeID")]
         public Payee? Payee { get; set; }
- 
+  
         [ForeignKey("CollectedBy_UserID")]
         public UserAccount? CollectedBy { get; set; }
- 
+  
         public ICollection<RecordLineItem> RecordLineItems { get; set; } = new List<RecordLineItem>();
- 
+  
         public ICollection<EditRequest> EditRequests { get; set; } = new List<EditRequest>();
 
         public bool IsCollected { get; set; } = false;

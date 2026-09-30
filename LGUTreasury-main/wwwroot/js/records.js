@@ -44,13 +44,13 @@ function viewRecord(txnID, payee, type, amount, date, orNumber, status, method, 
     document.getElementById('modal-record-content').innerHTML =
         '<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">'
         + txnID + ' — <span class="status-text-' + status.toLowerCase() + '">' + status + '</span></div>'
-        + '<div class="receipt-row"><span>OR Number:</span><strong>' + orNumber + '</strong></div>'
-        + '<div class="receipt-row"><span>Payor:</span><strong>' + payee + '</strong></div>'
-        + '<div class="receipt-row"><span>Collection Type:</span><span>' + type + '</span></div>'
-        + '<div class="receipt-row"><span>Payment Method:</span><span>' + (method || '—') + '</span></div>'
-        + '<div class="receipt-row"><span>Collected By:</span><span>' + (collector || '—') + '</span></div>'
-        + '<div class="receipt-row"><span>Date Issued:</span><span>' + date + '</span></div>'
-        + (remarks ? '<div class="receipt-row"><span>Remarks:</span><span>' + remarks + '</span></div>' : '');
+        + '<div class="receipt-row"><span>OR Number:</span><strong>' + escapeHtml(orNumber) + '</strong></div>'
+        + '<div class="receipt-row"><span>Payor:</span><strong>' + escapeHtml(payee) + '</strong></div>'
+        + '<div class="receipt-row"><span>Collection Type:</span><span>' + escapeHtml(type) + '</span></div>'
+        + '<div class="receipt-row"><span>Payment Method:</span><span>' + escapeHtml(method || '—') + '</span></div>'
+        + '<div class="receipt-row"><span>Collected By:</span><span>' + escapeHtml(collector || '—') + '</span></div>'
+        + '<div class="receipt-row"><span>Date Issued:</span><span>' + escapeHtml(date) + '</span></div>'
+        + (remarks ? '<div class="receipt-row"><span>Remarks:</span><span>' + escapeHtml(remarks) + '</span></div>' : '');
     openModal('modal-view-record');
 }
 
@@ -59,11 +59,11 @@ function viewMessage(requestID, txnID, payee, reason, date, reqBy, status, revie
     document.getElementById('modal-message-content').innerHTML =
         '<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">'
         + txnID + ' — <span class="status-text-' + status.toLowerCase() + '">' + status + '</span></div>'
-        + '<div class="receipt-row"><span>Payor:</span><strong>' + payee + '</strong></div>'
-        + '<div class="receipt-row"><span>Sent By:</span><span>' + reqBy + '</span></div>'
-        + '<div class="receipt-row"><span>Date:</span><span>' + date + '</span></div>'
-        + '<div class="receipt-row"><span>Message:</span><span>' + (reason || '—') + '</span></div>'
-        + (reviewNote ? '<div class="receipt-row"><span>Officer Note:</span><span>' + reviewNote + '</span></div>' : '');
+        + '<div class="receipt-row"><span>Payor:</span><strong>' + escapeHtml(payee) + '</strong></div>'
+        + '<div class="receipt-row"><span>Sent By:</span><span>' + escapeHtml(reqBy) + '</span></div>'
+        + '<div class="receipt-row"><span>Date:</span><span>' + escapeHtml(date) + '</span></div>'
+        + '<div class="receipt-row"><span>Message:</span><span>' + escapeHtml(reason || '—') + '</span></div>'
+        + (reviewNote ? '<div class="receipt-row"><span>Officer Note:</span><span>' + escapeHtml(reviewNote) + '</span></div>' : '');
     openModal('modal-view-message');
 }
 
@@ -145,12 +145,12 @@ function applyCollectionFilter() {
     tbody.innerHTML = filtered.map(r =>
         '<tr>'
         + '<td style="font-weight:700;color:var(--green-dark)">' + r.txnID + '</td>'
-        + '<td>' + r.payee + '</td>'
-        + '<td>' + r.type + '</td>'
+        + '<td>' + escapeHtml(r.payee) + '</td>'
+        + '<td>' + escapeHtml(r.type) + '</td>'
         + '<td style="font-weight:600">₱ ' + r.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>'
-        + '<td style="color:var(--text-3)">' + r.dateDisplay + '</td>'
-        + '<td style="color:var(--text-3)">' + r.orNumber + '</td>'
-        + '<td style="color:var(--text-3)">' + r.method + '</td>'
+        + '<td style="color:var(--text-3)">' + escapeHtml(r.dateDisplay) + '</td>'
+        + '<td style="color:var(--text-3)">' + escapeHtml(r.orNumber) + '</td>'
+        + '<td style="color:var(--text-3)">' + escapeHtml(r.method) + '</td>'
         + '</tr>'
     ).join('');
 }

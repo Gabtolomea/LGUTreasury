@@ -52,6 +52,14 @@
                 </div>
             }
 
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div asp-validation-summary="All" style="background:#fdecea;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
+                    <ul style="margin:0;padding-left:18px">
+                    </ul>
+                </div>
+            }
+
             <form asp-action="Login" asp-controller="Account" method="post">
                 @Html.AntiForgeryToken()
                 <div class="auth-form-group" style="margin-bottom:14px">

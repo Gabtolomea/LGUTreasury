@@ -13,6 +13,24 @@ async function fetchNextTransactionID() {
 }
 
 // ─── PAYOR SEARCH (real DB) ──────────────────────
+function payorFullName(p) {
+    return [p.firstname, p.middlename, p.lastname, p.suffix]
+        .filter(function(v) { return !!v; })
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function payorMeta(p) {
+    return [p.contactNumber, p.residenceAddress]
+        .filter(function(v) { return !!v; })
+        .join(' · ');
+}
+
+function payorInitials(p) {
+    return (((p.firstname || ' ')[0] + (p.lastname || ' ')[0])).toUpperCase();
+}
+
 async function searchPayors(query) {
     const dd = document.getElementById('payor-dropdown');
     if (!query.trim()) { dd.innerHTML = ''; dd.classList.remove('open'); return; }
@@ -28,14 +46,14 @@ async function searchPayors(query) {
         }
 
         dd.innerHTML = results.map(function(p) {
-            const full = [p.firstname, p.middlename, p.lastname, p.suffix].filter(Boolean).join(' ');
-            const meta = [p.contactNumber, p.residenceAddress].filter(Boolean).join(' · ');
-            const initials = ((p.firstname || ' ')[0] + (p.lastname || ' ')[0]).toUpperCase();
+            const full = payorFullName(p);
+            const meta = payorMeta(p);
+            const initials = payorInitials(p);
             const encoded = encodeURIComponent(JSON.stringify(p));
             return '<div class="payor-dd-item" onclick="selectPayorEncoded(\'' + encoded + '\')">'
-                + '<div class="payor-dd-avatar">' + initials + '</div>'
-                + '<div><div class="payor-dd-name">' + full + '</div>'
-                + '<div class="payor-dd-meta">' + (meta || '—') + '</div></div>'
+                + '<div class="payor-dd-avatar">' + escapeHtml(initials) + '</div>'
+                + '<div><div class="payor-dd-name">' + escapeHtml(full) + '</div>'
+                + '<div class="payor-dd-meta">' + escapeHtml(meta || '—') + '</div></div>'
                 + '</div>';
         }).join('');
         dd.classList.add('open');
@@ -51,11 +69,11 @@ function selectPayorEncoded(encoded) {
 function selectPayor(p) {
     document.getElementById('pay-payeeid').value = p.payeeID || '';
 
-    const full = [p.firstname, p.middlename, p.lastname, p.suffix].filter(Boolean).join(' ');
+    const full = payorFullName(p);
     document.getElementById('pay-fullname').value = full;
 
-    const meta = [p.contactNumber, p.residenceAddress].filter(Boolean).join(' · ');
-    const initials = ((p.firstname || ' ')[0] + (p.lastname || ' ')[0]).toUpperCase();
+    const meta = payorMeta(p);
+    const initials = payorInitials(p);
 
     document.getElementById('sel-avatar').textContent = initials;
     document.getElementById('sel-name').textContent   = full;
@@ -65,6 +83,23 @@ function selectPayor(p) {
     document.getElementById('payor-search').value = '';
     const dd = document.getElementById('payor-dropdown');
     dd.innerHTML = ''; dd.classList.remove('open');
+
+    fetchNextTransactionID();
+}
+
+// Re-render the selected payor card after a validation error bounced off the server,
+// keeping the name the collector typed rather than resetting it to the payor's name.
+function restoreSelectedPayor(p, submittedName) {
+    if (p.payeeID) document.getElementById('pay-payeeid').value = p.payeeID;
+
+    const full = payorFullName(p);
+    const field = document.getElementById('pay-fullname');
+    field.value = submittedName || full;
+
+    document.getElementById('sel-avatar').textContent = payorInitials(p);
+    document.getElementById('sel-name').textContent   = full;
+    document.getElementById('sel-meta').textContent   = payorMeta(p) || '—';
+    document.getElementById('selected-payor-card').classList.remove('hidden');
 
     fetchNextTransactionID();
 }

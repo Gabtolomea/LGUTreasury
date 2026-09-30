@@ -434,7 +434,7 @@
   <div class="modal customize-modal">
     <div class="modal-title">✦ Customize Highlight Cards</div>
     <div class="modal-sub">Choose which cards to display and drag to reorder them.</div>
-    <div class="cust-info"><span>💡</span> At least 1 card must remain visible. Drag <strong>⠿</strong> to reorder.</div>
+    <div class="cust-info"><span>💡</span> At least 3 cards must remain visible. Drag <strong>⠿</strong> to reorder.</div>
     <div class="cust-card-list" id="cust-card-list"></div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('modal-customize')">Cancel</button>
@@ -447,10 +447,8 @@
 
 <script>
 (function () {
-  const TOTAL_CARDS = 6;
-  const VISIBLE     = 3;
-  const STEP        = 1;
-  const MAX_OFFSET  = TOTAL_CARDS - VISIBLE;
+  const VISIBLE = 3;
+  const STEP    = 1;
 
   let offset = 0;
   const track    = document.getElementById('highlights-track');
@@ -459,20 +457,48 @@
   const nextBtn  = document.getElementById('hl-next');
   const dotsEl   = document.getElementById('hl-dots');
 
-  for (let i = 0; i <= MAX_OFFSET; i++) {
-    const d = document.createElement('button');
-    d.className = 'hl-dot' + (i === 0 ? ' active' : '');
-    d.addEventListener('click', () => goTo(i));
-    dotsEl.appendChild(d);
+  // Only count cards that are actually visible (customize modal hides some).
+  function getVisibleCards() {
+    return Array.from(track.querySelectorAll('.hl-card'))
+      .filter(el => el.offsetParent !== null);
+  }
+  function getMaxOffset() {
+    return Math.max(0, getVisibleCards().length - VISIBLE);
+  }
+
+  function renderDots() {
+    dotsEl.innerHTML = '';
+    const max = getMaxOffset();
+    for (let i = 0; i <= max; i++) {
+      const d = document.createElement('button');
+      d.className = 'hl-dot' + (i === offset ? ' active' : '');
+      d.addEventListener('click', () => goTo(i));
+      dotsEl.appendChild(d);
+    }
   }
 
   function goTo(idx) {
-    offset = Math.max(0, Math.min(MAX_OFFSET, idx));
-    const cardW = (viewport.clientWidth - 24) / 3 + 12;
+    const max  = getMaxOffset();
+    offset = Math.max(0, Math.min(max, idx));
+    if (max === 0) {
+      // All cards fit on screen — nothing to scroll, keep the track locked in place.
+      track.style.transform = 'translateX(0px)';
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      dotsEl.querySelectorAll('.hl-dot').forEach((d, i) => d.classList.toggle('active', i === offset));
+      return;
+    }
+    const cardW = (viewport.clientWidth - 24) / VISIBLE + 12;
     track.style.transform = 'translateX(-' + (offset * cardW) + 'px)';
     prevBtn.disabled = offset === 0;
-    nextBtn.disabled = offset === MAX_OFFSET;
+    nextBtn.disabled = offset >= max;
     dotsEl.querySelectorAll('.hl-dot').forEach((d, i) => d.classList.toggle('active', i === offset));
+  }
+
+  function refresh() {
+    offset = Math.min(offset, getMaxOffset());
+    renderDots();
+    goTo(offset);
   }
 
   prevBtn.addEventListener('click', () => goTo(offset - STEP));
@@ -483,8 +509,10 @@
     const dx = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(dx) > 40) goTo(dx < 0 ? offset + STEP : offset - STEP);
   }, { passive: true });
-  goTo(0);
-  window.addEventListener('resize', () => goTo(offset));
+
+  window.refreshHighlightsCarousel = refresh;
+  refresh();
+  window.addEventListener('resize', refresh);
 
   function updateShift() {
     const n = new Date();
@@ -520,6 +548,8 @@ const ALL_CARDS = [
   { id: 'hl-card-6', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg>', name: 'Top Revenue Today' },
 ];
 
+const CARD_MIN = 3;
+
 let cardState = ALL_CARDS.map(c => ({ ...c, visible: true }));
 let dragSrcIndex = null;
 
@@ -543,7 +573,7 @@ function renderCustomizeList() {
 }
 
 function toggleCard(index) {
-  if (cardState[index].visible && cardState.filter(c => c.visible).length <= 1) { showToast('At least 1 card must remain visible.', true); return; }
+  if (cardState[index].visible && cardState.filter(c => c.visible).length <= CARD_MIN) { showToast(`At least ${CARD_MIN} cards must remain visible.`, true); return; }
   cardState[index].visible = !cardState[index].visible;
   renderCustomizeList();
 }
@@ -556,6 +586,9 @@ function applyCustomizeCards() {
     el.style.display = card.visible ? '' : 'none';
     if (card.visible) track.appendChild(el);
   });
+  if (typeof window.refreshHighlightsCarousel === 'function') {
+    window.refreshHighlightsCarousel();
+  }
   closeModal('modal-customize');
   showToast('Highlight cards updated!');
 }

@@ -88,7 +88,7 @@
             Model.Select(r => new {
                 paymentID    = r.PaymentID,
                 txnID        = "TXN-" + r.PaymentID.ToString("D6"),
-                payee        = r.Payee != null ? r.Payee.Lastname + ", " + r.Payee.Firstname : "—",
+                payee        = LGUTreasury.Models.Payee.ResolveName(r.PayorFullName, r.Payee),
                 type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
                 amount       = r.TotalAmount,
                 date         = r.DateIssued.ToString("yyyy-MM-dd"),
@@ -224,7 +224,7 @@
                         @foreach (var record in Model)
                         {
                             var txnID     = "TXN-" + record.PaymentID.ToString("D6");
-                            var payee     = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
+                            var payee     = LGUTreasury.Models.Payee.ResolveName(record.PayorFullName, record.Payee);
                             var type      = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var amount    = record.TotalAmount.ToString("N2");
                             var date      = record.DateIssued.ToString("MMM dd, yyyy");
@@ -334,7 +334,7 @@
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
                                 var txnID     = "TXN-" + req.PaymentID.ToString("D6");
-                                var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
+                                var payee     = req.PaymentRecord != null ? LGUTreasury.Models.Payee.ResolveName(req.PaymentRecord.PayorFullName, req.PaymentRecord.Payee) : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
                                 <tr data-requestid="@req.RequestID">

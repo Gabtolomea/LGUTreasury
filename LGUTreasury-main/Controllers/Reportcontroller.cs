@@ -117,7 +117,7 @@ namespace LGUTreasury.Controllers
             foreach (var p in payments)
             {
                 var txnID  = "TXN-" + p.PaymentID.ToString("D6");
-                var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
+                var payee  = Payee.ResolveName(p.PayorFullName, p.Payee);
                 var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                 var method = p.PaymentMethod ?? "—";
 
@@ -198,7 +198,7 @@ namespace LGUTreasury.Controllers
                             rowIndex++;
 
                             var txnID  = "TXN-" + p.PaymentID.ToString("D6");
-                            var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
+var payee  = Payee.ResolveName(p.PayorFullName, p.Payee);
                             var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var method = p.PaymentMethod ?? "—";
 

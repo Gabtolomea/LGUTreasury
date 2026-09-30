@@ -86,7 +86,7 @@ namespace LGUTreasury.Controllers
 
         [HttpPost]
         public async Task<IActionResult> Create(
-            int? PayeeID, string OfficialReceipt, DateTime DateIssued,
+            int? PayeeID, string? PayorFullName, string OfficialReceipt, DateTime DateIssued,
             string? Remarks, string? PaymentMethod, int TypeID,
             decimal TotalBaseAmount, decimal TotalSurcharge,
             decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID)
@@ -94,38 +94,65 @@ namespace LGUTreasury.Controllers
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return RedirectToAction("Login", "Account");
 
+            var payeeID = PayeeID.GetValueOrDefault() > 0 ? PayeeID : null;
+            var payee   = payeeID.HasValue
+                ? await _context.Payees.FirstOrDefaultAsync(p => p.PayeeID == payeeID.Value)
+                : null;
+
+            // The client autofills this from the selected payor, but the collector may
+            // correct the spelling. Fall back to the payor's name when it is left blank.
+            var payorFullName = PayorFullName?.Trim();
+            if (string.IsNullOrWhiteSpace(payorFullName))
+                payorFullName = payee?.FullName;
+
+            var nameTooLong = payorFullName != null && payorFullName.Length > Payee.MaxFullNameLength;
+
             if (DateIssued.Date > DateTime.Today)
             {
                 TempData["Error"] = "Date issued cannot be in the future.";
-                await ReloadCreateViewBags();
+                await ReloadCreateViewBags(payeeID, payorFullName);
                 return View();
             }
 
-            if (!PayeeID.HasValue || PayeeID.Value <= 0)
+            if (!payeeID.HasValue)
             {
                 TempData["Error"] = "Please select a payor first.";
                 await ReloadCreateViewBags();
                 return View();
             }
 
+            if (payee == null)
+            {
+                TempData["Error"] = "The selected payor no longer exists.";
+                await ReloadCreateViewBags();
+                return View();
+            }
+
+            if (nameTooLong)
+            {
+                TempData["Error"] = $"Payor full name must be {Payee.MaxFullNameLength} characters or fewer.";
+                await ReloadCreateViewBags(payeeID, payorFullName);
+                return View();
+            }
+
             if (TypeID == 0)
             {
                 TempData["Error"] = "Please select a collection type.";
-                await ReloadCreateViewBags();
+                await ReloadCreateViewBags(payeeID, payorFullName);
                 return View();
             }
 
             if (CollectedBy_UserID == 0)
             {
                 TempData["Error"] = "Please select a collector.";
-                await ReloadCreateViewBags();
+                await ReloadCreateViewBags(payeeID, payorFullName);
                 return View();
             }
 
-            var payeeID = PayeeID.Value;
             var payment = new PaymentRecord
             {
-                OfficialReceipt = OfficialReceipt, PayeeID = payeeID,
+                OfficialReceipt = OfficialReceipt, PayeeID = payeeID.Value,
+                PayorFullName = payorFullName,
                 DateIssued = DateIssued, CollectedBy_UserID = CollectedBy_UserID,
                 Remarks = Remarks, PaymentMethod = PaymentMethod,
                 TotalBaseAmount = TotalBaseAmount, TotalSurcharge = TotalSurcharge,
@@ -279,7 +306,7 @@ namespace LGUTreasury.Controllers
             var deleted = new DeletedRecord
             {
                 PaymentID        = payment.PaymentID,
-                PayeeName        = payment.Payee != null ? $"{payment.Payee.Lastname}, {payment.Payee.Firstname}" : "—",
+                PayeeName        = Payee.ResolveName(payment.PayorFullName, payment.Payee),
                 CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
                 DeletedBy_UserID = userID.Value,
@@ -409,7 +436,7 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
-        private async Task ReloadCreateViewBags()
+        private async Task ReloadCreateViewBags(int? selectedPayeeID = null, string? payorFullName = null)
         {
             ViewBag.RevenueTypes = await _context.RevenueTypes
                 .Include(r => r.RevenuePolicies)
@@ -424,6 +451,14 @@ namespace LGUTreasury.Controllers
             ViewBag.Collectors = await _context.UserAccounts
                 .Where(u => u.Role == "Collector" && u.IsActive == true)
                 .ToListAsync();
+
+            if (selectedPayeeID.HasValue)
+            {
+                ViewBag.SelectedPayeeID  = selectedPayeeID.Value;
+                ViewBag.PayorFullName    = payorFullName;
+                ViewBag.SelectedPayee   = await _context.Payees
+                    .FirstOrDefaultAsync(p => p.PayeeID == selectedPayeeID.Value);
+            }
         }
 
         private string GetInitials(string? fullName)

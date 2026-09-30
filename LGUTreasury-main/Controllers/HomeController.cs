@@ -61,7 +61,7 @@ namespace LGUTreasury.Controllers
             ViewBag.RecentRecords = payments.Take(5).Select(p => new RecentRecordViewModel
             {
                 Initials  = $"{p.Payee?.Firstname?[0]}{p.Payee?.Lastname?[0]}".ToUpper(),
-                PayeeName = $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
+                PayeeName = Payee.ResolveName(p.PayorFullName, p.Payee),
                 Type      = lineItems.FirstOrDefault(l => l.PaymentID == p.PaymentID)?.RevenueType?.Name ?? "Payment",
                 ReceiptNo = p.OfficialReceipt,
                 Amount    = p.TotalAmount.ToString("N2"),

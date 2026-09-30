@@ -63,13 +63,16 @@
             </div>
         </div>
 
+
         <!-- PAYMENT INFORMATION -->
         <div class="form-section">
             <div class="section-title">Payment Information</div>
             <div class="form-grid-2">
                 <div class="form-group">
-                    <label class="form-label">Payor Full Name</label>
-                    <input type="text" class="form-input" id="pay-fullname" placeholder="Select a payor first…" readonly />
+                    <label class="form-label">Payor Full Name *</label>
+                    <input type="text" class="form-input" id="pay-fullname" name="PayorFullName"
+                           placeholder="Select a payor first…"
+                           maxlength="@LGUTreasury.Models.Payee.MaxFullNameLength" required />
                 </div>
                 <div class="form-group">
                     <label class="form-label">OR Number *</label>
@@ -179,4 +182,18 @@
 
 @section Scripts {
     <script src="~/js/record-payment.js"></script>
+    @if (ViewBag.SelectedPayee != null)
+    {
+        <script>
+            restoreSelectedPayor({
+                payeeID:          @ViewBag.SelectedPayeeID,
+                firstname:        @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.Firstname),
+                middlename:       @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.Middlename),
+                lastname:         @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.Lastname),
+                suffix:           @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.Suffix),
+                contactNumber:    @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.ContactNumber),
+                residenceAddress: @System.Text.Json.JsonSerializer.Serialize(ViewBag.SelectedPayee.ResidenceAddress)
+            }, @System.Text.Json.JsonSerializer.Serialize(ViewBag.PayorFullName));
+        </script>
+    }
 }

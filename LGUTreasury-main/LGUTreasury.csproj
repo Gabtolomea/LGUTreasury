@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>lgutreasury-local-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +20,16 @@
     </PackageReference>
     <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.1" />
     <PackageReference Include="QuestPDF" Version="2026.2.4" />
+  </ItemGroup>
+
+  <!-- LGUTreasury/ is a stray nested copy of this repo (incl. its own .git) left
+       from extracting the download into a folder that already contained one.
+       Exclude it or every .cs file is compiled twice and the build fails. -->
+  <ItemGroup>
+    <Compile Remove="LGUTreasury/**" />
+    <Content Remove="LGUTreasury/**" />
+    <None Remove="LGUTreasury/**" />
+    <EmbeddedResource Remove="LGUTreasury/**" />
   </ItemGroup>
 
 </Project>
