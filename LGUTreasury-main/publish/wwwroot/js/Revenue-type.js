@@ -209,13 +209,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (form) {
         form.addEventListener('submit', function(e) {
             const payeeID = document.getElementById('pay-payeeid').value;
-            const fname   = document.getElementById('pay-fname').value;
-            const lname   = document.getElementById('pay-lname').value;
             const typeID  = document.getElementById('pay-typeid').value;
 
-            if (!payeeID && (!fname || !lname)) {
+            if (!payeeID) {
                 e.preventDefault();
-                showToast('Please select or add a payor first.', true);
+                showToast('Please select a payor first.', true);
                 return;
             }
 

@@ -29,15 +29,6 @@
     font-size: 15px; font-weight: 700; color: var(--text);
     margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid #A5D6A7;
 }
-.add-payor-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--green); color: white; border: none; border-radius: 7px;
-    padding: 7px 13px; font-size: 12px; font-weight: 700;
-    font-family: inherit; cursor: pointer; transition: background .15s;
-    white-space: nowrap; flex-shrink: 0;
-}
-.add-payor-btn:hover { background: var(--green-dark); }
-
 /* ── PAYOR SEARCH ── */
 .payor-search-wrap { position: relative; margin-bottom: 12px; margin-top: 14px; }
 .payor-search-bar {
