@@ -7,7 +7,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSession(); // add this
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySQL(
+    options.UseSqlite(
         builder.Configuration.GetConnectionString("DefaultConnection")!
     ));
 

@@ -9,6 +9,7 @@
       "LGUTreasury/1.0.0": {
         "dependencies": {
           "BCrypt.Net-Next": "4.1.0",
+          "Microsoft.EntityFrameworkCore": "10.0.5",
           "Microsoft.EntityFrameworkCore.Design": "10.0.5",
           "MySql.EntityFrameworkCore": "10.0.1",
           "QuestPDF": "2026.2.4"
