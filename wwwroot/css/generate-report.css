@@ -1,6 +1,6 @@
 /* GENERATE REPORT PAGE
 ══════════════════════════════════════ */
-.report-page-wrap { padding: 0 24px 32px; max-width: 900px; width: 100%; margin: 0 auto; }
+.report-page-wrap { padding: 0 28px 32px; width: 100%; }
 
 .page-header-row { display: flex; align-items: center; gap: 12px; padding: 18px 0 14px; }
 .back-btn {
