@@ -60,16 +60,6 @@ namespace LGUTreasury.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetNextTransactionID()
-        {
-            var lastID = await _context.PaymentRecords
-                .OrderByDescending(p => p.PaymentID)
-                .Select(p => p.PaymentID)
-                .FirstOrDefaultAsync();
-            return Json(new { transactionID = "TXN-" + (lastID + 1).ToString("D6") });
-        }
-
-        [HttpGet]
         public async Task<IActionResult> GetPaymentDetails(int paymentID)
         {
             var payment = await _context.PaymentRecords
@@ -113,15 +103,15 @@ namespace LGUTreasury.Controllers
 
         [HttpPost]
         public async Task<IActionResult> Create(
-            int? PayeeID, string? FirstName, string? LastName,
-            string? MiddleName, string? Suffix, string? ContactNumber,
-            string? ResidenceAddress, string OfficialReceipt,
-            DateTime DateIssued, string? Remarks, string? PaymentMethod,
-            int TypeID, decimal TotalBaseAmount, decimal TotalSurcharge,
+            string? FullName, string OfficialReceipt, DateTime DateIssued,
+            string? Remarks, string? PaymentMethod, int TypeID,
+            decimal TotalBaseAmount, decimal TotalSurcharge,
             decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return RedirectToAction("Login", "Account");
+
+            var payorFullName = FullName?.Trim();
 
             if (DateIssued.Date > DateTime.Today)
             {
@@ -130,9 +120,9 @@ namespace LGUTreasury.Controllers
                 return View();
             }
 
-            if (!PayeeID.HasValue && string.IsNullOrWhiteSpace(FirstName))
+            if (string.IsNullOrWhiteSpace(payorFullName))
             {
-                TempData["Error"] = "Please select or add a payor first.";
+                TempData["Error"] = "Please enter the payor's full name.";
                 await ReloadCreateViewBags();
                 return View();
             }
@@ -151,27 +141,11 @@ namespace LGUTreasury.Controllers
                 return View();
             }
 
-            int payeeID;
-            if (PayeeID.HasValue && PayeeID.Value > 0)
-            {
-                payeeID = PayeeID.Value;
-            }
-            else
-            {
-                var newPayee = new Payee
-                {
-                    Firstname = FirstName, Middlename = MiddleName, Lastname = LastName,
-                    Suffix = Suffix, ContactNumber = ContactNumber,
-                    ResidenceAddress = ResidenceAddress, CreatedAt = DateTime.Now
-                };
-                _context.Payees.Add(newPayee);
-                await _context.SaveChangesAsync();
-                payeeID = newPayee.PayeeID;
-            }
+            var payee = await FindOrCreatePayee(payorFullName);
 
             var payment = new PaymentRecord
             {
-                OfficialReceipt = OfficialReceipt, PayeeID = payeeID,
+                OfficialReceipt = OfficialReceipt, PayeeID = payee.PayeeID,
                 DateIssued = DateIssued, CollectedBy_UserID = CollectedBy_UserID,
                 Remarks = Remarks, PaymentMethod = PaymentMethod,
                 TotalBaseAmount = TotalBaseAmount, TotalSurcharge = TotalSurcharge,
@@ -453,6 +427,28 @@ namespace LGUTreasury.Controllers
 
             await _context.SaveChangesAsync();
             return Json(new { success = true });
+        }
+
+        // The record payment page captures a single full name instead of selecting a
+        // payor, so split it into first/last and reuse an existing matching payor when
+        // one already exists.
+        private async Task<Payee> FindOrCreatePayee(string fullName)
+        {
+            var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var firstName = parts.Length > 0 ? parts[0] : fullName;
+            var lastName  = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : "";
+
+            var existing = await _context.Payees
+                .FirstOrDefaultAsync(p => p.Firstname == firstName && p.Lastname == lastName);
+            if (existing != null) return existing;
+
+            var payee = new Payee
+            {
+                Firstname = firstName, Lastname = lastName, CreatedAt = DateTime.Now
+            };
+            _context.Payees.Add(payee);
+            await _context.SaveChangesAsync();
+            return payee;
         }
 
         private async Task ReloadCreateViewBags()
