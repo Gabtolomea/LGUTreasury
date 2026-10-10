@@ -42,9 +42,16 @@
             <div class="form-grid-2">
                 <div class="form-group">
                     <label class="form-label">Full Name *</label>
-                    <input type="text" class="form-input" name="FullName" id="pay-fullname"
-                           placeholder="e.g. Juan Dela Cruz" required autocomplete="off"
-                           oninput="updateTransactionId(this.value)" />
+                    <div class="payor-combo" id="payor-combo">
+                        <input type="text" class="form-input" name="FullName" id="pay-fullname"
+                               placeholder="Type a new name or search existing payors…" required autocomplete="off"
+                               oninput="updateTransactionId(this.value)" />
+                        <button type="button" class="payor-combo-toggle" id="payor-combo-toggle"
+                                tabindex="-1" aria-label="Show existing payors">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="payor-combo-list" id="payor-combo-list" hidden></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">OR Number *</label>
@@ -154,4 +161,108 @@
 
 @section Scripts {
     <script src="~/js/record-payment.js"></script>
+    <style>
+        .payor-combo { position: relative; }
+        .payor-combo .form-input { padding-right: 38px; }
+        .payor-combo-toggle {
+            position: absolute; top: 0; right: 0; height: 100%; width: 36px;
+            border: 0; background: transparent; cursor: pointer; color: var(--text-3, #888);
+        }
+        .payor-combo-toggle:hover { color: var(--text-1, #222); }
+        .payor-combo-list {
+            position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50;
+            max-height: 260px; overflow-y: auto;
+            background: var(--surface, #fff); border: 1px solid var(--border, #d9d9d9);
+            border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+        }
+        .payor-combo-item { padding: 9px 12px; cursor: pointer; }
+        .payor-combo-item:hover, .payor-combo-item.active { background: rgba(0,0,0,.06); }
+        .payor-combo-name { font-weight: 600; }
+        .payor-combo-sub  { font-size: 12px; opacity: .65; }
+        .payor-combo-empty { padding: 10px 12px; font-size: 13px; opacity: .65; }
+    </style>
+    <script>
+    (function () {
+        const input  = document.getElementById('pay-fullname');
+        const list   = document.getElementById('payor-combo-list');
+        const toggle = document.getElementById('payor-combo-toggle');
+        const combo  = document.getElementById('payor-combo');
+        let timer = null, items = [], active = -1;
+
+        // ASP.NET returns camelCase by default; accept either casing
+        const pick = (o, k) => o[k] ?? o[k.charAt(0).toUpperCase() + k.slice(1)] ?? '';
+
+        function fullName(p) {
+            return [pick(p,'firstname'), pick(p,'middlename'), pick(p,'lastname'), pick(p,'suffix')]
+                   .filter(x => x && String(x).trim()).join(' ');
+        }
+        function esc(t) {
+            const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+        }
+        function close() { list.hidden = true; active = -1; }
+
+        function render() {
+            if (!items.length) {
+                list.innerHTML = '<div class="payor-combo-empty">No existing payor found — keep typing to add a new one.</div>';
+            } else {
+                list.innerHTML = items.map((p, i) => {
+                    const sub = [pick(p,'contactNumber'), pick(p,'residenceAddress')].filter(Boolean).join(' · ');
+                    return '<div class="payor-combo-item" data-i="' + i + '">' +
+                           '<div class="payor-combo-name">' + esc(fullName(p)) + '</div>' +
+                           (sub ? '<div class="payor-combo-sub">' + esc(sub) + '</div>' : '') + '</div>';
+                }).join('');
+            }
+            list.hidden = false;
+        }
+
+        async function search(q) {
+            try {
+                const res = await fetch('/Record/SearchPayee?query=' + encodeURIComponent(q));
+                items = res.ok ? await res.json() : [];
+            } catch (e) { items = []; }
+            active = -1;
+            render();
+        }
+
+        function choose(i) {
+            const p = items[i]; if (!p) return;
+            input.value = fullName(p);
+            close();
+            if (typeof updateTransactionId === 'function') updateTransactionId(input.value);
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (!q) { close(); return; }
+            timer = setTimeout(() => search(q), 250);
+        });
+        input.addEventListener('focus', function () {
+            if (input.value.trim()) search(input.value.trim());
+        });
+        toggle.addEventListener('click', function () {
+            if (!list.hidden) { close(); return; }
+            input.focus();
+            search(input.value.trim());      // empty text = list existing payors
+        });
+        list.addEventListener('mousedown', function (e) {
+            const el = e.target.closest('.payor-combo-item');
+            if (el) { e.preventDefault(); choose(+el.dataset.i); }
+        });
+        input.addEventListener('keydown', function (e) {
+            const rows = list.querySelectorAll('.payor-combo-item');
+            if (list.hidden || !rows.length) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+                rows.forEach((r, i) => r.classList.toggle('active', i === active));
+                rows[active].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && active >= 0) {
+                e.preventDefault(); choose(active);
+            } else if (e.key === 'Escape') { close(); }
+        });
+        document.addEventListener('click', function (e) { if (!combo.contains(e.target)) close(); });
+    })();
+    </script>
 }

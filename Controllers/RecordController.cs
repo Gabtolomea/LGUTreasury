@@ -14,23 +14,38 @@ namespace LGUTreasury.Controllers
             _context = context;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> SearchPayee(string query)
+      // Replace SearchPayee in RecordController.cs
+[HttpGet]
+public async Task<IActionResult> SearchPayee(string? query)
+{
+    var payees = _context.Payees.AsQueryable();
+
+    // Every word typed must match the first, middle or last name,
+    // so "Juan Dela Cruz" finds Juan / Dela Cruz.
+    // Empty query (dropdown arrow) lists the first 8 payors A-Z.
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        foreach (var word in query.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (string.IsNullOrWhiteSpace(query))
-                return Json(new List<object>());
-
-            var results = await _context.Payees
-                .Where(p => p.Firstname!.Contains(query) || p.Lastname!.Contains(query))
-                .Take(8)
-                .Select(p => new {
-                    p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
-                    p.Suffix, p.ContactNumber, p.ResidenceAddress
-                })
-                .ToListAsync();
-
-            return Json(results);
+            var w = word;
+            payees = payees.Where(p =>
+                p.Firstname!.Contains(w) ||
+                p.Middlename!.Contains(w) ||
+                p.Lastname!.Contains(w));
         }
+    }
+
+    var results = await payees
+        .OrderBy(p => p.Lastname).ThenBy(p => p.Firstname)
+        .Take(8)
+        .Select(p => new {
+            p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
+            p.Suffix, p.ContactNumber, p.ResidenceAddress
+        })
+        .ToListAsync();
+
+    return Json(results);
+}
 
         [HttpPost]
         public async Task<IActionResult> SavePayee([FromBody] SavePayeeRequest req)
@@ -58,6 +73,8 @@ namespace LGUTreasury.Controllers
                 }
             });
         }
+
+    
 
         [HttpGet]
         public async Task<IActionResult> GetPaymentDetails(int paymentID)
