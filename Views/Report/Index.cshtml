@@ -34,7 +34,15 @@
                     <option value="csv">CSV</option>
                 </select>
             </div>
-            <div class="form-group span-2">
+            <div class="form-group">
+                <label class="form-label">From Date</label>
+                <input type="date" class="form-input" id="report-from" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">To Date</label>
+                <input type="date" class="form-input" id="report-to" />
+            </div>
+            <div class="form-group">
                 <label class="form-label">Revenue Type</label>
                 <select class="form-select" id="report-revenue-type">
                     <option value="">All Revenue Types</option>
@@ -47,14 +55,6 @@
                         }
                     }
                 </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">From Date</label>
-                <input type="date" class="form-input" id="report-from" />
-            </div>
-            <div class="form-group">
-                <label class="form-label">To Date</label>
-                <input type="date" class="form-input" id="report-to" />
             </div>
         </div>
         <div class="generate-actions" style="margin-top:16px">
@@ -106,7 +106,8 @@
         </div>
     </div>
 </div>
-   @section Scripts {
+
+@section Scripts {
     <script>
         function generateReport() {
             const type        = document.getElementById('report-type').value;
@@ -171,4 +172,3 @@
         });
     </script>
 }
-
