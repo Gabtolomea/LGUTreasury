@@ -18,11 +18,11 @@ namespace LGUTreasury.Controllers
 [HttpGet]
 public async Task<IActionResult> SearchPayee(string? query)
 {
-    var payees = _context.Payees.AsQueryable();
+    // only payors that still have at least one non-deleted payment
+    var payees = _context.Payees
+        .Where(p => _context.PaymentRecords
+            .Any(r => r.PayeeID == p.PayeeID && !r.IsDeleted));
 
-    // Every word typed must match the first, middle or last name,
-    // so "Juan Dela Cruz" finds Juan / Dela Cruz.
-    // Empty query (dropdown arrow) lists the first 8 payors A-Z.
     if (!string.IsNullOrWhiteSpace(query))
     {
         foreach (var word in query.Split(' ', StringSplitOptions.RemoveEmptyEntries))
@@ -40,7 +40,7 @@ public async Task<IActionResult> SearchPayee(string? query)
         .Take(8)
         .Select(p => new {
             p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
-            p.Suffix
+            p.Suffix, p.ContactNumber, p.ResidenceAddress
         })
         .ToListAsync();
 
