@@ -26,7 +26,7 @@ namespace LGUTreasury.Controllers
             if (userID == null) return RedirectToAction("Login", "Account");
 
             var role = HttpContext.Session.GetString("Role");
-            if (role != "Officer") return RedirectToAction("Index", "Home");
+            //if (role != "Officer" || role != "Admin") return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "longterm";
             ViewData["FullName"]  = HttpContext.Session.GetString("FullName");

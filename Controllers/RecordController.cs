@@ -40,7 +40,7 @@ public async Task<IActionResult> SearchPayee(string? query)
         .Take(8)
         .Select(p => new {
             p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
-            p.Suffix, p.ContactNumber, p.ResidenceAddress
+            p.Suffix
         })
         .ToListAsync();
 
@@ -57,7 +57,6 @@ public async Task<IActionResult> SearchPayee(string? query)
             {
                 Firstname = req.FirstName, Middlename = req.MiddleName,
                 Lastname = req.LastName, Suffix = req.Suffix,
-                ContactNumber = req.ContactNumber, ResidenceAddress = req.ResidenceAddress,
                 CreatedAt = DateTime.Now
             };
             _context.Payees.Add(payee);
@@ -68,8 +67,7 @@ public async Task<IActionResult> SearchPayee(string? query)
                 payee = new {
                     payeeID = payee.PayeeID, firstname = payee.Firstname,
                     middlename = payee.Middlename, lastname = payee.Lastname,
-                    suffix = payee.Suffix, contactNumber = payee.ContactNumber,
-                    residenceAddress = payee.ResidenceAddress
+                    suffix = payee.Suffix
                 }
             });
         }
