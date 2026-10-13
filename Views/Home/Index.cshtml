@@ -1,4 +1,4 @@
-﻿@using LGUTreasury.Models
+﻿﻿@using LGUTreasury.Models
 @{
     ViewData["Title"] = "Dashboard";
     ViewData["ActiveNav"] = "dashboard";
@@ -225,6 +225,7 @@
 .cust-pinned { font-size: 10px; font-weight: 700; color: var(--green); background: var(--green-light); padding: 2px 6px; border-radius: 6px; }
 .cust-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 
+</style>
 <div class="dashboard-layout">
 
   <!-- ── LEFT / CENTER ── -->
@@ -517,7 +518,7 @@
   window.addEventListener('resize', () => goTo(offset));
   const obs = new MutationObserver(recalc);
   obs.observe(track, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-})()
+})();
 
   function updateShift() {
     const n = new Date();
@@ -540,6 +541,13 @@
       }
     }
   }
+
+(function () {   // <-- open a new IIFE for the shift tracker
+  function updateShift() {
+    // ...unchanged...
+  }
+
+
   updateShift();
   setInterval(updateShift, 60000);
 })();
@@ -607,4 +615,5 @@ function applyCustomizeCards() {
   showToast('Highlight cards updated!');
 }
 </script>
-}
+
+  }

@@ -30,6 +30,7 @@
 
         <!-- Hidden fields -->
         <input type="hidden" name="TransactionID" id="pay-txnid" />
+        <input type="hidden" name="PayeeID" id="pay-payeeid" />
         <input type="hidden" name="TypeID" id="pay-typeid" />
         <input type="hidden" name="TotalBaseAmount" id="pay-base" />
         <input type="hidden" name="TotalSurcharge" id="pay-surcharge" />
@@ -40,15 +41,45 @@
         <div class="form-section">
             <div class="section-title">Payment Information</div>
             <div class="form-grid-2">
-                <div class="form-group">
-                    <label class="form-label">Full Name *</label>
-                    <input type="text" class="form-input" name="FullName" id="pay-fullname"
-                           placeholder="e.g. Juan Dela Cruz" required autocomplete="off"
-                           oninput="updateTransactionId(this.value)" />
+                <div class="form-group span-2">
+                    <label class="form-label">Entry Mode</label>
+                    <select class="form-select" id="entry-mode">
+                        <option value="single">Single Entry</option>
+                        <option value="bulk">Bulk Entry (OR number range)</option>
+                    </select>
+                    <div id="bulk-hint" hidden style="margin-top:6px;font-size:13px;opacity:.75">
+                        Creates one receipt for every OR number from start to end, all with the same
+                        label, collection type, date, method and collector.
+                    </div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" id="name-label">Full Name *</label>
+                    <div class="payor-combo" id="payor-combo">
+                        <input type="text" class="form-input" name="FullName" id="pay-fullname"
+                               placeholder="e.g. Janice Angel Chua  or  Chua, Janice Angel" required autocomplete="off"
+                               oninput="updateTransactionId(this.value)" />
+                        <button type="button" class="payor-combo-toggle" id="payor-combo-toggle"
+                                tabindex="-1" aria-label="Show existing payors">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="payor-combo-list" id="payor-combo-list" hidden></div>
+                    </div>
+                    <div id="name-hint" style="margin-top:6px;font-size:12px;opacity:.65">
+                        Search existing payors with the arrow, or type a new name. For two-word last names, write it as Last, First (e.g. Dela Cruz, Juan).
+                    </div>
+                </div>
+                <div class="form-group" id="or-single-group">
                     <label class="form-label">OR Number *</label>
-                    <input type="text" class="form-input" name="OfficialReceipt" placeholder="e.g. 00001" required />
+                    <input type="text" class="form-input" name="OfficialReceipt" id="or-single" placeholder="e.g. 00001" required />
+                </div>
+                <div class="form-group" id="or-bulk-group" hidden>
+                    <label class="form-label">OR Number Range *</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input type="text" class="form-input" name="OrFrom" id="or-from" placeholder="From e.g. 34" inputmode="numeric" disabled />
+                        <span>to</span>
+                        <input type="text" class="form-input" name="OrTo" id="or-to" placeholder="To e.g. 560" inputmode="numeric" disabled />
+                    </div>
+                    <div id="bulk-count" style="margin-top:6px;font-size:13px;opacity:.75"></div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Date Issued *</label>
@@ -109,6 +140,15 @@
                 </div>
 
                 <div class="form-group span-2">
+                    <label class="form-label" id="amount-label">Amount Collected (₱) *</label>
+                    <input type="number" class="form-input" id="pay-amount" min="0.01" step="0.01"
+                           placeholder="Select a collection type first" required />
+                    <div style="margin-top:6px;font-size:12px;opacity:.65">
+                        Prefilled from the revenue type's rate. Change it if the amount actually collected is different.
+                    </div>
+                </div>
+
+                <div class="form-group span-2">
                     <label class="form-label">Remarks</label>
                     <textarea class="form-input" name="Remarks" placeholder="Optional notes…" style="min-height:60px"></textarea>
                 </div>
@@ -154,4 +194,229 @@
 
 @section Scripts {
     <script src="~/js/record-payment.js"></script>
+    <style>
+        .payor-combo { position: relative; }
+        .payor-combo .form-input { padding-right: 38px; }
+        .payor-combo-toggle {
+            position: absolute; top: 0; right: 0; height: 100%; width: 36px;
+            border: 0; background: transparent; cursor: pointer; color: var(--text-3, #888);
+        }
+        .payor-combo-toggle:hover { color: var(--text-1, #222); }
+        .payor-combo-list {
+            position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50;
+            max-height: 260px; overflow-y: auto;
+            background: var(--surface, #fff); border: 1px solid var(--border, #d9d9d9);
+            border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+        }
+        .payor-combo-item { padding: 9px 12px; cursor: pointer; }
+        .payor-combo-item:hover, .payor-combo-item.active { background: rgba(0,0,0,.06); }
+        .payor-combo-name { font-weight: 600; }
+        .payor-combo-sub  { font-size: 12px; opacity: .65; }
+        .payor-combo-empty { padding: 10px 12px; font-size: 13px; opacity: .65; }
+    </style>
+    <script>
+    (function () {
+        const input  = document.getElementById('pay-fullname');
+        const list   = document.getElementById('payor-combo-list');
+        const toggle = document.getElementById('payor-combo-toggle');
+        const combo  = document.getElementById('payor-combo');
+        let timer = null, items = [], active = -1;
+
+        // ASP.NET returns camelCase by default; accept either casing
+        const pick = (o, k) => o[k] ?? o[k.charAt(0).toUpperCase() + k.slice(1)] ?? '';
+
+        function fullName(p) {
+            return [pick(p,'firstname'), pick(p,'middlename'), pick(p,'lastname'), pick(p,'suffix')]
+                   .filter(x => x && String(x).trim()).join(' ');
+        }
+        function esc(t) {
+            const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+        }
+        function close() { list.hidden = true; active = -1; }
+
+        function render() {
+            if (!items.length) {
+                list.innerHTML = '<div class="payor-combo-empty">No existing payor found — keep typing to add a new one.</div>';
+            } else {
+                list.innerHTML = items.map((p, i) => {
+                    const sub = [pick(p,'contactNumber'), pick(p,'residenceAddress')].filter(Boolean).join(' · ');
+                    return '<div class="payor-combo-item" data-i="' + i + '">' +
+                           '<div class="payor-combo-name">' + esc(fullName(p)) + '</div>' +
+                           (sub ? '<div class="payor-combo-sub">' + esc(sub) + '</div>' : '') + '</div>';
+                }).join('');
+            }
+            list.hidden = false;
+        }
+
+        async function search(q) {
+            try {
+                const res = await fetch('/Record/SearchPayee?query=' + encodeURIComponent(q));
+                items = res.ok ? await res.json() : [];
+            } catch (e) { items = []; }
+            active = -1;
+            render();
+        }
+
+        function choose(i) {
+            const p = items[i]; if (!p) return;
+            input.value = fullName(p);
+            payeeField.value = pick(p, 'payeeID') || '';
+            close();
+            if (typeof updateTransactionId === 'function') updateTransactionId(input.value);
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const payeeField = document.getElementById('pay-payeeid');
+
+        input.addEventListener('input', function () {
+            payeeField.value = '';            // typed text = not a picked payor
+            if (window.__bulkMode) { close(); return; }
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (!q) { close(); return; }
+            timer = setTimeout(() => search(q), 250);
+        });
+        input.addEventListener('focus', function () {
+            if (!window.__bulkMode && input.value.trim()) search(input.value.trim());
+        });
+        toggle.addEventListener('click', function () {
+            if (window.__bulkMode) return;
+            if (!list.hidden) { close(); return; }
+            input.focus();
+            search(input.value.trim());      // empty text = list existing payors
+        });
+        list.addEventListener('mousedown', function (e) {
+            const el = e.target.closest('.payor-combo-item');
+            if (el) { e.preventDefault(); choose(+el.dataset.i); }
+        });
+        input.addEventListener('keydown', function (e) {
+            const rows = list.querySelectorAll('.payor-combo-item');
+            if (list.hidden || !rows.length) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+                rows.forEach((r, i) => r.classList.toggle('active', i === active));
+                rows[active].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter' && active >= 0) {
+                e.preventDefault(); choose(active);
+            } else if (e.key === 'Escape') { close(); }
+        });
+        document.addEventListener('click', function (e) { if (!combo.contains(e.target)) close(); });
+    })();
+    </script>
+
+    <script>
+    (function () {
+        const modeSel  = document.getElementById('entry-mode');
+        const form     = document.getElementById('payment-form');
+        const nameIn   = document.getElementById('pay-fullname');
+        const nameLbl  = document.getElementById('name-label');
+        const toggle   = document.getElementById('payor-combo-toggle');
+        const payeeFld = document.getElementById('pay-payeeid');
+        const orSingle = document.getElementById('or-single');
+        const orFrom   = document.getElementById('or-from');
+        const orTo     = document.getElementById('or-to');
+        const sGroup   = document.getElementById('or-single-group');
+        const bGroup   = document.getElementById('or-bulk-group');
+        const hint     = document.getElementById('bulk-hint');
+        const countEl  = document.getElementById('bulk-count');
+        const saveBtn  = form.querySelector('.btn-save');
+        window.__bulkMode = false;
+
+        function rangeCount() {
+            if (!/^\d+$/.test(orFrom.value.trim()) || !/^\d+$/.test(orTo.value.trim())) return null;
+            const a = parseInt(orFrom.value, 10), b = parseInt(orTo.value, 10);
+            return b >= a ? (b - a + 1) : -1;
+        }
+        function updateCount() {
+            const n = rangeCount();
+            if (n === null) { countEl.textContent = ''; return; }
+            if (n < 0) { countEl.textContent = 'End must not be lower than start.'; return; }
+            const each = parseFloat(document.getElementById('pay-total').value) || 0;
+            countEl.textContent = n + ' receipt' + (n === 1 ? '' : 's') +
+                (each ? ' × ₱' + each.toLocaleString('en-PH', {minimumFractionDigits: 2}) +
+                        ' = ₱' + (each * n).toLocaleString('en-PH', {minimumFractionDigits: 2}) : '');
+        }
+
+        function setMode(bulk) {
+            window.__bulkMode = bulk;
+            sGroup.hidden = bulk;  bGroup.hidden = !bulk;  hint.hidden = !bulk;
+            orSingle.disabled = bulk;  orSingle.required = !bulk;
+            orFrom.disabled = !bulk;   orTo.disabled = !bulk;
+            orFrom.required = bulk;    orTo.required = bulk;
+            toggle.style.display = bulk ? 'none' : '';
+            payeeFld.disabled = bulk;
+            nameLbl.textContent = bulk ? 'Label *' : 'Full Name *';
+            document.getElementById('name-hint').hidden = bulk;
+            nameIn.placeholder = bulk ? 'e.g. Water' : 'e.g. Janice Angel Chua  or  Chua, Janice Angel';
+            saveBtn.textContent = bulk ? 'Save Bulk Payments' : 'Save Payment';
+            form.action = bulk ? '/Record/CreateBulk' : '/Record/Create';
+            updateCount();
+        }
+
+        modeSel.addEventListener('change', () => setMode(modeSel.value === 'bulk'));
+        [orFrom, orTo].forEach(el => el.addEventListener('input', function () {
+            this.value = this.value.replace(/[^0-9]/g, '');
+            updateCount();
+        }));
+        document.addEventListener('click', () => setTimeout(updateCount, 50));   // total changes after picking a type
+        document.addEventListener('input', () => setTimeout(updateCount, 0));
+
+        form.addEventListener('submit', function (e) {
+            if (!window.__bulkMode) return;
+            const n = rangeCount();
+            if (n === null || n < 1) { e.preventDefault(); showToast('Enter a valid OR number range.', true); return; }
+            if (n > 2000)            { e.preventDefault(); showToast('Maximum 2000 receipts per batch.', true); return; }
+            if (!document.getElementById('pay-typeid').value) { e.preventDefault(); showToast('Please select a collection type.', true); return; }
+            if (!confirm('Create ' + n + ' receipts (OR ' + orFrom.value + ' to ' + orTo.value + ') for "' + nameIn.value.trim() + '"?')) e.preventDefault();
+        });
+    })();
+    </script>
+
+    <script>
+    (function () {
+        const amt = document.getElementById('pay-amount');
+        const f = id => document.getElementById(id);
+        const money = n => '₱ ' + n.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        let edited = false;
+
+        // Prefill the box from whatever the revenue-type script computed
+        function syncFromType() {
+            edited = false;
+            const t = parseFloat(f('pay-total').value);
+            amt.value = isNaN(t) ? '' : t.toFixed(2);
+        }
+
+        // Push the typed amount into the hidden fields that get posted
+        function applyAmount() {
+            const total = parseFloat(amt.value) || 0;
+            const sur = parseFloat(f('pay-surcharge').value) || 0;
+            const intr = parseFloat(f('pay-interest').value) || 0;
+            const base = Math.max(total - sur - intr, 0);
+            f('pay-base').value  = base.toFixed(2);
+            f('pay-total').value = total.toFixed(2);
+            if (f('bd-base'))  f('bd-base').textContent  = money(base);
+            if (f('bd-total')) f('bd-total').textContent = money(total);
+        }
+
+        const orig = window.selectRevType;
+        window.selectRevType = function () {
+            if (orig) orig.apply(this, arguments);
+            setTimeout(syncFromType, 0);
+        };
+
+        amt.addEventListener('input', function () { edited = true; applyAmount(); });
+        const dateEl = f('date-issued');
+        if (dateEl) dateEl.addEventListener('change', function () { if (!edited) setTimeout(syncFromType, 50); });
+
+        f('payment-form').addEventListener('submit', function (e) {
+            if (!(parseFloat(amt.value) > 0)) {
+                e.preventDefault();
+                showToast('Please enter the amount collected.', true);
+                return;
+            }
+            if (edited) applyAmount();
+        });
+    })();
+    </script>
 }

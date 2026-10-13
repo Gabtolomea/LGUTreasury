@@ -38,12 +38,19 @@ namespace LGUTreasury.Controllers
                 .Take(10)
                 .ToListAsync();
 
+            // Revenue types for the filter dropdown (includes inactive ones,
+            // so older records can still be filtered; new types appear automatically)
+            ViewBag.RevenueTypes = await _context.RevenueTypes
+                .OrderBy(r => r.Name)
+                .Select(r => new { r.TypeID, r.Name, r.IsActive })
+                .ToListAsync();
+
             return View();
         }
 
         // GET: /Report/Generate
         // Called when officer clicks "Generate & Download"
-        public async Task<IActionResult> Generate(string type, string format, string from, string to)
+        public async Task<IActionResult> Generate(string type, string format, string from, string to, int? revenueTypeId)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null)
@@ -63,12 +70,18 @@ namespace LGUTreasury.Controllers
             toDate = toDate.Date.AddDays(1).AddSeconds(-1);
 
             // Get all payments in the date range
-            var payments = await _context.PaymentRecords
+            var query = _context.PaymentRecords
                 .Include(p => p.Payee)
                 .Include(p => p.CollectedBy)
                 .Include(p => p.RecordLineItems)
                     .ThenInclude(l => l.RevenueType)
-                .Where(p => p.DateIssued >= fromDate && p.DateIssued <= toDate)
+                .Where(p => p.DateIssued >= fromDate && p.DateIssued <= toDate);
+
+            // Optional: only payments for the selected revenue type
+            if (revenueTypeId.HasValue)
+                query = query.Where(p => p.RecordLineItems.Any(l => l.TypeID == revenueTypeId.Value));
+
+            var payments = await query
                 .OrderByDescending(p => p.DateIssued)
                 .ToListAsync();
 
@@ -82,7 +95,27 @@ namespace LGUTreasury.Controllers
                 _         => "Revenue Summary"
             };
 
-            var fileName = $"{reportTypeName.Replace(" ", "_")}_{fromDate:yyyy-MM-dd}_to_{toDate:yyyy-MM-dd}";
+            // Name of the selected revenue type (for the file name and report header)
+            string? revenueTypeName = null;
+            if (revenueTypeId.HasValue)
+            {
+                revenueTypeName = await _context.RevenueTypes
+                    .Where(r => r.TypeID == revenueTypeId.Value)
+                    .Select(r => r.Name)
+                    .FirstOrDefaultAsync();
+            }
+
+            var fileNameSuffix = "";
+            if (!string.IsNullOrEmpty(revenueTypeName))
+            {
+                var safe = new string(revenueTypeName
+                    .Where(c => char.IsLetterOrDigit(c) || c == ' ' || c == '-')
+                    .ToArray()).Trim().Replace(" ", "_");
+                if (safe.Length > 0)
+                    fileNameSuffix = "_" + safe;
+            }
+
+            var fileName = $"{reportTypeName.Replace(" ", "_")}{fileNameSuffix}_{fromDate:yyyy-MM-dd}_to_{toDate:yyyy-MM-dd}";
             var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
 
             // Save this report to the log table
@@ -98,17 +131,20 @@ namespace LGUTreasury.Controllers
 
             // Generate and return the file
             if (format == "csv")
-                return GenerateCsv(payments, fileName, reportTypeName, fromDate, toDate);
+                return GenerateCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName);
 
-            return GeneratePdf(payments, fileName, reportTypeName, fromDate, toDate, fullName);
+            return GeneratePdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName);
         }
+
         private IActionResult GenerateCsv(
             List<PaymentRecord> payments, string fileName,
-            string reportType, DateTime from, DateTime to)
+            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM");
             sb.AppendLine($"Report Type: {reportType}");
+            if (!string.IsNullOrEmpty(revenueTypeName))
+                sb.AppendLine($"Revenue Type: {revenueTypeName}");
             sb.AppendLine($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}");
             sb.AppendLine($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}");
             sb.AppendLine();
@@ -135,7 +171,8 @@ namespace LGUTreasury.Controllers
         // ── PDF GENERATOR ─────────────────────────────
         private IActionResult GeneratePdf(
             List<PaymentRecord> payments, string fileName,
-            string reportType, DateTime from, DateTime to, string generatedBy)
+            string reportType, DateTime from, DateTime to, string generatedBy,
+            string? revenueTypeName = null)
         {
             var totalAmount = payments.Sum(p => p.TotalAmount);
 
@@ -155,6 +192,11 @@ namespace LGUTreasury.Controllers
                             .Bold().FontSize(11).AlignCenter();
                         col.Item().Text($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}")
                             .FontSize(9).AlignCenter();
+                        if (!string.IsNullOrEmpty(revenueTypeName))
+                        {
+                            col.Item().Text($"Revenue Type: {revenueTypeName}")
+                                .FontSize(9).AlignCenter();
+                        }
                         col.Item().PaddingTop(4).BorderBottom(1).BorderColor("#388E3C");
                     });
 

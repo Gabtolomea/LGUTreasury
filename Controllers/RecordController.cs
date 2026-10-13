@@ -14,23 +14,38 @@ namespace LGUTreasury.Controllers
             _context = context;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> SearchPayee(string query)
+      // Replace SearchPayee in RecordController.cs
+[HttpGet]
+public async Task<IActionResult> SearchPayee(string? query)
+{
+    // only payors that still have at least one non-deleted payment
+    var payees = _context.Payees
+        .Where(p => _context.PaymentRecords
+            .Any(r => r.PayeeID == p.PayeeID && !r.IsDeleted));
+
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        foreach (var word in query.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (string.IsNullOrWhiteSpace(query))
-                return Json(new List<object>());
-
-            var results = await _context.Payees
-                .Where(p => p.Firstname!.Contains(query) || p.Lastname!.Contains(query))
-                .Take(8)
-                .Select(p => new {
-                    p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
-                    p.Suffix, p.ContactNumber, p.ResidenceAddress
-                })
-                .ToListAsync();
-
-            return Json(results);
+            var w = word;
+            payees = payees.Where(p =>
+                p.Firstname!.Contains(w) ||
+                p.Middlename!.Contains(w) ||
+                p.Lastname!.Contains(w));
         }
+    }
+
+    var results = await payees
+        .OrderBy(p => p.Lastname).ThenBy(p => p.Firstname)
+        .Take(8)
+        .Select(p => new {
+            p.PayeeID, p.Firstname, p.Middlename, p.Lastname,
+            p.Suffix, p.ContactNumber, p.ResidenceAddress
+        })
+        .ToListAsync();
+
+    return Json(results);
+}
 
         [HttpPost]
         public async Task<IActionResult> SavePayee([FromBody] SavePayeeRequest req)
@@ -42,7 +57,6 @@ namespace LGUTreasury.Controllers
             {
                 Firstname = req.FirstName, Middlename = req.MiddleName,
                 Lastname = req.LastName, Suffix = req.Suffix,
-                ContactNumber = req.ContactNumber, ResidenceAddress = req.ResidenceAddress,
                 CreatedAt = DateTime.Now
             };
             _context.Payees.Add(payee);
@@ -53,11 +67,12 @@ namespace LGUTreasury.Controllers
                 payee = new {
                     payeeID = payee.PayeeID, firstname = payee.Firstname,
                     middlename = payee.Middlename, lastname = payee.Lastname,
-                    suffix = payee.Suffix, contactNumber = payee.ContactNumber,
-                    residenceAddress = payee.ResidenceAddress
+                    suffix = payee.Suffix
                 }
             });
         }
+
+    
 
         [HttpGet]
         public async Task<IActionResult> GetPaymentDetails(int paymentID)

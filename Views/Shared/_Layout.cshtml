@@ -270,7 +270,7 @@
             }
 
             @* Long Term Tenants — Officer only *@
-            @if (ViewData["Role"]?.ToString() == "Officer")
+            @if (ViewData["Role"]?.ToString() == "Officer" || ViewData["Role"]?.ToString() == "Admin")
             {
                 <a asp-controller="LongTermTenant" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "longterm" ? "active" : "")">
                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
