@@ -4,12 +4,17 @@ How to merge a feature branch (e.g. `customfix`) into other branches (`main`, `g
 `demo`, `alleksu`, ...) without breaking the build or re-committing files that should
 never be tracked.
 
-There are two ways: the **script** (`scripts/merge-branch.sh`) or the **manual steps**.
-Use Git Bash or WSL on Windows to run the script.
+These are manual steps. There is **no** merge script in this repo anymore — it was
+removed. Commands below work in PowerShell or Git Bash.
+
+> The tricky part is that older branches (`main`, `demo`, `alleksu`, ...) still have
+> `bin/`, `obj/` and `publish/` **committed in their history**. The feature branches
+> stopped tracking them and added a `.gitignore`, so a straight merge hits
+> modify/delete conflicts. See **section 2**.
 
 ---
 
-## 0. One-time setup (already done in this change set)
+## 0. One-time setup (already done on the feature branches)
 
 - Credentials live in `.env` (git-ignored). `.env.example` is committed for others.
 - `appsettings.json` no longer contains the DB password.
@@ -17,7 +22,7 @@ Use Git Bash or WSL on Windows to run the script.
 - Build artifacts were untracked with `git rm -r --cached bin obj publish`.
 
 **These only take effect on a branch once the commits are on that branch.** The merge
-carries them over; see conflict handling below if a target branch also touched those files.
+carries them over; see section 2 if a target branch also touched those files.
 
 > ⚠️ The old DB password is still in **git history**. Rotate it. To purge it from
 > history (destructive, rewrites SHAs, needs force-push):
@@ -29,38 +34,7 @@ carries them over; see conflict handling below if a target branch also touched t
 
 ---
 
-## 1. Using the script (recommended)
-
-```bash
-# from the repo root, in Git Bash / WSL
-chmod +x scripts/merge-branch.sh
-
-# merge customfix into main, running tests before and after
-./scripts/merge-branch.sh customfix main --test
-
-# merge customfix into another branch without pulling first
-./scripts/merge-branch.sh customfix gab --no-pull
-
-# see what it would do, without changing anything
-./scripts/merge-branch.sh customfix main --dry-run
-```
-
-What the script does:
-
-1. Requires a clean working tree.
-2. Creates `.env` from `.env.example` if missing (then you fill in credentials).
-3. Untracks `bin/obj/publish` if they are somehow still tracked.
-4. Fetches and switches to the target branch, then `git pull --ff-only`.
-5. Optionally runs the test suite on the target.
-6. Merges the source with `--no-ff`.
-7. On conflicts: lists them and stops (nothing is lost) with fix instructions.
-8. Optionally runs tests again and prints push/next-step commands.
-
-It **never pushes** — you push when you are satisfied.
-
----
-
-## 2. Manual steps (PowerShell or Bash)
+## 1. Basic merge steps
 
 ```bash
 # 1) Make sure your work is committed on the feature branch
@@ -81,31 +55,79 @@ git log --oneline -5
 git push origin main
 ```
 
-PowerShell equivalents work the same; only `cp` becomes `Copy-Item`.
+If step 3 stops with conflicts in `bin/`, `obj/` or `publish/`, go to section 2.
 
 ---
 
-## 3. Resolving common conflicts
+## 2. Merging into a branch that still has build artifacts committed
 
-### a. Build artifacts (`bin/`, `obj/`, `publish/`)
-If the target branch also changed these (very likely, since they used to be tracked),
-Git reports conflicts/modify-delete. **Accept the deletion** — they are generated files now
-covered by `.gitignore`:
+Target branches such as `main`, `demo` and `alleksu` committed `bin/`, `obj/` (and on
+`main`, `publish/`) long ago. The feature branch deleted those from tracking, so Git
+reports **modify/delete** conflicts (`deleted by them` / `deleted by us`) or a flood of
+binary conflicts. The generated files are now covered by `.gitignore`, so **accept the
+deletions** — do not keep them.
+
+### Option A — resolve the conflicts after they happen
 
 ```bash
-git rm -r bin obj publish
+git checkout main
+git pull --ff-only
+git merge --no-ff customfix            # stops on conflicts
+
+# see what conflicted
+git status
+git diff --name-only --diff-filter=U
+
+# accept removal of every generated/build file, then finish the merge
+git rm -r --cached --ignore-unmatch bin obj publish
 git add -A
-git commit            # completes the merge
+git commit                             # completes the merge with the default message
+
+# sanity checks
+git status                             # no build artifacts staged/tracked
+git ls-files bin obj publish           # should print nothing
 ```
 
-### b. `.env` / credentials
-Never commit `.env`. If a conflict involves `appsettings.json`, keep the version **without**
-the password (`"DefaultConnection": ""`); the real value comes from `.env`.
+If something looks wrong and you want to start over:
 
-### c. `.gitignore`
-If both branches edited `.gitignore`, keep both sets of rules (union).
+```bash
+git merge --abort                      # back to the pre-merge state on main
+```
 
-### d. Aborting
+### Option B — untrack the artifacts on the target first (fewer conflicts)
+
+Do this on the target branch *before* merging, so there is nothing to conflict with:
+
+```bash
+git checkout main
+git pull --ff-only
+git rm -r --cached --ignore-unmatch bin obj publish
+git add .gitignore
+git commit -m "chore: stop tracking build artifacts"
+git merge --no-ff customfix            # merges cleanly
+```
+
+### Notes
+
+- Add `publish` to the `git rm` only if the branch actually tracks it (`git ls-files
+  publish`); `main`/`origin/main` do, most others do not.
+- The artifacts stay in **old history** even after this. That only matters for repo
+  size / leaking the old DB password — see the `filter-repo` note in section 0.
+- Never re-add `bin/obj/publish` in a later commit; `.gitignore` should keep them out.
+
+---
+
+## 3. Resolving other common conflicts
+
+### a. `.env` / credentials
+Never commit `.env` (it is git-ignored). If a conflict involves `appsettings.json`, keep
+the version **without** the password (`"DefaultConnection": ""`); the real value comes
+from `.env`.
+
+### b. `.gitignore`
+If both branches edited `.gitignore`, keep both sets of rules (union them).
+
+### c. Aborting
 ```bash
 git merge --abort     # return to the pre-merge state on the target branch
 ```
@@ -115,6 +137,7 @@ git merge --abort     # return to the pre-merge state on the target branch
 ## 4. After each merge — checklist
 
 - [ ] `.env` exists locally with valid credentials.
+- [ ] `git ls-files bin obj publish` prints nothing (artifacts still untracked).
 - [ ] `dotnet restore` succeeds.
 - [ ] `dotnet build` succeeds (stop the running app first; it locks `bin/…/LGUTreasury.dll`).
 - [ ] `dotnet test ... -p:BaseOutputPath=bin2/` is green.
