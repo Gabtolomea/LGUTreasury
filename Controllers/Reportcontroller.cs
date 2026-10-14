@@ -2,9 +2,11 @@ using LGUTreasury.Data;
 using LGUTreasury.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.Globalization;
 using System.Text;
 
 namespace LGUTreasury.Controllers
@@ -56,6 +58,12 @@ namespace LGUTreasury.Controllers
             if (userID == null)
                 return RedirectToAction("Login", "Account");
 
+            // Validate / normalize the requested file format (avoid NullReferenceException
+            // and reject anything we cannot actually produce).
+            var normalizedFormat = (format ?? string.Empty).Trim().ToLowerInvariant();
+            if (normalizedFormat is not ("pdf" or "csv" or "xlsx"))
+                return BadRequest("Unsupported file format. Use 'pdf', 'csv', or 'xlsx'.");
+
             // Validate dates
             if (!DateTime.TryParse(from, out var fromDate) || !DateTime.TryParse(to, out var toDate))
                 return BadRequest("Invalid date range.");
@@ -89,9 +97,9 @@ namespace LGUTreasury.Controllers
             var reportTypeName = type switch
             {
                 "daily"   => "Daily Collection Report",
-                "weekly"  => "Weekly Revenue Summary",
                 "monthly" => "Monthly Revenue Summary",
                 "annual"  => "Annual Revenue Summary",
+                "custom"  => "Custom Report",
                 _         => "Revenue Summary"
             };
 
@@ -122,7 +130,7 @@ namespace LGUTreasury.Controllers
             var log = new ReportLog
             {
                 ReportType = reportTypeName,
-                Format = format.ToUpper(),
+                Format = normalizedFormat.ToUpper(),
                 GeneratedAt = DateTime.Now,
                 GeneratedByUserID = userID.Value
             };
@@ -130,10 +138,12 @@ namespace LGUTreasury.Controllers
             await _context.SaveChangesAsync();
 
             // Generate and return the file
-            if (format == "csv")
-                return GenerateCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName);
-
-            return GeneratePdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName);
+            return normalizedFormat switch
+            {
+                "csv"  => GenerateCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                "xlsx" => GenerateXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                _      => GeneratePdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
+            };
         }
 
         private IActionResult GenerateCsv(
@@ -157,15 +167,134 @@ namespace LGUTreasury.Controllers
                 var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                 var method = p.PaymentMethod ?? "—";
 
-                sb.AppendLine($"{txnID},{p.OfficialReceipt},\"{payee}\",\"{type}\",{method},{p.TotalBaseAmount:N2},{p.TotalSurcharge:N2},{p.TotalInterest:N2},{p.TotalAmount:N2},{p.DateIssued:yyyy-MM-dd hh:mm tt}");
+                sb.AppendLine(string.Join(",",
+                    CsvField(txnID),
+                    CsvField(p.OfficialReceipt),
+                    CsvField(payee),
+                    CsvField(type),
+                    CsvField(method),
+                    Money(p.TotalBaseAmount),
+                    Money(p.TotalSurcharge),
+                    Money(p.TotalInterest),
+                    Money(p.TotalAmount),
+                    CsvField(p.DateIssued.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture))));
             }
 
             sb.AppendLine();
             sb.AppendLine($"Total Records: {payments.Count}");
-            sb.AppendLine($"Total Collected: {payments.Sum(p => p.TotalAmount):N2}");
+            sb.AppendLine($"Total Collected: {Money(payments.Sum(p => p.TotalAmount))}");
 
             var bytes = Encoding.UTF8.GetBytes(sb.ToString());
             return File(bytes, "text/csv", fileName + ".csv");
+        }
+
+        // Escapes a value for CSV (RFC 4180) and neutralizes spreadsheet formula
+        // injection: a leading =, +, -, @, tab or CR would otherwise be evaluated as
+        // a formula by Excel / LibreOffice when the file is opened.
+        private static string CsvField(string? value)
+        {
+            var v = value ?? string.Empty;
+
+            if (v.Length > 0 && (v[0] == '=' || v[0] == '+' || v[0] == '-' ||
+                                 v[0] == '@' || v[0] == '\t' || v[0] == '\r'))
+            {
+                v = "'" + v;
+            }
+
+            return "\"" + v.Replace("\"", "\"\"") + "\"";
+        }
+
+        private static string Money(decimal value) =>
+            value.ToString("N2", CultureInfo.InvariantCulture);
+
+        // ── EXCEL (XLSX) GENERATOR ────────────────────
+        private IActionResult GenerateXlsx(
+            List<PaymentRecord> payments, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Revenue Summary");
+            ws.Style.Font.FontName = "Arial";
+            ws.Style.Font.FontSize = 10;
+
+            ws.Cell(1, 1).Value = "LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM";
+            ws.Range(1, 1, 1, 10).Merge();
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(2, 1).Value = reportType;
+            ws.Range(2, 1, 2, 10).Merge();
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Cell(2, 1).Style.Font.FontSize = 12;
+            ws.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(3, 1).Value = $"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}";
+            ws.Range(3, 1, 3, 10).Merge();
+            ws.Cell(3, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var headerRow = 4;
+            if (!string.IsNullOrEmpty(revenueTypeName))
+            {
+                ws.Cell(4, 1).Value = $"Revenue Type: {revenueTypeName}";
+                ws.Range(4, 1, 4, 10).Merge();
+                ws.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                headerRow = 5;
+            }
+
+            string[] headers =
+            {
+                "Transaction ID", "OR Number", "Payor", "Collection Type", "Method",
+                "Base Amount", "Surcharge", "Interest", "Total", "Date Issued"
+            };
+            for (var c = 0; c < headers.Length; c++)
+            {
+                var cell = ws.Cell(headerRow, c + 1);
+                cell.Value = headers[c];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#C8E6C9");
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            var row = headerRow + 1;
+            foreach (var p in payments)
+            {
+                var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
+                var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+                var method = p.PaymentMethod ?? "—";
+
+                ws.Cell(row, 1).Value = "TXN-" + p.PaymentID.ToString("D6");
+                ws.Cell(row, 2).Value = p.OfficialReceipt ?? "—";
+                ws.Cell(row, 3).Value = payee;
+                ws.Cell(row, 4).Value = type;
+                ws.Cell(row, 5).Value = method;
+                ws.Cell(row, 6).Value = (double)p.TotalBaseAmount;
+                ws.Cell(row, 7).Value = (double)p.TotalSurcharge;
+                ws.Cell(row, 8).Value = (double)p.TotalInterest;
+                ws.Cell(row, 9).Value = (double)p.TotalAmount;
+                ws.Cell(row, 10).Value = p.DateIssued;
+                row++;
+            }
+
+            // Totals row
+            ws.Cell(row, 1).Value = $"TOTAL — {payments.Count} record(s)";
+            ws.Range(row, 1, row, 5).Merge();
+            ws.Cell(row, 1).Style.Font.Bold = true;
+            ws.Cell(row, 6).Value = (double)payments.Sum(p => p.TotalBaseAmount);
+            ws.Cell(row, 7).Value = (double)payments.Sum(p => p.TotalSurcharge);
+            ws.Cell(row, 8).Value = (double)payments.Sum(p => p.TotalInterest);
+            ws.Cell(row, 9).Value = (double)payments.Sum(p => p.TotalAmount);
+            ws.Range(row, 1, row, 10).Style.Fill.BackgroundColor = XLColor.FromHtml("#E8F5E9");
+
+            ws.Columns(6, 9).Style.NumberFormat.Format = "#,##0.00";
+            ws.Columns(1, 10).AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName + ".xlsx");
         }
 
         // ── PDF GENERATOR ─────────────────────────────
