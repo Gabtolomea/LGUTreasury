@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LGUTreasury")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7fee99e03d7948b5605c1e870edfd162da072467")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+45f9b61571b74e8b851cb36f31cddae4286be3d1")]
 [assembly: System.Reflection.AssemblyProductAttribute("LGUTreasury")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LGUTreasury")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

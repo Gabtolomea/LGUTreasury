@@ -60,8 +60,11 @@ namespace LGUTreasury.Controllers
 
             ViewBag.RecentRecords = payments.Take(5).Select(p => new RecentRecordViewModel
             {
-                Initials  = $"{p.Payee?.Firstname?[0]}{p.Payee?.Lastname?[0]}".ToUpper(),
-                PayeeName = $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
+                Initials  = ((p.Payee?.Firstname?.FirstOrDefault().ToString() ?? "") +
+             (p.Payee?.Lastname?.FirstOrDefault().ToString() ?? "")).Trim().ToUpper(),
+PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
+                ? (p.Payee?.Firstname ?? "—")
+                : $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
                 Type      = lineItems.FirstOrDefault(l => l.PaymentID == p.PaymentID)?.RevenueType?.Name ?? "Payment",
                 ReceiptNo = p.OfficialReceipt,
                 Amount    = p.TotalAmount.ToString("N2"),

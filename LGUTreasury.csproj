@@ -7,7 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The test project is nested under this web project; keep it out of the web build. -->
+    <Compile Remove="LGUTreasury.Tests\**" />
+    <Content Remove="LGUTreasury.Tests\**" />
+    <EmbeddedResource Remove="LGUTreasury.Tests\**" />
+    <None Remove="LGUTreasury.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
