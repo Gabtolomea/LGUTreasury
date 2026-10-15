@@ -1,11 +1,5 @@
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\web.config
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\appsettings.Development.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\appsettings.json
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\appsettings.Development.json
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\appsettings.json
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\LGUTreasury.deps.json
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\LGUTreasury.runtimeconfig.json
-C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\publish\LGUTreasury.staticwebassets.endpoints.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\LGUTreasury.staticwebassets.runtime.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\LGUTreasury.staticwebassets.endpoints.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\LatoFont\Lato-Black.ttf
@@ -260,3 +254,11 @@ C:\Users\alex.belongilot\Downloads\LGUTreasury-main\obj\Debug\net10.0\LGUTreasur
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\obj\Debug\net10.0\LGUTreasury.genruntimeconfig.cache
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\obj\Debug\net10.0\ref\LGUTreasury.dll
 C:\Users\alex.belongilot\Downloads\LGUTreasury-main\obj\Debug\net10.0\compressed\x4m2rmqfd6-{0}-6j2bhkdspw-6j2bhkdspw.gz
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\ClosedXML.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\ClosedXML.Parser.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\ExcelNumberFormat.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\RBush.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\SixLabors.Fonts.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury-main\bin\Debug\net10.0\System.IO.Packaging.dll
