@@ -22,9 +22,9 @@ public class ReportViewStructureTests
     }
 
     [Theory]
-    [InlineData("daily", "Daily Collection Report")]
-    [InlineData("monthly", "Monthly Revenue Summary")]
-    [InlineData("annual", "Annual Revenue Summary")]
+    [InlineData("daily", "Today's Report")]
+    [InlineData("monthly", "Monthly Report")]
+    [InlineData("annual", "Annual Report")]
     public void ReportView_KeepsExistingReportTypes(string value, string label)
     {
         var view = RepoPaths.ReportView();
