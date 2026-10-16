@@ -66,6 +66,27 @@
                     @TempData["Error"]
                 </div>
             }
+            else if (!ViewData.ModelState.IsValid)
+            {
+                var messages = new List<string>();
+                foreach (var state in ViewData.ModelState.Values)
+                {
+                    foreach (var error in state.Errors)
+                    {
+                        if (!string.IsNullOrWhiteSpace(error.ErrorMessage))
+                            messages.Add(error.ErrorMessage);
+                    }
+                }
+                if (messages.Count > 0)
+                {
+                    <div style="background:#fdecea;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
+                        @foreach (var msg in messages)
+                        {
+                            <div>@msg</div>
+                        }
+                    </div>
+                }
+            }
 
             <form asp-action="Login" asp-controller="Account" method="post">
                 @Html.AntiForgeryToken()
