@@ -12,7 +12,9 @@
 <style>
     .lt-page { padding:0 24px 32px; }
     .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
-    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); font-size:16px; text-decoration:none; }
+    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); text-decoration:none; transition:background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease; }
+    .back-btn:hover { background:var(--gray-bg); border-color:#cfcfcf; color:var(--text); }
+    .back-btn:active { transform:translateX(-1px); }
     .page-title { font-size:20px; font-weight:700; color:var(--text); }
     .page-sub { font-size:13px; color:var(--green); }
 
@@ -65,7 +67,8 @@
 
 <div class="lt-page">
     <div class="page-header-row">
-        <a asp-action="Index" class="back-btn">←</a>
+        @{ ViewData["BackController"] = "LongTermTenant"; ViewData["BackAction"] = "Index"; }
+<partial name="_BackBtn" />
         <div style="flex:1">
             <div class="page-title">@fullName</div>
             <div class="page-sub">@accountNo · @(Model.Address ?? "No address") · Bills every @Model.BillGenerationDay of the month</div>
