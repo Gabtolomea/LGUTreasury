@@ -25,6 +25,20 @@
         .form-input:focus { border-color: #388E3C; background: white; }
         .btn-primary { width: 100%; padding: 14px; background: #388E3C; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; letter-spacing: .04em; }
         .btn-primary:hover { background: #2E7D32; }
+        /* Right panel background image + translucent white overlay */
+        .auth-right.login-bg {
+            position: relative;
+            background: url('/images/municipality.png') center/cover no-repeat, #f5f7f5;
+        }
+        .auth-right.login-bg::before {
+            content: ''; position: absolute; inset: 0;
+            background: rgba(255,255,255,.75);
+            pointer-events: none;
+        }
+        .auth-right.login-bg .auth-card {
+            position: relative; z-index: 1;
+            background: rgba(255,255,255,.85);
+        }
     </style>
 </head>
 <body>
@@ -35,8 +49,8 @@
         <div class="auth-left-footer">Republic of the Philippines &nbsp;·&nbsp; Local Government Unit of Ginatilan</div>
     </div>
 
-    <div class="auth-right">
-        <div class="auth-card login-card-wrap">
+    <div class="auth-right login-bg">
+        <div class="auth-card login-card-wrap" style="max-width:420px;">
             <div class="auth-card-header">
                 <div class="auth-card-label">Municipality of Ginatilan</div>
                 <div class="auth-card-title">Forgot Password</div>
