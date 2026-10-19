@@ -37,7 +37,7 @@
 }
 .data-table td { padding: 11px 14px; border-bottom: 1px solid #f0f0f0; color: var(--text); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: #0faf32; }
+.data-table tbody tr:hover td { background: #fafafa; }
 
 .action-edit-btn, .action-remove-btn {
     width: 26px; height: 26px; border: none; border-radius: 6px;
@@ -60,8 +60,13 @@
 .add-row-input::placeholder { color: #bbb; }
 .add-row-select {
     width: 100%; border: 1.5px solid #e5e7eb; border-radius: 6px;
-    padding: 6px 9px; font-size: 13px; font-family: inherit;
-    background: white; outline: none; box-sizing: border-box; cursor: pointer;
+    padding: 6px 26px 6px 9px; font-size: 13px; font-family: inherit;
+    background-color: white; outline: none; box-sizing: border-box; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.75L6 6.25L11 1.75' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 11px 7px;
 }
 .add-row-select:focus { border-color: var(--green); }
 .add-row-btn {

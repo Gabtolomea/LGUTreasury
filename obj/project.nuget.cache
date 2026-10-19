@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "BuikGPtCwmk=",
+  "dgSpecHash": "ZN9PMoNT1QQ=",
   "success": true,
-  "projectFilePath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury-main\\LGUTreasury.csproj",
+  "projectFilePath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury\\LGUTreasury.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\alex.belongilot\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
     "C:\\Users\\alex.belongilot\\.nuget\\packages\\bouncycastle.cryptography\\2.6.2\\bouncycastle.cryptography.2.6.2.nupkg.sha512",

@@ -3144,11 +3144,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury-main\\LGUTreasury.csproj",
+      "projectUniqueName": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury\\LGUTreasury.csproj",
       "projectName": "LGUTreasury",
-      "projectPath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury-main\\LGUTreasury.csproj",
+      "projectPath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury\\LGUTreasury.csproj",
       "packagesPath": "C:\\Users\\alex.belongilot\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury-main\\obj\\",
+      "outputPath": "C:\\Users\\alex.belongilot\\Downloads\\LGUTreasury\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\alex.belongilot\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -43,6 +43,18 @@
             position: relative; z-index: 1;
             background: rgba(255,255,255,.85);
         }
+
+        /* Password toggle */
+        .password-wrap { position: relative; }
+        .password-wrap .form-input { padding-right: 44px; }
+        .password-toggle {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; padding: 4px; cursor: pointer;
+            color: var(--text-3); display: flex; align-items: center; justify-content: center;
+            transition: color .2s;
+        }
+        .password-toggle:hover { color: var(--text-2); }
+        .password-toggle svg { width: 18px; height: 18px; display: block; }
     </style>
 </head>
 <body>
@@ -96,7 +108,21 @@
                 </div>
                 <div class="auth-form-group" style="margin-bottom:4px">
                     <label class="form-label">Password</label>
-                    <input type="password" class="form-input" name="Password" placeholder="Enter your password" required />
+                    <div class="password-wrap">
+                        <input type="password" class="form-input" id="Password" name="Password" placeholder="Enter your password" required />
+                        <button type="button" class="password-toggle" id="passwordToggle" aria-label="Show password">
+                            <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg id="eyeOff" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+                                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <a class="forgot-link" href="@Url.Action("Index", "ForgotPassword")">Forgot password?</a>
                 <button type="submit" class="btn-primary" style="margin-top:18px">SIGN IN</button>
@@ -118,6 +144,22 @@
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 2800);
         }
+
+        (function () {
+            const input = document.getElementById('Password');
+            const toggle = document.getElementById('passwordToggle');
+            const eyeOpen = document.getElementById('eyeOpen');
+            const eyeOff = document.getElementById('eyeOff');
+            if (!input || !toggle) return;
+
+            toggle.addEventListener('click', function () {
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                eyeOpen.style.display = showing ? '' : 'none';
+                eyeOff.style.display = showing ? 'none' : '';
+                toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+            });
+        })();
     </script>
 </body>
 </html>
