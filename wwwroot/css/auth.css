@@ -96,6 +96,9 @@
 }
 .auth-switch-link a:hover { text-decoration: underline; }
 
+.back-link { display: inline-flex; align-items: center; gap: 6px; }
+a.btn-primary.back-link { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+
 /* ── Login specific ── */
 .login-card-wrap { max-width: 380px; }
 
