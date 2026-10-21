@@ -77,6 +77,7 @@ namespace LGUTreasury.Controllers
 
             // Payments (with line items) in the date range
             var query = _context.PaymentRecords
+                .Include(p => p.Payee)
                 .Include(p => p.RecordLineItems)
                     .ThenInclude(l => l.RevenueType)
                 .Where(p => p.DateIssued >= fromDate && p.DateIssued <= toDate);
@@ -103,6 +104,7 @@ namespace LGUTreasury.Controllers
                 "custom"             => "Custom Report",
                 "remittance"         => "Remittance Summary",
                 "monthly-remittance" => "Monthly Remittance",
+                "detailed"           => "Detailed Collection List",
                 _                    => "Revenue Summary"
             };
 
@@ -151,6 +153,19 @@ namespace LGUTreasury.Controllers
                 };
             }
 
+            // The detailed list keeps the individual transactions behind the
+            // summary matrix (OR number, payor, method, and the
+            // base/surcharge/interest breakdown).
+            if (type == "detailed")
+            {
+                return normalizedFormat switch
+                {
+                    "csv"  => GenerateDetailedCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    "xlsx" => GenerateDetailedXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    _      => GenerateDetailedPdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
+                };
+            }
+
             // Generate and return the file
             return normalizedFormat switch
             {
@@ -177,9 +192,11 @@ namespace LGUTreasury.Controllers
         }
 
         // The amount a line item contributes to the report.
-        // NOTE: change this one line if your RecordLineItem uses a different property name
-        // (e.g. l.BaseAmount, or l.BaseAmount + l.Surcharge + l.Interest).
-        private static decimal LineAmount(RecordLineItem l) => l.BaseAmount;
+        // LineTotal is base + surcharge + interest (set in RecordController when the
+        // line item is saved), so it matches PaymentRecord.TotalAmount and the
+        // remittance reports. Using BaseAmount here would drop surcharge and
+        // interest and make this report disagree with the remittance reports.
+        private static decimal LineAmount(RecordLineItem l) => l.LineTotal;
 
         private static Matrix BuildMatrix(
             List<PaymentRecord> payments, List<RevenueType> types,
@@ -229,7 +246,7 @@ namespace LGUTreasury.Controllers
                 if (revenueTypeId.HasValue && t.TypeID != revenueTypeId.Value) continue;
                 var hasData = m.Cells.Keys.Any(k => k.TypeID == t.TypeID);
                 if (t.IsActive || hasData)
-                    m.Rows.Add((t.TypeID, t.Name));
+                    m.Rows.Add((t.TypeID, t.Name ?? ""));
             }
 
             return m;
@@ -487,6 +504,268 @@ namespace LGUTreasury.Controllers
             return File(pdfBytes, "application/pdf", fileName + ".pdf");
         }
 
+        // ── DETAILED COLLECTION LIST ───────────────────────────────
+        // The summary reports above are matrices (revenue type x date). This one
+        // lists the individual transactions behind those totals, so the OR
+        // number, payor, payment method and the base/surcharge/interest
+        // breakdown stay exportable for reconciliation and audit.
+
+        private static string DetailPayee(PaymentRecord p) =>
+            p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
+
+        private static string DetailType(PaymentRecord p) =>
+            p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+
+        private static string DetailMethod(PaymentRecord p) =>
+            p.PaymentMethod ?? "—";
+
+        private IActionResult GenerateDetailedCsv(
+            List<PaymentRecord> payments, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
+            sb.AppendLine(CsvField($"Report Type: {reportType}"));
+            if (!string.IsNullOrEmpty(revenueTypeName))
+                sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
+            sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
+            sb.AppendLine();
+
+            sb.AppendLine(string.Join(",", new[]
+            {
+                CsvField("Transaction ID"), CsvField("OR Number"), CsvField("Payor"),
+                CsvField("Collection Type"), CsvField("Payment Method"),
+                CsvField("Base Amount"), CsvField("Surcharge"), CsvField("Interest"),
+                CsvField("Total Amount"), CsvField("Date Issued")
+            }));
+
+            foreach (var p in payments)
+            {
+                sb.AppendLine(string.Join(",", new[]
+                {
+                    CsvField("TXN-" + p.PaymentID.ToString("D6")),
+                    CsvField(p.OfficialReceipt),
+                    CsvField(DetailPayee(p)),
+                    CsvField(DetailType(p)),
+                    CsvField(DetailMethod(p)),
+                    AmountOrBlankCsv(p.TotalBaseAmount),
+                    AmountOrBlankCsv(p.TotalSurcharge),
+                    AmountOrBlankCsv(p.TotalInterest),
+                    AmountOrBlankCsv(p.TotalAmount),
+                    CsvField(p.DateIssued.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture))
+                }));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(CsvField($"Total Records: {payments.Count}"));
+            sb.AppendLine(CsvField($"Total Collected: {AmountOrBlank(payments.Sum(p => p.TotalAmount))}"));
+
+            // UTF-8 with BOM so Excel shows characters correctly
+            var bytes = new UTF8Encoding(true).GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+            return File(bytes, "text/csv", fileName + ".csv");
+        }
+
+        private IActionResult GenerateDetailedXlsx(
+            List<PaymentRecord> payments, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Collection List");
+            ws.Style.Font.FontName = "Arial";
+            ws.Style.Font.FontSize = 10;
+
+            ws.Cell(1, 1).Value = "LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM";
+            ws.Range(1, 1, 1, 10).Merge();
+            ws.Cell(1, 1).Style.Font.Bold = true;
+            ws.Cell(1, 1).Style.Font.FontSize = 14;
+            ws.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(2, 1).Value = reportType;
+            ws.Range(2, 1, 2, 10).Merge();
+            ws.Cell(2, 1).Style.Font.Bold = true;
+            ws.Cell(2, 1).Style.Font.FontSize = 12;
+            ws.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell(3, 1).Value = $"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}";
+            ws.Range(3, 1, 3, 10).Merge();
+            ws.Cell(3, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var headerRow = 4;
+            if (!string.IsNullOrEmpty(revenueTypeName))
+            {
+                ws.Cell(4, 1).Value = $"Revenue Type: {revenueTypeName}";
+                ws.Range(4, 1, 4, 10).Merge();
+                ws.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                headerRow = 5;
+            }
+
+            string[] headers =
+            {
+                "Transaction ID", "OR Number", "Payor", "Collection Type", "Method",
+                "Base Amount", "Surcharge", "Interest", "Total", "Date Issued"
+            };
+            for (var c = 0; c < headers.Length; c++)
+            {
+                var cell = ws.Cell(headerRow, c + 1);
+                cell.Value = headers[c];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#C8E6C9");
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            var row = headerRow + 1;
+            foreach (var p in payments)
+            {
+                ws.Cell(row, 1).Value = "TXN-" + p.PaymentID.ToString("D6");
+                ws.Cell(row, 2).Value = p.OfficialReceipt ?? "—";
+                ws.Cell(row, 3).Value = DetailPayee(p);
+                ws.Cell(row, 4).Value = DetailType(p);
+                ws.Cell(row, 5).Value = DetailMethod(p);
+                ws.Cell(row, 6).Value = (double)p.TotalBaseAmount;
+                ws.Cell(row, 7).Value = (double)p.TotalSurcharge;
+                ws.Cell(row, 8).Value = (double)p.TotalInterest;
+                ws.Cell(row, 9).Value = (double)p.TotalAmount;
+                ws.Cell(row, 10).Value = p.DateIssued;
+                row++;
+            }
+
+            // Totals row
+            ws.Cell(row, 1).Value = $"TOTAL — {payments.Count} record(s)";
+            ws.Range(row, 1, row, 5).Merge();
+            ws.Cell(row, 1).Style.Font.Bold = true;
+            ws.Cell(row, 6).Value = (double)payments.Sum(p => p.TotalBaseAmount);
+            ws.Cell(row, 7).Value = (double)payments.Sum(p => p.TotalSurcharge);
+            ws.Cell(row, 8).Value = (double)payments.Sum(p => p.TotalInterest);
+            ws.Cell(row, 9).Value = (double)payments.Sum(p => p.TotalAmount);
+            ws.Range(row, 1, row, 10).Style.Fill.BackgroundColor = XLColor.FromHtml("#E8F5E9");
+
+            ws.Columns(6, 9).Style.NumberFormat.Format = "#,##0.00";
+            ws.Columns(1, 10).AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName + ".xlsx");
+        }
+
+        private IActionResult GenerateDetailedPdf(
+            List<PaymentRecord> payments, string fileName,
+            string reportType, DateTime from, DateTime to, string generatedBy,
+            string? revenueTypeName = null)
+        {
+            var totalAmount = payments.Sum(p => p.TotalAmount);
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(30);
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lato"));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM")
+                            .Bold().FontSize(14).AlignCenter();
+                        col.Item().Text(reportType)
+                            .Bold().FontSize(11).AlignCenter();
+                        col.Item().Text($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}")
+                            .FontSize(9).AlignCenter();
+                        if (!string.IsNullOrEmpty(revenueTypeName))
+                        {
+                            col.Item().Text($"Revenue Type: {revenueTypeName}")
+                                .FontSize(9).AlignCenter();
+                        }
+                        col.Item().PaddingTop(4).BorderBottom(1).BorderColor("#388E3C");
+                    });
+
+                    page.Content().PaddingTop(10).Table(table =>
+                    {
+                        table.ColumnsDefinition(cols =>
+                        {
+                            cols.ConstantColumn(80);  // TXN ID
+                            cols.ConstantColumn(70);  // OR Number
+                            cols.RelativeColumn(2);   // Payor
+                            cols.RelativeColumn(2);   // Type
+                            cols.ConstantColumn(70);  // Method
+                            cols.ConstantColumn(70);  // Base
+                            cols.ConstantColumn(60);  // Surcharge
+                            cols.ConstantColumn(60);  // Interest
+                            cols.ConstantColumn(80);  // Total
+                            cols.ConstantColumn(90);  // Date
+                        });
+
+                        static IContainer HeaderCell(IContainer c) =>
+                            c.Background("#C8E6C9").Padding(5).AlignCenter();
+
+                        table.Header(h =>
+                        {
+                            h.Cell().Element(HeaderCell).Text("Transaction ID").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("OR Number").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Payor").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Collection Type").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Method").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Base Amount").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Surcharge").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Interest").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Total").Bold().FontSize(8);
+                            h.Cell().Element(HeaderCell).Text("Date Issued").Bold().FontSize(8);
+                        });
+
+                        var rowIndex = 0;
+                        foreach (var p in payments)
+                        {
+                            var bg = rowIndex % 2 == 0 ? "#ffffff" : "#f9f9f9";
+                            rowIndex++;
+
+                            IContainer Cell(IContainer c) => c.Background(bg).Padding(4);
+
+                            table.Cell().Element(Cell).Text("TXN-" + p.PaymentID.ToString("D6")).FontSize(8);
+                            table.Cell().Element(Cell).Text(p.OfficialReceipt ?? "—").FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailPayee(p)).FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailType(p)).FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailMethod(p)).FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalBaseAmount:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalSurcharge:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalInterest:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalAmount:N2}").Bold().FontSize(8);
+                            table.Cell().Element(Cell).Text(p.DateIssued.ToString("MM/dd/yyyy")).FontSize(8);
+                        }
+
+                        IContainer TotalCell(IContainer c) => c.Background("#e8f5e9").Padding(4);
+
+                        table.Cell().ColumnSpan(5).Element(TotalCell)
+                            .Text($"TOTAL — {payments.Count} record(s)").Bold().FontSize(8);
+                        table.Cell().Element(TotalCell).AlignRight()
+                            .Text($"{payments.Sum(p => p.TotalBaseAmount):N2}").Bold().FontSize(8);
+                        table.Cell().Element(TotalCell).AlignRight()
+                            .Text($"{payments.Sum(p => p.TotalSurcharge):N2}").Bold().FontSize(8);
+                        table.Cell().Element(TotalCell).AlignRight()
+                            .Text($"{payments.Sum(p => p.TotalInterest):N2}").Bold().FontSize(8);
+                        table.Cell().Element(TotalCell).AlignRight()
+                            .Text($"{totalAmount:N2}").Bold().FontSize(8);
+                        table.Cell().Element(TotalCell).Text("").FontSize(8);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.Span($"Generated by: {generatedBy}  |  ").FontSize(8);
+                        text.Span($"{DateTime.Now:MMMM dd, yyyy hh:mm tt}  |  Page ").FontSize(8);
+                        text.CurrentPageNumber().FontSize(8);
+                        text.Span(" of ").FontSize(8);
+                        text.TotalPages().FontSize(8);
+                    });
+                });
+            });
+
+            var pdfBytes = document.GeneratePdf();
+            return File(pdfBytes, "application/pdf", fileName + ".pdf");
+        }
+
         // ── REMITTANCE REPORTS ───────────────────────
         private sealed class RemittanceRow
         {
@@ -626,14 +905,14 @@ namespace LGUTreasury.Controllers
             string reportType, DateTime from, DateTime to, string? revenueTypeName)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM");
-            sb.AppendLine($"Report Type: {reportType}");
+            sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
+            sb.AppendLine(CsvField($"Report Type: {reportType}"));
             if (!string.IsNullOrEmpty(revenueTypeName))
-                sb.AppendLine($"Revenue Type: {revenueTypeName}");
-            sb.AppendLine($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}");
+                sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
             if (report.IsMonthly)
-                sb.AppendLine("GENERAL COLLECTIONS");
-            sb.AppendLine($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}");
+                sb.AppendLine(CsvField("GENERAL COLLECTIONS"));
+            sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
             sb.AppendLine();
 
             if (!report.IsMonthly)
@@ -676,7 +955,9 @@ namespace LGUTreasury.Controllers
                 sb.AppendLine(totals.ToString());
             }
 
-            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            // UTF-8 with BOM so Excel shows characters correctly
+            var bytes = new UTF8Encoding(true).GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
             return File(bytes, "text/csv", fileName + ".csv");
         }
 

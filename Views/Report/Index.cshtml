@@ -26,6 +26,7 @@
                     <option value="remittance">Remittance</option>
                     <option value="monthly-remittance">Monthly Remittance</option>
                     <option value="custom">Custom Report</option>
+                    <option value="detailed">Detailed Collection List</option>
                 </select>
             </div>
             <div class="form-group">
@@ -148,7 +149,7 @@
             let from = new Date(today);
             const to = new Date(today);
 
-            if (type === 'custom') {
+            if (type === 'custom' || type === 'detailed') {
                 // Custom range: leave the user-entered dates untouched
                 return;
             } else if (type === 'monthly' || type === 'monthly-remittance') {
