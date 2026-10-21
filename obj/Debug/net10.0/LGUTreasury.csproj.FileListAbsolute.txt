@@ -285,7 +285,6 @@ C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LatoFont\Lato-S
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LatoFont\Lato-Thin.ttf
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LatoFont\Lato-ThinItalic.ttf
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LatoFont\OFL.txt
-C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LGUTreasury.exe
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LGUTreasury.deps.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LGUTreasury.runtimeconfig.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LGUTreasury.dll
@@ -426,7 +425,6 @@ C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win-x8
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win-x86\native\libwinpthread-1.dll
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win-x86\native\qpdf.dll
 C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win-x86\native\zlib1.dll
-C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win\lib\net8.0\System.Windows.Extensions.dll
 C:\Users\alex.belongilot\Downloads\LGUTreasury\obj\Debug\net10.0\LGUTreasury.csproj.AssemblyReference.cache
 C:\Users\alex.belongilot\Downloads\LGUTreasury\obj\Debug\net10.0\rpswa.dswa.cache.json
 C:\Users\alex.belongilot\Downloads\LGUTreasury\obj\Debug\net10.0\LGUTreasury.GeneratedMSBuildEditorConfig.editorconfig
@@ -594,3 +592,5 @@ C:\Users\alex.belongilot\AppData\Local\Temp\opencode\lgutest\Debug\net10.0\LGUTr
 C:\Users\alex.belongilot\AppData\Local\Temp\opencode\lgutest\Debug\net10.0\LGUTreasury.runtimeconfig.json
 C:\Users\alex.belongilot\AppData\Local\Temp\opencode\lgutest\Debug\net10.0\LGUTreasury.dll
 C:\Users\alex.belongilot\AppData\Local\Temp\opencode\lgutest\Debug\net10.0\LGUTreasury.pdb
+C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\runtimes\win\lib\net10.0\System.Windows.Extensions.dll
+C:\Users\alex.belongilot\Downloads\LGUTreasury\bin\Debug\net10.0\LGUTreasury.exe

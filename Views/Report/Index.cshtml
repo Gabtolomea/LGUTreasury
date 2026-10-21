@@ -23,6 +23,8 @@
                     <option value="daily">Today's Report</option>
                     <option value="monthly">Monthly Report</option>
                     <option value="annual">Annual Report</option>
+                    <option value="remittance">Remittance</option>
+                    <option value="monthly-remittance">Monthly Remittance</option>
                     <option value="custom">Custom Report</option>
                 </select>
             </div>
@@ -149,7 +151,7 @@
             if (type === 'custom') {
                 // Custom range: leave the user-entered dates untouched
                 return;
-            } else if (type === 'monthly') {
+            } else if (type === 'monthly' || type === 'monthly-remittance') {
                 from = new Date(today.getFullYear(), today.getMonth(), 1);
             } else if (type === 'annual') {
                 from = new Date(today.getFullYear(), 0, 1);

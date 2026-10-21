@@ -127,4 +127,40 @@ public class ReportExportTests
 
         Assert.IsType<BadRequestObjectResult>(result);
     }
+
+    [Theory]
+    [InlineData("remittance")]
+    [InlineData("monthly-remittance")]
+    public async Task Generate_Remittance_Pdf_ReturnsPdfFile(string type)
+    {
+        using var db = SeedOnePayment();
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate(type, "pdf", today, today, null);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.EndsWith(".pdf", file.FileDownloadName);
+        Assert.Equal("%PDF", Encoding.ASCII.GetString(file.FileContents, 0, 4));
+    }
+
+    [Theory]
+    [InlineData("remittance", "Remittance Summary")]
+    [InlineData("monthly-remittance", "Monthly Remittance")]
+    public async Task Generate_Remittance_Xlsx_HeaderShowsReportTypeName(string type, string expected)
+    {
+        using var db = SeedOnePayment();
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate(type, "xlsx", today, today, null);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        using var stream = new MemoryStream(file.FileContents);
+        using var workbook = new XLWorkbook(stream);
+
+        Assert.Contains(expected,
+            string.Join("\n", workbook.Worksheet(1).CellsUsed().Select(c => c.GetString())));
+    }
 }

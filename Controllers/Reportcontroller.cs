@@ -74,6 +74,11 @@ namespace LGUTreasury.Controllers
             if (fromDate > toDate)
                 return BadRequest("From date cannot be after To date.");
 
+            // Monthly Remittance renders one column per day, so cap the range at
+            // one month to keep the table readable.
+            if (type == "monthly-remittance" && (toDate.Date - fromDate.Date).Days > 31)
+                return BadRequest("Monthly Remittance accepts a date range of at most 31 days.");
+
             // Set toDate to end of day
             toDate = toDate.Date.AddDays(1).AddSeconds(-1);
 
@@ -96,11 +101,13 @@ namespace LGUTreasury.Controllers
             // Get readable report type name
             var reportTypeName = type switch
             {
-                "daily"   => "Daily Collection Report",
-                "monthly" => "Monthly Revenue Summary",
-                "annual"  => "Annual Revenue Summary",
-                "custom"  => "Custom Report",
-                _         => "Revenue Summary"
+                "daily"              => "Daily Collection Report",
+                "monthly"            => "Monthly Revenue Summary",
+                "annual"             => "Annual Revenue Summary",
+                "custom"             => "Custom Report",
+                "remittance"         => "Remittance Summary",
+                "monthly-remittance" => "Monthly Remittance",
+                _                    => "Revenue Summary"
             };
 
             // Name of the selected revenue type (for the file name and report header)
@@ -136,6 +143,19 @@ namespace LGUTreasury.Controllers
             };
             _context.ReportLog.Add(log);
             await _context.SaveChangesAsync();
+
+            // Remittance reports aggregate line items per revenue type instead of
+            // listing transactions, so they use their own data shape and exporters.
+            if (type is "remittance" or "monthly-remittance")
+            {
+                var remittance = BuildRemittance(type, payments, revenueTypeId, fromDate, toDate);
+                return normalizedFormat switch
+                {
+                    "csv"  => GenerateRemittanceCsv(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    "xlsx" => GenerateRemittanceXlsx(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    _      => GenerateRemittancePdf(remittance, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
+                };
+            }
 
             // Generate and return the file
             return normalizedFormat switch
@@ -412,6 +432,531 @@ namespace LGUTreasury.Controllers
                     });
                 });
             });
+
+            var pdfBytes = document.GeneratePdf();
+            return File(pdfBytes, "application/pdf", fileName + ".pdf");
+        }
+
+        // ── REMITTANCE REPORTS ───────────────────────
+        private sealed class RemittanceRow
+        {
+            public string Name { get; init; } = "";
+            public decimal Total { get; init; }
+            public bool IsSection { get; init; }
+            public string RowClass { get; init; } = "";
+            public decimal[] Cells { get; init; } = Array.Empty<decimal>();
+        }
+
+        private sealed class RemittanceReport
+        {
+            public bool IsMonthly { get; init; }
+            public List<DateTime> Days { get; } = new();
+            public List<RemittanceRow> Rows { get; } = new();
+            public decimal[] DayTotals { get; set; } = Array.Empty<decimal>();
+            public decimal GrandTotal { get; set; }
+        }
+
+        // Aggregates already-loaded payments per revenue type. The "remittance"
+        // layout splits FEE-category types from everything else (MISCELLANEOUS
+        // section); "monthly-remittance" builds a per-day matrix instead.
+        private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            var report = new RemittanceReport { IsMonthly = type == "monthly-remittance" };
+
+            // All active revenue types get a row (even with nothing collected);
+            // a type filter narrows the list to that single type, active or not.
+            var types = _context.RevenueTypes
+                .AsNoTracking()
+                .Where(t => revenueTypeId.HasValue ? t.TypeID == revenueTypeId.Value : t.IsActive)
+                .ToList();
+
+            var byTypeAndDay = new Dictionary<(int TypeID, DateTime Day), decimal>();
+            var byType = new Dictionary<int, decimal>();
+            foreach (var p in payments)
+            {
+                if (p.RecordLineItems is null) continue;
+                foreach (var l in p.RecordLineItems)
+                {
+                    if (revenueTypeId.HasValue && l.TypeID != revenueTypeId.Value) continue;
+
+                    var day = p.DateIssued.Date;
+                    byTypeAndDay[(l.TypeID, day)] = byTypeAndDay.GetValueOrDefault((l.TypeID, day)) + l.LineTotal;
+                    byType[l.TypeID] = byType.GetValueOrDefault(l.TypeID) + l.LineTotal;
+                }
+            }
+
+            if (report.IsMonthly)
+            {
+                // Generate all days in the date range (inclusive) so empty days are displayed
+                var fromDay = fromDate.Date;
+                var toDay = toDate.Date;
+                if (toDay > fromDay.AddDays(31)) toDay = fromDay.AddDays(31); // safety
+                for (var d = fromDay; d <= toDay; d = d.AddDays(1))
+                {
+                    report.Days.Add(d);
+                }
+
+                foreach (var t in types.OrderBy(t => t.TypeID))
+                {
+                    report.Rows.Add(new RemittanceRow
+                    {
+                        Name = t.Name ?? "",
+                        Total = byType.GetValueOrDefault(t.TypeID),
+                        RowClass = MonthlyRowClass(t.Name ?? ""),
+                        Cells = report.Days.Select(d => byTypeAndDay.GetValueOrDefault((t.TypeID, d))).ToArray()
+                    });
+                }
+
+                report.DayTotals = report.Days
+                    .Select((_, i) => report.Rows.Sum(r => r.Cells[i]))
+                    .ToArray();
+                report.GrandTotal = report.Rows.Sum(r => r.Total);
+            }
+            else
+            {
+                var ordered = types
+                    .OrderBy(t => IsFeeCategory(t.CategoryID) ? 0 : 1)
+                    .ThenBy(t => t.TypeID)
+                    .ToList();
+
+                var sectionInserted = false;
+                foreach (var t in ordered)
+                {
+                    var isMisc = !IsFeeCategory(t.CategoryID);
+                    if (isMisc && !sectionInserted)
+                    {
+                        report.Rows.Add(new RemittanceRow { Name = "MISCELLANEOUS:", IsSection = true });
+                        sectionInserted = true;
+                    }
+                    report.Rows.Add(new RemittanceRow
+                    {
+                        Name = t.Name ?? "",
+                        Total = byType.GetValueOrDefault(t.TypeID)
+                    });
+                }
+
+                report.GrandTotal = report.Rows.Where(r => !r.IsSection).Sum(r => r.Total);
+            }
+
+            return report;
+        }
+
+        private static bool IsFeeCategory(string? categoryId) =>
+            string.Equals(categoryId, "FEE", StringComparison.OrdinalIgnoreCase);
+
+        private static string MonthlyRowClass(string name)
+        {
+            if (name.Contains("business tax", StringComparison.OrdinalIgnoreCase)) return "bt";
+            if (name.Contains("kabutungan", StringComparison.OrdinalIgnoreCase)) return "kb";
+            if (name.Contains("inambakan", StringComparison.OrdinalIgnoreCase)) return "in";
+            if (name.Contains("cock", StringComparison.OrdinalIgnoreCase)) return "cf";
+            return "";
+        }
+
+        private static string AmountOrBlank(decimal value) =>
+            value.ToString("N2", CultureInfo.InvariantCulture);
+
+        private static string AmountOrBlankCsv(decimal value) =>
+            value.ToString("F2", CultureInfo.InvariantCulture);
+
+        private static string DayHeader(DateTime day)
+        {
+            var month = day.ToString("MMM", CultureInfo.InvariantCulture).ToUpperInvariant();
+            if (month == "SEP") month = "SEPT";   // September abbreviates differently
+            return $"{month}. {day.ToString("dd", CultureInfo.InvariantCulture)}, {day.ToString("yyyy", CultureInfo.InvariantCulture)}";
+        }
+
+        private static string MonthlyPeriodTitle(DateTime from, DateTime to) =>
+            from.Month == to.Month && from.Year == to.Year
+                ? from.ToString("MMM-yy", CultureInfo.InvariantCulture)
+                : $"{from.ToString("MMM-yy", CultureInfo.InvariantCulture)} - {to.ToString("MMM-yy", CultureInfo.InvariantCulture)}";
+
+        private IActionResult GenerateRemittanceCsv(
+            RemittanceReport report, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM");
+            sb.AppendLine($"Report Type: {reportType}");
+            if (!string.IsNullOrEmpty(revenueTypeName))
+                sb.AppendLine($"Revenue Type: {revenueTypeName}");
+            sb.AppendLine($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}");
+            if (report.IsMonthly)
+                sb.AppendLine("GENERAL COLLECTIONS");
+            sb.AppendLine($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}");
+            sb.AppendLine();
+
+            if (!report.IsMonthly)
+            {
+                sb.AppendLine("Item,Amount");
+                foreach (var row in report.Rows)
+                {
+                    sb.AppendLine(row.IsSection
+                        ? CsvField(row.Name) + ","
+                        : CsvField(row.Name) + "," + AmountOrBlankCsv(row.Total));
+                }
+                sb.AppendLine("TOTAL," + report.GrandTotal.ToString("F2", CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                var header = new StringBuilder("Item");
+                foreach (var day in report.Days)
+                    header.Append(',').Append(CsvField(DayHeader(day)));
+                header.Append(",TOTAL");
+                sb.AppendLine(header.ToString());
+
+                foreach (var row in report.Rows)
+                {
+                    if (row.IsSection)
+                    {
+                        sb.AppendLine(CsvField(row.Name) + ",");
+                        continue;
+                    }
+                    var line = new StringBuilder(CsvField(row.Name));
+                    foreach (var cell in row.Cells)
+                        line.Append(',').Append(AmountOrBlankCsv(cell));
+                    line.Append(',').Append(AmountOrBlankCsv(row.Total));
+                    sb.AppendLine(line.ToString());
+                }
+
+                var totals = new StringBuilder("Total");
+                foreach (var total in report.DayTotals)
+                    totals.Append(',').Append(AmountOrBlankCsv(total));
+                totals.Append(',').Append(AmountOrBlankCsv(report.GrandTotal));
+                sb.AppendLine(totals.ToString());
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            return File(bytes, "text/csv", fileName + ".csv");
+        }
+
+        private IActionResult GenerateRemittanceXlsx(
+            RemittanceReport report, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName)
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add(report.IsMonthly ? "Monthly Remittance" : "Remittance Summary");
+            ws.Style.Font.FontName = "Arial";
+            ws.Style.Font.FontSize = 10;
+
+            var colCount = report.IsMonthly ? report.Days.Count + 2 : 2;
+
+            static void TitleRow(IXLWorksheet sheet, int row, int lastCol, string text, int size, bool bold)
+            {
+                sheet.Cell(row, 1).Value = text;
+                sheet.Range(row, 1, row, lastCol).Merge();
+                sheet.Cell(row, 1).Style.Font.Bold = bold;
+                sheet.Cell(row, 1).Style.Font.FontSize = size;
+                sheet.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            static void ThinBorder(IXLRange range)
+            {
+                var border = range.Style.Border;
+                border.TopBorder = XLBorderStyleValues.Thin;
+                border.BottomBorder = XLBorderStyleValues.Thin;
+                border.LeftBorder = XLBorderStyleValues.Thin;
+                border.RightBorder = XLBorderStyleValues.Thin;
+            }
+
+            TitleRow(ws, 1, colCount, "LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM", 14, true);
+            TitleRow(ws, 2, colCount, reportType, 12, true);
+            TitleRow(ws, 3, colCount, $"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}", 10, false);
+
+            var headerRow = 4;
+            if (report.IsMonthly)
+            {
+                TitleRow(ws, headerRow, colCount, MonthlyPeriodTitle(from, to), 12, true);
+                headerRow++;
+                TitleRow(ws, headerRow, colCount, "GENERAL COLLECTIONS", 10, true);
+                headerRow++;
+            }
+            if (!string.IsNullOrEmpty(revenueTypeName))
+            {
+                TitleRow(ws, headerRow, colCount, $"Revenue Type: {revenueTypeName}", 10, false);
+                headerRow++;
+            }
+
+            if (!report.IsMonthly)
+            {
+                ws.Cell(headerRow, 1).Value = "Item";
+                ws.Cell(headerRow, 2).Value = "Amount (₱)";
+                ws.Range(headerRow, 1, headerRow, 2).Style.Font.Bold = true;
+                ws.Range(headerRow, 1, headerRow, 2).Style.Fill.BackgroundColor = XLColor.FromHtml("#EEF1F7");
+                ws.Range(headerRow, 1, headerRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ThinBorder(ws.Range(headerRow, 1, headerRow, 2));
+
+                var row = headerRow + 1;
+                foreach (var r in report.Rows)
+                {
+                    if (r.IsSection)
+                    {
+                        ws.Cell(row, 1).Value = r.Name;
+                        ws.Range(row, 1, row, 2).Merge();
+                        ws.Cell(row, 1).Style.Font.Bold = true;
+                        ws.Range(row, 1, row, 2).Style.Fill.BackgroundColor = XLColor.FromHtml("#EEF1F7");
+                    }
+                    else
+                    {
+                        ws.Cell(row, 1).Value = r.Name;
+                        if (r.Total != 0)
+                            ws.Cell(row, 2).Value = (double)r.Total;
+                        ws.Cell(row, 2).Style.NumberFormat.Format = "#,##0.00";
+                        ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                    }
+                    ThinBorder(ws.Range(row, 1, row, 2));
+                    row++;
+                }
+
+                ws.Cell(row, 1).Value = "TOTAL";
+                ws.Cell(row, 2).Value = (double)report.GrandTotal;
+                ws.Cell(row, 2).Style.NumberFormat.Format = "#,##0.00";
+                ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                ws.Range(row, 1, row, 2).Style.Font.Bold = true;
+                ws.Range(row, 1, row, 2).Style.Fill.BackgroundColor = XLColor.FromHtml("#DFF0D0");
+                ThinBorder(ws.Range(row, 1, row, 2));
+
+                ws.Columns(1, 2).AdjustToContents();
+            }
+            else
+            {
+                ws.Cell(headerRow, 1).Value = "";
+                for (var i = 0; i < report.Days.Count; i++)
+                    ws.Cell(headerRow, 2 + i).Value = DayHeader(report.Days[i]);
+                ws.Cell(headerRow, colCount).Value = "TOTAL";
+                var headRange = ws.Range(headerRow, 1, headerRow, colCount);
+                headRange.Style.Font.Bold = true;
+                headRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F0F2F6");
+                headRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ThinBorder(headRange);
+
+                var row = headerRow + 1;
+                foreach (var r in report.Rows)
+                {
+                    ws.Cell(row, 1).Value = r.Name;
+                    ws.Cell(row, 1).Style.Font.Bold = true;
+
+                    switch (r.RowClass)
+                    {
+                        case "bt":
+                            ws.Cell(row, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#4A86E8");
+                            ws.Cell(row, 1).Style.Font.FontColor = XLColor.FromHtml("#FFFFFF");
+                            break;
+                        case "kb":
+                            ws.Range(row, 1, row, colCount).Style.Fill.BackgroundColor = XLColor.FromHtml("#8BC34A");
+                            break;
+                        case "in":
+                            ws.Range(row, 1, row, colCount).Style.Fill.BackgroundColor = XLColor.FromHtml("#4FB0F0");
+                            break;
+                        case "cf":
+                            ws.Range(row, 1, row, colCount).Style.Fill.BackgroundColor = XLColor.FromHtml("#FFD54A");
+                            break;
+                    }
+
+                    for (var i = 0; i < report.Days.Count; i++)
+                    {
+                        if (r.Cells[i] != 0)
+                            ws.Cell(row, 2 + i).Value = (double)r.Cells[i];
+                    }
+                    if (r.Total != 0)
+                        ws.Cell(row, colCount).Value = (double)r.Total;
+                    ws.Range(row, 2, row, colCount).Style.NumberFormat.Format = "#,##0.00";
+                    ws.Range(row, 2, row, colCount).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                    ws.Cell(row, colCount).Style.Font.FontColor = XLColor.FromHtml("#C0392B");
+                    ws.Cell(row, colCount).Style.Font.Bold = true;
+                    ThinBorder(ws.Range(row, 1, row, colCount));
+                    row++;
+                }
+
+                ws.Cell(row, 1).Value = "Total";
+                for (var i = 0; i < report.DayTotals.Length; i++)
+                {
+                    if (report.DayTotals[i] != 0)
+                        ws.Cell(row, 2 + i).Value = (double)report.DayTotals[i];
+                }
+                if (report.GrandTotal != 0)
+                    ws.Cell(row, colCount).Value = (double)report.GrandTotal;
+                var totRange = ws.Range(row, 1, row, colCount);
+                totRange.Style.Font.Bold = true;
+                totRange.Style.Font.FontColor = XLColor.FromHtml("#C0392B");
+                totRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F0F2F6");
+                ws.Range(row, 2, row, colCount).Style.NumberFormat.Format = "#,##0.00";
+                ws.Range(row, 2, row, colCount).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                ThinBorder(totRange);
+
+                ws.Column(1).Width = 34;
+                if (report.Days.Count > 0)
+                    ws.Columns(2, colCount).AdjustToContents();
+                ws.SheetView.FreezeRows(headerRow);
+                ws.SheetView.FreezeColumns(1);
+            }
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName + ".xlsx");
+        }
+
+        private IActionResult GenerateRemittancePdf(
+            RemittanceReport report, string fileName,
+            string reportType, DateTime from, DateTime to, string generatedBy,
+            string? revenueTypeName)
+        {
+            var document = Document.Create(container => container.Page(page =>
+            {
+                if (report.IsMonthly)
+                {
+                    // Wide landscape: item column + one column per day + TOTAL
+                    var width = 40f + 150f + 64f + report.Days.Count * 50f;
+                    page.Size(new PageSize(Math.Max(width, 842f), 595f));
+                }
+                else
+                {
+                    page.Size(PageSizes.A4.Portrait());
+                }
+                page.Margin(20);
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM")
+                        .Bold().FontSize(14).AlignCenter();
+                    col.Item().Text(reportType).Bold().FontSize(11).AlignCenter();
+                    if (report.IsMonthly)
+                    {
+                        col.Item().Text(MonthlyPeriodTitle(from, to)).Bold().FontSize(12).AlignCenter();
+                        col.Item().Text("GENERAL COLLECTIONS").Bold().FontSize(10).AlignCenter();
+                    }
+                    col.Item().Text($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}")
+                        .FontSize(9).AlignCenter();
+                    if (!string.IsNullOrEmpty(revenueTypeName))
+                    {
+                        col.Item().Text($"Revenue Type: {revenueTypeName}")
+                            .FontSize(9).AlignCenter();
+                    }
+                    col.Item().PaddingTop(4).BorderBottom(1).BorderColor("#388E3C");
+                });
+
+                page.Content().PaddingTop(10).Table(table =>
+                {
+                    if (!report.IsMonthly)
+                    {
+                        table.ColumnsDefinition(cols =>
+                        {
+                            cols.RelativeColumn();
+                            cols.ConstantColumn(120);
+                        });
+
+                        static IContainer SCell(IContainer c, string? bg = null)
+                        {
+                            c = c.Border(1).BorderColor("#D0D4DE").Padding(5);
+                            if (!string.IsNullOrEmpty(bg)) c = c.Background(bg);
+                            return c;
+                        }
+
+                        table.Header(h =>
+                        {
+                            h.Cell().Element(c => SCell(c, "#EEF1F7")).Text("Item").Bold();
+                            h.Cell().Element(c => SCell(c, "#EEF1F7")).AlignRight().Text("Amount (₱)").Bold();
+                        });
+
+                        foreach (var row in report.Rows)
+                        {
+                            if (row.IsSection)
+                            {
+                                table.Cell().ColumnSpan(2).Element(c => SCell(c, "#EEF1F7"))
+                                    .Text(row.Name).Bold();
+                                continue;
+                            }
+                            table.Cell().Element(c => SCell(c)).Text(row.Name);
+                            table.Cell().Element(c => SCell(c)).AlignRight().Text(AmountOrBlank(row.Total));
+                        }
+
+                        table.Cell().Element(c => SCell(c, "#DFF0D0")).Text("TOTAL").Bold();
+                        table.Cell().Element(c => SCell(c, "#DFF0D0")).AlignRight()
+                            .Text(report.GrandTotal.ToString("N2", CultureInfo.InvariantCulture)).Bold();
+                    }
+                    else
+                    {
+                        table.ColumnsDefinition(cols =>
+                        {
+                            cols.ConstantColumn(150);   // revenue type
+                            foreach (var _ in report.Days)
+                                cols.ConstantColumn(50);
+                            cols.ConstantColumn(64);    // TOTAL
+                        });
+
+                        static IContainer MCell(IContainer c, string? bg = null)
+                        {
+                            c = c.Border(1).BorderColor("#99AAAA").Padding(3);
+                            if (!string.IsNullOrEmpty(bg)) c = c.Background(bg);
+                            return c;
+                        }
+
+                        static IContainer MTot(IContainer c) =>
+                            c.Border(1).BorderColor("#99AAAA").Background("#F0F2F6").Padding(3);
+
+                        table.Header(h =>
+                        {
+                            h.Cell().Element(c => MCell(c, "#F0F2F6")).Text("").FontSize(7);
+                            foreach (var day in report.Days)
+                            {
+                                h.Cell().Element(c => MCell(c, "#F0F2F6"))
+                                    .Text(DayHeader(day)).Bold().FontSize(6);
+                            }
+                            h.Cell().Element(c => MCell(c, "#F0F2F6"))
+                                .Text("TOTAL").Bold().FontSize(7);
+                        });
+
+                        foreach (var row in report.Rows)
+                        {
+                            var isBt = row.RowClass == "bt";
+                            var rowBg = row.RowClass switch
+                            {
+                                "kb" => "#8BC34A",
+                                "in" => "#4FB0F0",
+                                "cf" => "#FFD54A",
+                                _   => (string?)null
+                            };
+                            var nameBg = isBt ? "#4A86E8" : rowBg;
+
+                            var nameText = table.Cell().Element(c => MCell(c, nameBg))
+                                .Text(row.Name).Bold().FontSize(7);
+                            if (isBt) nameText.FontColor("#FFFFFF");
+
+                            for (var i = 0; i < report.Days.Count; i++)
+                            {
+                                table.Cell().Element(c => MCell(c, rowBg))
+                                    .AlignRight().Text(AmountOrBlank(row.Cells[i])).FontSize(7);
+                            }
+
+                            table.Cell().Element(c => MCell(c, rowBg)).AlignRight()
+                                .Text(AmountOrBlank(row.Total))
+                                .Bold().FontSize(7).FontColor("#C0392B");
+                        }
+
+                        table.Cell().Element(MTot).Text("Total").Bold().FontSize(7).FontColor("#C0392B");
+                        foreach (var total in report.DayTotals)
+                        {
+                            table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(total))
+                                .Bold().FontSize(7).FontColor("#C0392B");
+                        }
+                        table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(report.GrandTotal))
+                            .Bold().FontSize(7).FontColor("#C0392B");
+                    }
+                });
+
+                page.Footer().AlignRight().Text(text =>
+                {
+                    text.Span($"Generated by: {generatedBy}  |  ").FontSize(8);
+                    text.Span($"{DateTime.Now:MMMM dd, yyyy hh:mm tt}  |  Page ").FontSize(8);
+                    text.CurrentPageNumber().FontSize(8);
+                    text.Span(" of ").FontSize(8);
+                    text.TotalPages().FontSize(8);
+                });
+            }));
 
             var pdfBytes = document.GeneratePdf();
             return File(pdfBytes, "application/pdf", fileName + ".pdf");
