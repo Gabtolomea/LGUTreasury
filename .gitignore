@@ -33,6 +33,14 @@ coverage*.info
 *.sln.docstates
 _ReSharper*/
 *.DotSettings.user
+.idea/
+*.binlog
+*.received.*
+*.orig
+*.rej
+*.tmp
+*.swp
+*.swo
 
 # ── .NET / NuGet ─────────────────────────────────────────────
 project.lock.json
