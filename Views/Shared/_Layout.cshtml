@@ -1,4 +1,14 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.EntityFrameworkCore
+@inject LGUTreasury.Data.ApplicationDbContext _db
+@{
+    var navRoleName = ViewData["Role"]?.ToString();
+    var pendingMessages = (navRoleName == "Officer" || navRoleName == "Admin")
+        ? await _db.Editrequests.CountAsync(r => r.Status == "Pending")
+        : 0;
+}
+
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -44,6 +54,20 @@
 }
 */
         /* TOP NAV */
+      
+       .nav-badge {
+    margin-left: auto;
+    background: #e53935; color: #fff;
+    font-size: 11px; font-weight: 700;
+    min-width: 20px; height: 20px; padding: 0 6px;
+    border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-item.active .nav-badge { background: #fff; color: #c0392b; }
+
+
+
+
         .topnav {
             height: 80px; background: #388E3C;
             display: flex; align-items: center; padding: 0 24px;
@@ -264,6 +288,10 @@
             <a asp-controller="Record" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "records" ? "active" : "")">
                 <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 Records
+                 @if (pendingMessages > 0)
+                {
+                    <span class="nav-badge">@pendingMessages</span>
+                }
             </a>
 
             @* Revenue Type — Officer and Admin only *@

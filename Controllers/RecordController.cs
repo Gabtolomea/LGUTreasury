@@ -369,6 +369,7 @@ public async Task<IActionResult> CreateBulk(
 
             return View(records);
         }
+        
 
         [HttpPost]
         public async Task<IActionResult> EditRecord(
