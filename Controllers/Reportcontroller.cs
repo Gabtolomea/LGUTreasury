@@ -459,7 +459,7 @@ namespace LGUTreasury.Controllers
         // Aggregates already-loaded payments per revenue type. The "remittance"
         // layout splits FEE-category types from everything else (MISCELLANEOUS
         // section); "monthly-remittance" builds a per-day matrix instead.
-        private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime? fromDate = null, DateTime? toDate = null)
+        private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime fromDate, DateTime toDate)
         {
             var report = new RemittanceReport { IsMonthly = type == "monthly-remittance" };
 

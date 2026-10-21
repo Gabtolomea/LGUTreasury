@@ -71,8 +71,13 @@ cp .env.example .env
 `.env` contents (`__` is ASP.NET Core's config hierarchy separator):
 
 ```env
-ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;
+ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 ```
+
+`SslMode=Required` forces a TLS connection to MySQL. MySQL 8's default
+`caching_sha2_password` plugin otherwise needs `AllowPublicKeyRetrieval=True` to
+send the password over an unencrypted link; with TLS the password is encrypted
+in the channel, so that flag is unnecessary.
 
 `Program.cs` loads `.env` at startup via `DotEnv.LoadDefault()`. `.env` is git-ignored —
 **never commit it**. Environment variables provided by the OS/host take precedence over `.env`.
