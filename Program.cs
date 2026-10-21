@@ -25,7 +25,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySQL(connectionString));
 
 
-
 var app = builder.Build();
 
 // ── Seed default admin ────────────────────────────────────
