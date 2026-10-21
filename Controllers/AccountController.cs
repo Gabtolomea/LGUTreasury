@@ -97,7 +97,7 @@ public async Task<IActionResult> Register(RegisterViewModel model)
         MiddleName = model.MiddleName,
         LastName = model.LastName,
         Suffix = model.Suffix,
-        ContactNumber = model.ContactNumber,
+        ContactNumber = ContactNumberRules.Normalize(model.ContactNumber),
         Email = model.Email,
         Address = model.Address,
         IsActive = true,

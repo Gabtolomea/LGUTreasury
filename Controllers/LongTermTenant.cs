@@ -99,13 +99,16 @@ namespace LGUTreasury.Controllers
             if (req.BillingTypes == null || !req.BillingTypes.Any())
                 return Json(new { success = false, message = "Please add at least one billing type." });
 
+            if (!ContactNumberRules.IsValid(req.ContactNumber))
+                return Json(new { success = false, message = ContactNumberRules.LettersErrorMessage });
+
             var tenant = new LongTermPayee
             {
                 FirstName         = req.FirstName,
                 MiddleName        = req.MiddleName,
                 LastName          = req.LastName,
                 Suffix            = req.Suffix,
-                ContactNumber     = req.ContactNumber,
+                ContactNumber     = ContactNumberRules.Normalize(req.ContactNumber),
                 Address           = req.Address,
                 StartMonth        = req.StartMonth,
                 BillGenerationDay = req.BillGenerationDay > 0 ? req.BillGenerationDay : 20,
@@ -424,6 +427,7 @@ namespace LGUTreasury.Controllers
         public string? MiddleName    { get; set; }
         public string LastName       { get; set; } = "";
         public string? Suffix        { get; set; }
+        [ContactNumber]
         public string? ContactNumber { get; set; }
         public string? Address       { get; set; }
         public string StartMonth     { get; set; } = "";
