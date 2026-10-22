@@ -1,13 +1,16 @@
 /* GENERATE REPORT PAGE
 ══════════════════════════════════════ */
-.report-page-wrap { padding: 0 24px 32px; max-width: 900px; width: 100%; margin: 0 auto; }
+.report-page-wrap { padding: 0 28px 32px; width: 100%; }
 
 .page-header-row { display: flex; align-items: center; gap: 12px; padding: 18px 0 14px; }
 .back-btn {
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
     border-radius: 8px; background: white; border: 1px solid var(--gray-border);
-    cursor: pointer; color: var(--text-2); font-size: 16px; text-decoration: none;
+    cursor: pointer; color: var(--text-2); text-decoration: none;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
 }
+.back-btn:hover { background: var(--gray-bg); border-color: #cfcfcf; color: var(--text); }
+.back-btn:active { transform: translateX(-1px); }
 .page-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .page-sub { font-size: 13px; color: var(--green); font-weight: 400; }
 

@@ -8,7 +8,9 @@
 <style>
     .lt-page { padding: 0 24px 32px; }
     .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
-    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); font-size:16px; text-decoration:none; }
+    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); text-decoration:none; transition:background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease; }
+    .back-btn:hover { background:var(--gray-bg); border-color:#cfcfcf; color:var(--text); }
+    .back-btn:active { transform:translateX(-1px); }
     .page-title { font-size:20px; font-weight:700; color:var(--text); }
     .page-sub { font-size:13px; color:var(--green); }
 
@@ -41,7 +43,7 @@
     tbody td { padding:11px 14px; border-bottom:1px solid #f0f0f0; color:var(--text); vertical-align:middle; }
     tbody tr:last-child td { border-bottom:none; }
     tbody tr:hover td { background:#fafafa; }
-    .action-btn { height:28px; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 12px; font-size:12px; font-weight:600; color:white; font-family:inherit; white-space:nowrap; }
+    .action-btn { height:28px; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 12px; font-size:12px; font-weight:600; color:white; font-family:inherit; white-space:nowrap; text-decoration:none; }
     .btn-view { background:var(--blue); }
     .btn-view:hover { background:#2471a3; }
 
@@ -72,7 +74,7 @@
 
 <div class="lt-page">
     <div class="page-header-row">
-        <a asp-controller="Home" asp-action="Index" class="back-btn">←</a>
+        <partial name="_BackBtn" />
         <div>
             <div class="page-title">Long Term Tenants</div>
             <div class="page-sub">Manage recurring billing for permanent tenants</div>

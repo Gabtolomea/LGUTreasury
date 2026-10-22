@@ -1,15 +1,30 @@
+using LGUTreasury;
 using LGUTreasury.Data;
 using Microsoft.EntityFrameworkCore;
+
+// Load credentials/local settings from .env (git-ignored) before building configuration.
+DotEnv.LoadDefault();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSession(); // add this
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySQL(
+/*builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(
         builder.Configuration.GetConnectionString("DefaultConnection")!
     ));
+*/
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException(
+        "Database connection string is not configured. Copy .env.example to .env and set " +
+        "ConnectionStrings__DefaultConnection (or provide it as an environment variable).");
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseMySQL(connectionString));
+
+
 
 var app = builder.Build();
 

@@ -1,0 +1,9 @@
+@{
+    var backController = (ViewData["BackController"] as string) ?? "Home";
+    var backAction = (ViewData["BackAction"] as string) ?? "Index";
+}
+<a asp-controller="@backController" asp-action="@backAction" class="back-btn" aria-label="Back" title="Back">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13.33 8H2.67M2.67 8L6.67 4M2.67 8L6.67 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+</a>

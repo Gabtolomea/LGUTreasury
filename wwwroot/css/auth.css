@@ -6,7 +6,7 @@
     min-height: 100vh;
     background: linear-gradient(160deg, #1b5e20 0%, #388E3C 55%, #43a047 100%);
     display: flex; flex-direction: column;
-    align-items: flex-start; justify-content: center;
+    align-items: center; justify-content: center; text-align: center;
     padding: 52px 48px; position: relative; overflow: hidden; flex-shrink: 0;
 }
 .auth-left::before {
@@ -20,21 +20,21 @@
     background: rgba(0,0,0,.08);
 }
 .auth-left img {
-    width: 76px; height: 76px; border-radius: 50%; object-fit: cover;
-    border: 3px solid rgba(255,255,255,.4); margin-bottom: 28px;
+    width: 130px; height: 130px; border-radius: 50%; object-fit: cover;
+    border: 3px solid rgba(255,255,255,.4); margin-bottom: 30px;
     position: relative; z-index: 1;
 }
 .auth-left-title {
-    font-size: 30px; font-weight: 800; color: white;
-    line-height: 1.2; margin-bottom: 14px; position: relative; z-index: 1;
+    font-size: 38px; font-weight: 800; color: white;
+    line-height: 1.2; margin-bottom: 16px; position: relative; z-index: 1;
 }
 .auth-left-title span { color: #3BF0B4; }
 .auth-left-desc {
-    font-size: 13.5px; color: rgba(255,255,255,.78);
-    line-height: 1.75; max-width: 300px; position: relative; z-index: 1;
+    font-size: 15px; color: rgba(255,255,255,.78);
+    line-height: 1.75; max-width: 340px; position: relative; z-index: 1;
 }
 .auth-left-footer {
-    margin-top: auto; font-size: 11.5px; color: rgba(255,255,255,.5);
+    margin-top: auto; width: 100%; font-size: 13px; color: rgba(255,255,255,.5);
     padding-top: 28px; border-top: 1px solid rgba(255,255,255,.18);
     position: relative; z-index: 1;
 }
@@ -95,6 +95,9 @@
     color: #388E3C; font-weight: 700; cursor: pointer; text-decoration: none;
 }
 .auth-switch-link a:hover { text-decoration: underline; }
+
+.back-link { display: inline-flex; align-items: center; gap: 6px; }
+a.btn-primary.back-link { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
 
 /* ── Login specific ── */
 .login-card-wrap { max-width: 380px; }

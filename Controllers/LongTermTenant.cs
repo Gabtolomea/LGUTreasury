@@ -7,11 +7,12 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
 namespace LGUTreasury.Controllers
-{
+{  
+    
     public class LongTermTenantController : Controller
     {
         private readonly ApplicationDbContext _context;
-
+        
         public LongTermTenantController(ApplicationDbContext context)
         {
             _context = context;
@@ -25,7 +26,7 @@ namespace LGUTreasury.Controllers
             if (userID == null) return RedirectToAction("Login", "Account");
 
             var role = HttpContext.Session.GetString("Role");
-            if (role != "Officer") return RedirectToAction("Index", "Home");
+            //if (role != "Officer" || role != "Admin") return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "longterm";
             ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
@@ -142,7 +143,7 @@ namespace LGUTreasury.Controllers
             if (userID == null) return RedirectToAction("Login", "Account");
 
             var role = HttpContext.Session.GetString("Role");
-            if (role != "Officer") return RedirectToAction("Index", "Home");
+            //if (role != "Officer") return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "longterm";
             ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
@@ -358,50 +359,55 @@ namespace LGUTreasury.Controllers
         }
 
         // ── Private: Generate bills ──────────────────
-        private async Task GenerateBillsForTenant(int tenantID)
+       private async Task GenerateBillsForTenant(int tenantID)
+{
+    var tenant = await _context.LongTermPayees
+        .Include(t => t.AccountBillingTypes)
+        .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+
+    if (tenant == null) return;
+
+    var activeBillingTypes = tenant.AccountBillingTypes?.Where(bt => bt.IsActive).ToList();
+    if (activeBillingTypes == null || !activeBillingTypes.Any()) return;
+
+    if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate)) return;
+
+    var billDay      = tenant.BillGenerationDay > 0 ? tenant.BillGenerationDay : 20;
+    var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    var cursor       = new DateTime(startDate.Year, startDate.Month, 1);
+
+    while (cursor <= currentMonth)
+    {
+        // Stop at months whose billing day (e.g. the 20th) hasn't arrived yet
+        var day = Math.Min(billDay, DateTime.DaysInMonth(cursor.Year, cursor.Month));
+        if (new DateTime(cursor.Year, cursor.Month, day) > DateTime.Today) break;
+
+        var monthStr = cursor.ToString("yyyy-MM");
+        foreach (var bt in activeBillingTypes)
         {
-            var tenant = await _context.LongTermPayees
-                .Include(t => t.AccountBillingTypes)
-                .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+            var exists = await _context.MonthlyBills.AnyAsync(b =>
+                b.LongTermPayeeID      == tenantID &&
+                b.AccountBillingTypeID == bt.AccountBillingTypeID &&
+                b.BillingMonth         == monthStr);
 
-            if (tenant == null) return;
-
-            var activeBillingTypes = tenant.AccountBillingTypes?.Where(bt => bt.IsActive).ToList();
-            if (activeBillingTypes == null || !activeBillingTypes.Any()) return;
-
-            if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate)) return;
-
-            var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-            var cursor       = new DateTime(startDate.Year, startDate.Month, 1);
-
-            while (cursor <= currentMonth)
+            if (!exists)
             {
-                var monthStr = cursor.ToString("yyyy-MM");
-                foreach (var bt in activeBillingTypes)
+                _context.MonthlyBills.Add(new MonthlyBill
                 {
-                    var exists = await _context.MonthlyBills.AnyAsync(b =>
-                        b.LongTermPayeeID      == tenantID &&
-                        b.AccountBillingTypeID == bt.AccountBillingTypeID &&
-                        b.BillingMonth         == monthStr);
-
-                    if (!exists)
-                    {
-                        _context.MonthlyBills.Add(new MonthlyBill
-                        {
-                            LongTermPayeeID      = tenantID,
-                            AccountBillingTypeID = bt.AccountBillingTypeID,
-                            BillingMonth         = monthStr,
-                            BillingType          = bt.BillingTypeName,
-                            BilledAmount         = bt.MonthlyRate,
-                            Status               = "Unpaid",
-                            CreatedAt            = DateTime.Now
-                        });
-                    }
-                }
-                cursor = cursor.AddMonths(1);
+                    LongTermPayeeID      = tenantID,
+                    AccountBillingTypeID = bt.AccountBillingTypeID,
+                    BillingMonth         = monthStr,
+                    BillingType          = bt.BillingTypeName,
+                    BilledAmount         = bt.MonthlyRate,
+                    Status               = "Unpaid",
+                    CreatedAt            = DateTime.Now
+                });
             }
-            await _context.SaveChangesAsync();
         }
+        cursor = cursor.AddMonths(1);
+    }
+    await _context.SaveChangesAsync();
+}
 
         private string GetInitials(string? fullName)
         {
