@@ -214,4 +214,27 @@ public class ReportExportTests
         Assert.Contains(expected,
             string.Join("\n", workbook.Worksheet(1).CellsUsed().Select(c => c.GetString())));
     }
+
+    [Fact]
+    public async Task Generate_MonthlyRemittance_Pdf_CoversFullMonthWithoutFailing()
+    {
+        using var db = TestFactory.NewDb();
+        var type = TestData.AddType(db, 1, "Business Permit");
+        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        for (var i = 0; i < 31; i++)
+        {
+            TestData.AddPayment(db, i + 1, $"OR-{i + 1:D6}", start.AddDays(i), type, baseAmount: 100m + i);
+        }
+
+        var controller = TestFactory.NewController(db);
+        var result = await controller.Generate(
+            "monthly-remittance", "pdf",
+            start.ToString("yyyy-MM-dd"), end.ToString("yyyy-MM-dd"), null);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.Equal("%PDF", Encoding.ASCII.GetString(file.FileContents, 0, 4));
+    }
 }

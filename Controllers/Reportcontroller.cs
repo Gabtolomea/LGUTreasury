@@ -899,6 +899,13 @@ namespace LGUTreasury.Controllers
             return $"{month}. {day.ToString("dd", CultureInfo.InvariantCulture)}, {day.ToString("yyyy", CultureInfo.InvariantCulture)}";
         }
 
+        private static string ShortDayHeader(DateTime day)
+        {
+            var month = day.ToString("MMM", CultureInfo.InvariantCulture).ToUpperInvariant();
+            if (month == "SEP") month = "SEPT";
+            return $"{month}. {day.ToString("dd", CultureInfo.InvariantCulture)}";
+        }
+
         private static string MonthlyPeriodTitle(DateTime from, DateTime to) =>
             from.Month == to.Month && from.Year == to.Year
                 ? from.ToString("MMM-yy", CultureInfo.InvariantCulture)
@@ -1143,9 +1150,9 @@ namespace LGUTreasury.Controllers
             {
                 if (report.IsMonthly)
                 {
-                    // Wide landscape: item column + one column per day + TOTAL
-                    var width = 40f + 150f + 64f + report.Days.Count * 50f;
-                    page.Size(new PageSize(Math.Max(width, 842f), 595f));
+                    // Use a standard printable page so PDF viewers and printers do
+                    // not crop the right-hand side of a wide custom page.
+                    page.Size(PageSizes.A4.Landscape());
                 }
                 else
                 {
@@ -1215,34 +1222,43 @@ namespace LGUTreasury.Controllers
                     }
                     else
                     {
+                        // Scale the layout down as the number of day columns grows
+                        // so every column stays inside the printable page width.
+                        var dayCount = report.Days.Count;
+                        var cellFont = dayCount > 20 ? 4.5f : dayCount > 14 ? 5.5f : dayCount > 7 ? 6.5f : 7f;
+                        var nameFont = Math.Min(7f, cellFont + 0.5f);
+                        var cellPad = dayCount > 20 ? 1f : 2f;
+                        var shortHeaders = dayCount > 10;
+
                         table.ColumnsDefinition(cols =>
                         {
-                            cols.ConstantColumn(150);   // revenue type
+                            cols.RelativeColumn(2.6f);  // revenue type
                             foreach (var _ in report.Days)
-                                cols.ConstantColumn(50);
-                            cols.ConstantColumn(64);    // TOTAL
+                                cols.RelativeColumn(1f);
+                            cols.RelativeColumn(1.3f);  // TOTAL
                         });
 
-                        static IContainer MCell(IContainer c, string? bg = null)
+                        IContainer MCell(IContainer c, string? bg = null)
                         {
-                            c = c.Border(1).BorderColor("#99AAAA").Padding(3);
+                            c = c.Border(1).BorderColor("#99AAAA").Padding(cellPad);
                             if (!string.IsNullOrEmpty(bg)) c = c.Background(bg);
                             return c;
                         }
 
-                        static IContainer MTot(IContainer c) =>
-                            c.Border(1).BorderColor("#99AAAA").Background("#F0F2F6").Padding(3);
+                        IContainer MTot(IContainer c) =>
+                            c.Border(1).BorderColor("#99AAAA").Background("#F0F2F6").Padding(cellPad);
 
                         table.Header(h =>
                         {
-                            h.Cell().Element(c => MCell(c, "#F0F2F6")).Text("").FontSize(7);
+                            h.Cell().Element(c => MCell(c, "#F0F2F6")).Text("").FontSize(cellFont);
                             foreach (var day in report.Days)
                             {
                                 h.Cell().Element(c => MCell(c, "#F0F2F6"))
-                                    .Text(DayHeader(day)).Bold().FontSize(6);
+                                    .Text(shortHeaders ? ShortDayHeader(day) : DayHeader(day))
+                                    .Bold().FontSize(cellFont);
                             }
                             h.Cell().Element(c => MCell(c, "#F0F2F6"))
-                                .Text("TOTAL").Bold().FontSize(7);
+                                .Text("TOTAL").Bold().FontSize(cellFont);
                         });
 
                         foreach (var row in report.Rows)
@@ -1258,28 +1274,28 @@ namespace LGUTreasury.Controllers
                             var nameBg = isBt ? "#4A86E8" : rowBg;
 
                             var nameText = table.Cell().Element(c => MCell(c, nameBg))
-                                .Text(row.Name).Bold().FontSize(7);
+                                .Text(row.Name).Bold().FontSize(nameFont);
                             if (isBt) nameText.FontColor("#FFFFFF");
 
                             for (var i = 0; i < report.Days.Count; i++)
                             {
                                 table.Cell().Element(c => MCell(c, rowBg))
-                                    .AlignRight().Text(AmountOrBlank(row.Cells[i])).FontSize(7);
+                                    .AlignRight().Text(AmountOrBlank(row.Cells[i])).FontSize(cellFont);
                             }
 
                             table.Cell().Element(c => MCell(c, rowBg)).AlignRight()
                                 .Text(AmountOrBlank(row.Total))
-                                .Bold().FontSize(7).FontColor("#C0392B");
+                                .Bold().FontSize(cellFont).FontColor("#C0392B");
                         }
 
-                        table.Cell().Element(MTot).Text("Total").Bold().FontSize(7).FontColor("#C0392B");
+                        table.Cell().Element(MTot).Text("Total").Bold().FontSize(cellFont).FontColor("#C0392B");
                         foreach (var total in report.DayTotals)
                         {
                             table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(total))
-                                .Bold().FontSize(7).FontColor("#C0392B");
+                                .Bold().FontSize(cellFont).FontColor("#C0392B");
                         }
                         table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(report.GrandTotal))
-                            .Bold().FontSize(7).FontColor("#C0392B");
+                            .Bold().FontSize(cellFont).FontColor("#C0392B");
                     }
                 });
 
