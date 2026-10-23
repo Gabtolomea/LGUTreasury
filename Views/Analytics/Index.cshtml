@@ -19,10 +19,54 @@
     .btn-apply:hover { background:var(--green-dark); }
 
     /* Summary Widgets */
-    .summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
-    .summary-card { background:white; border-radius:12px; border:1px solid var(--gray-border); box-shadow:var(--shadow); padding:14px 18px; }
-    .summary-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); margin-bottom:8px; }
-    .summary-current { font-size:22px; font-weight:800; color:var(--green-dark); }
+    .summary-head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .summary-heading { font-size:15px; font-weight:800; color:var(--text); }
+    .summary-period {
+        font-size:11px; font-weight:700; color:var(--green);
+        background:var(--green-light); padding:4px 12px; border-radius:999px;
+    }
+    .summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }
+    .summary-card {
+        --accent:#388E3C; --accent-soft:#E8F5E9;
+        position:relative; background:white; border-radius:14px;
+        border:1px solid var(--gray-border); box-shadow:var(--shadow);
+        padding:16px 18px 14px; overflow:hidden;
+        display:flex; flex-direction:column;
+        transition:transform .2s, box-shadow .2s, border-color .2s;
+    }
+    .summary-card::before {
+        content:''; position:absolute; top:0; left:0; bottom:0;
+        width:4px; background:var(--accent); opacity:.85;
+    }
+    .summary-card::after {
+        content:''; position:absolute; right:-30px; top:-30px;
+        width:92px; height:92px; border-radius:50%;
+        background:var(--accent-soft); opacity:.55; pointer-events:none;
+    }
+    .summary-card:hover { transform:translateY(-3px); box-shadow:0 10px 26px rgba(0,0,0,.10); border-color:var(--accent-soft); }
+    .summary-top { display:flex; align-items:center; gap:10px; margin-bottom:12px; position:relative; z-index:1; }
+    .summary-icon {
+        width:36px; height:36px; border-radius:10px; flex-shrink:0;
+        display:flex; align-items:center; justify-content:center;
+        background:var(--accent-soft); color:var(--accent);
+    }
+    .summary-icon svg { width:18px; height:18px; }
+    .summary-title { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); }
+    .summary-current { font-size:23px; font-weight:800; color:var(--text); letter-spacing:-.02em; position:relative; z-index:1; }
+    .summary-foot {
+        display:flex; align-items:center; gap:8px;
+        margin-top:auto; padding-top:10px; border-top:1px dashed #ececec;
+        font-size:11px; font-weight:500; color:var(--text-3);
+        position:relative; z-index:1;
+    }
+    .trend { display:inline-flex; align-items:center; gap:3px; font-weight:700; font-size:11px; padding:2px 8px; border-radius:999px; }
+    .trend-up { background:#E8F5E9; color:#2E7D32; }
+    .trend-down { background:#FDECEA; color:#C0392B; }
+    .trend-flat { background:#f2f2f2; color:#888; }
+    .accent-blue { --accent:#2980B9; --accent-soft:#E3F2FD; }
+    .accent-purple { --accent:#7B2D8B; --accent-soft:#F3E5F5; }
+    .accent-green { --accent:#388E3C; --accent-soft:#E8F5E9; }
+    @@media (max-width:1100px) { .summary-row { grid-template-columns:1fr; } }
 
     /* Section */
     .chart-section { margin-bottom:28px; }
@@ -60,18 +104,49 @@
     </div>
 
     <!-- SUMMARY WIDGETS -->
+    <div class="summary-head-row">
+        <div class="summary-heading">Overview</div>
+        <div class="summary-period" id="period-label">This Month</div>
+    </div>
     <div class="summary-row">
-        <div class="summary-card">
-            <div class="summary-title">One-Time Payments</div>
+        <div class="summary-card accent-blue">
+            <div class="summary-top">
+                <div class="summary-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
+                </div>
+                <div class="summary-title">One-Time Payments</div>
+            </div>
             <div class="summary-current" id="sum-onetime-current">₱ 0.00</div>
+            <div class="summary-foot">
+                <span class="trend trend-flat" id="sum-onetime-delta">—</span>
+                <span>vs previous period</span>
+            </div>
         </div>
-        <div class="summary-card">
-            <div class="summary-title">Long Term Payments</div>
+        <div class="summary-card accent-purple">
+            <div class="summary-top">
+                <div class="summary-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
+                </div>
+                <div class="summary-title">Long Term Payments</div>
+            </div>
             <div class="summary-current" id="sum-longterm-current">₱ 0.00</div>
+            <div class="summary-foot">
+                <span class="trend trend-flat" id="sum-longterm-delta">—</span>
+                <span>vs previous period</span>
+            </div>
         </div>
-        <div class="summary-card">
-            <div class="summary-title">Combined Received Payments</div>
+        <div class="summary-card accent-green">
+            <div class="summary-top">
+                <div class="summary-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
+                </div>
+                <div class="summary-title">Combined Received Payments</div>
+            </div>
             <div class="summary-current" id="sum-combined-current">₱ 0.00</div>
+            <div class="summary-foot">
+                <span class="trend trend-flat" id="sum-combined-delta">—</span>
+                <span>vs previous period</span>
+            </div>
         </div>
     </div>
 
@@ -167,11 +242,30 @@ function fmt(val) {
     return '₱ ' + parseFloat(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function setDelta(id, current, compare) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!compare) {
+        el.textContent = '—';
+        el.className = 'trend trend-flat';
+        return;
+    }
+    const pct = ((current - compare) / compare) * 100;
+    const up = pct >= 0;
+    el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1) + '%';
+    el.className = 'trend ' + (up ? 'trend-up' : 'trend-down');
+}
+
 function renderAll(data) {
     // Summary widgets — current period only
     document.getElementById('sum-onetime-current').textContent  = fmt(data.oneTime.totalCurrent);
     document.getElementById('sum-longterm-current').textContent = fmt(data.longTerm.totalCurrent);
     document.getElementById('sum-combined-current').textContent = fmt(data.combined.totalCurrent);
+
+    document.getElementById('period-label').textContent = data.labels.current;
+    setDelta('sum-onetime-delta',  data.oneTime.totalCurrent,  data.oneTime.totalCompare);
+    setDelta('sum-longterm-delta', data.longTerm.totalCurrent, data.longTerm.totalCompare);
+    setDelta('sum-combined-delta', data.combined.totalCurrent, data.combined.totalCompare);
 
     // Charts — single dataset (current only)
     renderBarChart('chart-onetime-bar',  data.oneTime.labels,   data.oneTime.current);

@@ -112,6 +112,7 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
                 .Select(t => (int)Math.Round((t / maxTotal) * 100)).ToList();
             ViewBag.BarLabels  = Enumerable.Range(0, 7)
                 .Select(i => weekStart.AddDays(i).ToString("ddd")).ToList();
+            ViewBag.TodayTotal = dailyTotals.Last().ToString("N2");
 
             // ── Collector Summary ─────────────────────────────────────────
             var leaderboardFrom = DateTime.TryParse(Request.Query["from"].ToString(), out var parsedFrom)
@@ -145,10 +146,14 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
             ViewBag.Leaderboard = leaderboard;
 
             // Widgets match the collector summary range exactly
-            ViewBag.CollectedTotal = leaderboard.Sum(c => (decimal)c.Total).ToString("N2");
-            ViewBag.PaymentsCount  = await _context.PaymentRecords
+            var collectedTotal = leaderboard.Sum(c => (decimal)c.Total);
+            var paymentsCount  = await _context.PaymentRecords
                 .Where(p => p.DateIssued.Date >= leaderboardFrom && p.DateIssued.Date <= leaderboardTo)
                 .CountAsync();
+
+            ViewBag.CollectedTotal = collectedTotal.ToString("N2");
+            ViewBag.PaymentsCount  = paymentsCount;
+            ViewBag.AveragePayment = (paymentsCount > 0 ? collectedTotal / paymentsCount : 0m).ToString("N2");
 
             return View();
         }
