@@ -786,8 +786,8 @@ namespace LGUTreasury.Controllers
         }
 
         // Aggregates already-loaded payments per revenue type. The "remittance"
-        // layout splits FEE-category types from everything else (MISCELLANEOUS
-        // section); "monthly-remittance" builds a per-day matrix instead.
+        // layout groups types under their revenue category heading;
+        // "monthly-remittance" builds a per-day matrix instead.
         private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime fromDate, DateTime toDate)
         {
             var report = new RemittanceReport { IsMonthly = type == "monthly-remittance" };
@@ -796,6 +796,7 @@ namespace LGUTreasury.Controllers
             // a type filter narrows the list to that single type, active or not.
             var types = _context.RevenueTypes
                 .AsNoTracking()
+                .Include(t => t.Category)
                 .Where(t => revenueTypeId.HasValue ? t.TypeID == revenueTypeId.Value : t.IsActive)
                 .ToList();
 
@@ -843,25 +844,31 @@ namespace LGUTreasury.Controllers
             }
             else
             {
-                var ordered = types
-                    .OrderBy(t => IsFeeCategory(t.CategoryID) ? 0 : 1)
-                    .ThenBy(t => t.TypeID)
+                var groups = types
+                    .GroupBy(t => t.CategoryID ?? "")
+                    .OrderBy(g => g.First().Category?.Name ?? g.Key, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var sectionInserted = false;
-                foreach (var t in ordered)
+                foreach (var group in groups)
                 {
-                    var isMisc = !IsFeeCategory(t.CategoryID);
-                    if (isMisc && !sectionInserted)
-                    {
-                        report.Rows.Add(new RemittanceRow { Name = "MISCELLANEOUS:", IsSection = true });
-                        sectionInserted = true;
-                    }
+                    var categoryName = group.First().Category?.Name ?? group.Key;
+                    if (string.IsNullOrWhiteSpace(categoryName))
+                        categoryName = "UNCATEGORIZED";
+
                     report.Rows.Add(new RemittanceRow
                     {
-                        Name = t.Name ?? "",
-                        Total = byType.GetValueOrDefault(t.TypeID)
+                        Name = $"{categoryName.ToUpperInvariant()}:",
+                        IsSection = true
                     });
+
+                    foreach (var t in group.OrderBy(t => t.TypeID))
+                    {
+                        report.Rows.Add(new RemittanceRow
+                        {
+                            Name = t.Name ?? "",
+                            Total = byType.GetValueOrDefault(t.TypeID)
+                        });
+                    }
                 }
 
                 report.GrandTotal = report.Rows.Where(r => !r.IsSection).Sum(r => r.Total);
@@ -869,9 +876,6 @@ namespace LGUTreasury.Controllers
 
             return report;
         }
-
-        private static bool IsFeeCategory(string? categoryId) =>
-            string.Equals(categoryId, "FEE", StringComparison.OrdinalIgnoreCase);
 
         private static string MonthlyRowClass(string name)
         {

@@ -282,7 +282,7 @@ public class ReportControllerTests
     }
 
     [Fact]
-    public async Task Generate_RemittanceCsv_PlacesMiscellaneousSectionAfterFeeTypes()
+    public async Task Generate_RemittanceCsv_GroupsTypesUnderTheirCategory()
     {
         using var db = TestFactory.NewDb();
         var fee = TestData.AddType(db, 1, "CTC Fee", "FEE");
@@ -295,14 +295,15 @@ public class ReportControllerTests
         var result = await controller.Generate("remittance", "csv", today, today, null);
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
+        var feeSectionIndex = csv.IndexOf("CATEGORY FEE:", StringComparison.Ordinal);
         var feeIndex = csv.IndexOf("CTC Fee", StringComparison.Ordinal);
-        var sectionIndex = csv.IndexOf("MISCELLANEOUS:", StringComparison.Ordinal);
+        var miscSectionIndex = csv.IndexOf("CATEGORY MISC:", StringComparison.Ordinal);
         var miscIndex = csv.IndexOf("Water Fees", StringComparison.Ordinal);
-        Assert.True(feeIndex >= 0, "FEE-category type should be listed.");
-        Assert.True(sectionIndex >= 0, "MISCELLANEOUS section header should be present.");
-        Assert.True(miscIndex >= 0, "Non-FEE type should be listed.");
-        Assert.True(feeIndex < sectionIndex, "FEE type should come before the MISCELLANEOUS section.");
-        Assert.True(sectionIndex < miscIndex, "Non-FEE type should come after the MISCELLANEOUS section.");
+        Assert.True(feeSectionIndex >= 0, "FEE category header should be present.");
+        Assert.True(miscSectionIndex >= 0, "MISC category header should be present.");
+        Assert.True(feeSectionIndex < feeIndex, "FEE type should come after its category header.");
+        Assert.True(miscSectionIndex < miscIndex, "MISC type should come after its category header.");
+        Assert.DoesNotContain("MISCELLANEOUS", csv);
         Assert.Contains("TOTAL,350.00", csv);
     }
 
