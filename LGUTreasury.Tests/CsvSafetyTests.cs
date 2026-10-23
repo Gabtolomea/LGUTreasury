@@ -87,7 +87,7 @@ public class CsvSafetyTests
     public async Task RevenueTypeNameWithEmbeddedQuotes_IsEscaped(string reportType)
     {
         using var db = TestFactory.NewDb();
-        var type = TestData.AddType(db, 1, "Build\"ing Permit");
+        var type = TestData.AddType(db, 1, "Build\"ing Permit 2026");
         TestData.AddPayment(db, 1, "OR-000001", DateTime.Today, type);
 
         var csv = await GenerateCsvAsync(db, reportType);

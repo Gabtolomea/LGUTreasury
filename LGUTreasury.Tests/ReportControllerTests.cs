@@ -176,7 +176,7 @@ public class ReportControllerTests
     }
 
     [Fact]
-    public async Task Generate_SummaryCsv_IncludesSurchargeAndInterest()
+    public async Task Generate_SummaryCsv_UsesBaseAmountOnly()
     {
         using var db = TestFactory.NewDb();
         var type = TestData.AddType(db, 1, "Business Permit");
@@ -188,14 +188,13 @@ public class ReportControllerTests
         var result = await controller.Generate("daily", "csv", today, today, null);
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
-        // The summary must total what was actually collected (base + surcharge
-        // + interest), not the base amount alone.
-        Assert.Contains("115.00", csv);
-        Assert.DoesNotContain("100.00", csv);
+        // The summary uses the revenue type's base amount only.
+        Assert.Contains("100.00", csv);
+        Assert.DoesNotContain("115.00", csv);
     }
 
     [Fact]
-    public async Task Generate_SummaryAndRemittance_TotalsAgree()
+    public async Task Generate_SummaryUsesBaseAmount_WhileRemittanceUsesLineTotal()
     {
         using var db = TestFactory.NewDb();
         var type = TestData.AddType(db, 1, "Business Permit");
@@ -210,7 +209,7 @@ public class ReportControllerTests
         var summaryCsv = CsvOf(Assert.IsType<FileContentResult>(summary));
         var remittanceCsv = CsvOf(Assert.IsType<FileContentResult>(remittance));
 
-        Assert.Contains("115.00", summaryCsv);
+        Assert.Contains("100.00", summaryCsv);
         Assert.Contains("115.00", remittanceCsv);
     }
 
