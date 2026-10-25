@@ -44,7 +44,12 @@ public async Task<IActionResult> SearchPayee(string? query)
         })
         .ToListAsync();
 
-    return Json(results);
+    return Json(results.Select(r => new {
+        r.PayeeID, r.Firstname, r.Middlename, r.Lastname,
+        r.Suffix,
+        ContactNumber = ContactNumberRules.Format(r.ContactNumber),
+        r.ResidenceAddress
+    }));
 }
 
         [HttpPost]
@@ -53,10 +58,15 @@ public async Task<IActionResult> SearchPayee(string? query)
             if (string.IsNullOrWhiteSpace(req.FirstName) || string.IsNullOrWhiteSpace(req.LastName))
                 return Json(new { success = false, message = "First and last name are required." });
 
+            if (!ContactNumberRules.IsValid(req.ContactNumber))
+                return Json(new { success = false, message = ContactNumberRules.LettersErrorMessage });
+
             var payee = new Payee
             {
                 Firstname = req.FirstName, Middlename = req.MiddleName,
                 Lastname = req.LastName, Suffix = req.Suffix,
+                ContactNumber = ContactNumberRules.Normalize(req.ContactNumber),
+                ResidenceAddress = req.ResidenceAddress,
                 CreatedAt = DateTime.Now
             };
             _context.Payees.Add(payee);
@@ -67,7 +77,8 @@ public async Task<IActionResult> SearchPayee(string? query)
                 payee = new {
                     payeeID = payee.PayeeID, firstname = payee.Firstname,
                     middlename = payee.Middlename, lastname = payee.Lastname,
-                    suffix = payee.Suffix
+                    suffix = payee.Suffix,
+                    contactNumber = ContactNumberRules.Format(payee.ContactNumber)
                 }
             });
         }
@@ -358,6 +369,7 @@ public async Task<IActionResult> CreateBulk(
 
             return View(records);
         }
+        
 
         [HttpPost]
         public async Task<IActionResult> EditRecord(
@@ -622,6 +634,7 @@ public async Task<IActionResult> CreateBulk(
         public string? MiddleName       { get; set; }
         public string LastName          { get; set; } = "";
         public string? Suffix           { get; set; }
+        [ContactNumber]
         public string? ContactNumber    { get; set; }
         public string? ResidenceAddress { get; set; }
     }

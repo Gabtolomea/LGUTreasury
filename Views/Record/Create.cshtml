@@ -70,7 +70,7 @@
                 <div class="form-group">
                     <label class="form-label">Payment Method</label>
                     <select class="form-select" name="PaymentMethod">
-                        <option value="">Select Method</option>
+                        <!--<option value="">Select Method</option>-->
                         <option value="Cash">Cash</option>
                         <option value="Check">Check</option>
                         <option value="Online Transfer">Online Transfer</option>
@@ -163,7 +163,7 @@
                          data-interest="@type.InterestRate"
                          onclick="selectRevType(this)">
                         <div class="rt-option-name">@type.Name</div>
-                        <div class="rt-option-rate">Base Rate: ₱ @((decimal)type.BaseRate)</div>
+                        <!--<div class="rt-option-rate">Base Rate: ₱ @((decimal)type.BaseRate)</div>-->
                     </div>
                 }
             }
@@ -320,11 +320,11 @@
             if (bdTitle) bdTitle.textContent = bulk ? 'Batch Total (split evenly across receipts)' : 'Computed Breakdown';
             if (saveBtn) saveBtn.textContent = bulk ? 'Save Bulk Payments' : 'Save Payment';
 
-            if (!r) { countEl.textContent = ''; return; }
+           /* if (!r) { countEl.textContent = ''; return; }
             if (r.count < 1) { countEl.textContent = 'End must not be lower than start.'; return; }
             const total = parseFloat(document.getElementById('pay-total').value) || 0;
             countEl.textContent = r.count + ' receipts' +
-                (total ? ' · batch total ' + money(total) + ' · about ' + money(total / r.count) + ' each' : '');
+               (total ? ' · batch total ' + money(total) + ' · about ' + money(total / r.count) + ' each' : '');*/
         }
 
         orIn.addEventListener('input', refresh);

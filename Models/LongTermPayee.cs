@@ -14,6 +14,7 @@ namespace LGUTreasury.Models
         [Required]
         public string LastName { get; set; } = "";
         public string? Suffix { get; set; }
+        [ContactNumber]
         public string? ContactNumber { get; set; }
         public string? Address { get; set; }
 

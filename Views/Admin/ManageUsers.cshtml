@@ -67,7 +67,7 @@
                                     @user.Email
                                 }
                             </td>
-                            <td style="color:var(--text-3)">@(user.ContactNumber ?? "—")</td>
+                            <td style="color:var(--text-3)">@(ContactNumberRules.Format(user.ContactNumber) ?? "—")</td>
                             <td>
                                 <button class="action-modify-btn" onclick="openResetPassword(@user.UserID, '@fullName')" title="Reset Password">
                                     <span class="btn-icon">🔑</span>

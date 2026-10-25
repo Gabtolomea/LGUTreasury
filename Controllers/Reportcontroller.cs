@@ -22,7 +22,6 @@ namespace LGUTreasury.Controllers
         }
 
         // GET: /Report/Index
-        // Shows the Generate Report page with recent report history
         public async Task<IActionResult> Index()
         {
             var userID = HttpContext.Session.GetInt32("UserID");
@@ -34,14 +33,11 @@ namespace LGUTreasury.Controllers
             ViewData["Role"] = HttpContext.Session.GetString("Role");
             ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
 
-            // Load 10 most recent reports
             ViewBag.RecentReports = await _context.ReportLog
                 .OrderByDescending(r => r.GeneratedAt)
                 .Take(10)
                 .ToListAsync();
 
-            // Revenue types for the filter dropdown (includes inactive ones,
-            // so older records can still be filtered; new types appear automatically)
             ViewBag.RevenueTypes = await _context.RevenueTypes
                 .OrderBy(r => r.Name)
                 .Select(r => new { r.TypeID, r.Name, r.IsActive })
@@ -51,20 +47,16 @@ namespace LGUTreasury.Controllers
         }
 
         // GET: /Report/Generate
-        // Called when officer clicks "Generate & Download"
         public async Task<IActionResult> Generate(string type, string format, string from, string to, int? revenueTypeId)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null)
                 return RedirectToAction("Login", "Account");
 
-            // Validate / normalize the requested file format (avoid NullReferenceException
-            // and reject anything we cannot actually produce).
             var normalizedFormat = (format ?? string.Empty).Trim().ToLowerInvariant();
             if (normalizedFormat is not ("pdf" or "csv" or "xlsx"))
                 return BadRequest("Unsupported file format. Use 'pdf', 'csv', or 'xlsx'.");
 
-            // Validate dates
             if (!DateTime.TryParse(from, out var fromDate) || !DateTime.TryParse(to, out var toDate))
                 return BadRequest("Invalid date range.");
 
@@ -79,26 +71,30 @@ namespace LGUTreasury.Controllers
             if (type == "monthly-remittance" && (toDate.Date - fromDate.Date).Days > 31)
                 return BadRequest("Monthly Remittance accepts a date range of at most 31 days.");
 
-            // Set toDate to end of day
+            // Normalize the range to whole days
+            fromDate = fromDate.Date;
             toDate = toDate.Date.AddDays(1).AddSeconds(-1);
 
-            // Get all payments in the date range
             var query = _context.PaymentRecords
                 .Include(p => p.Payee)
-                .Include(p => p.CollectedBy)
                 .Include(p => p.RecordLineItems)
                     .ThenInclude(l => l.RevenueType)
                 .Where(p => p.DateIssued >= fromDate && p.DateIssued <= toDate);
 
-            // Optional: only payments for the selected revenue type
             if (revenueTypeId.HasValue)
                 query = query.Where(p => p.RecordLineItems.Any(l => l.TypeID == revenueTypeId.Value));
 
             var payments = await query
-                .OrderByDescending(p => p.DateIssued)
+                .OrderBy(p => p.DateIssued)
                 .ToListAsync();
 
-            // Get readable report type name
+            // Rows come from the RevenueTypes table, in the sheet's order
+            var revenueTypes = await _context.RevenueTypes
+                .OrderBy(r => r.Name)
+                .ToListAsync();
+
+            var matrix = BuildMatrix(payments, revenueTypes, fromDate, toDate, revenueTypeId);
+
             var reportTypeName = type switch
             {
                 "daily"              => "Daily Collection Report",
@@ -107,10 +103,10 @@ namespace LGUTreasury.Controllers
                 "custom"             => "Custom Report",
                 "remittance"         => "Remittance Summary",
                 "monthly-remittance" => "Monthly Remittance",
+                "detailed"           => "Detailed Collection List",
                 _                    => "Revenue Summary"
             };
 
-            // Name of the selected revenue type (for the file name and report header)
             string? revenueTypeName = null;
             if (revenueTypeId.HasValue)
             {
@@ -133,7 +129,6 @@ namespace LGUTreasury.Controllers
             var fileName = $"{reportTypeName.Replace(" ", "_")}{fileNameSuffix}_{fromDate:yyyy-MM-dd}_to_{toDate:yyyy-MM-dd}";
             var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
 
-            // Save this report to the log table
             var log = new ReportLog
             {
                 ReportType = reportTypeName,
@@ -157,60 +152,271 @@ namespace LGUTreasury.Controllers
                 };
             }
 
+            // The detailed list keeps the individual transactions behind the
+            // summary matrix (OR number, payor, method, and the
+            // base/surcharge/interest breakdown).
+            if (type == "detailed")
+            {
+                return normalizedFormat switch
+                {
+                    "csv"  => GenerateDetailedCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    "xlsx" => GenerateDetailedXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                    _      => GenerateDetailedPdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
+                };
+            }
+
             // Generate and return the file
             return normalizedFormat switch
             {
-                "csv"  => GenerateCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                "xlsx" => GenerateXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                _      => GeneratePdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
+                "csv"  => GenerateCsv(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                "xlsx" => GenerateXlsx(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
+                _      => GeneratePdf(matrix, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
             };
         }
 
-        private IActionResult GenerateCsv(
-            List<PaymentRecord> payments, string fileName,
-            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
+        // ── MATRIX (rows = revenue types, columns = dates, last column = TOTAL) ──
+
+        private sealed class Matrix
         {
-            var sb = new StringBuilder();
-            sb.AppendLine("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM");
-            sb.AppendLine($"Report Type: {reportType}");
-            if (!string.IsNullOrEmpty(revenueTypeName))
-                sb.AppendLine($"Revenue Type: {revenueTypeName}");
-            sb.AppendLine($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}");
-            sb.AppendLine($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}");
-            sb.AppendLine();
-            sb.AppendLine("Transaction ID,OR Number,Payor,Collection Type,Payment Method,Base Amount,Surcharge,Interest,Total Amount,Date Issued");
+            public List<(DateTime Start, string Label)> Columns { get; } = new();
+            public List<(int TypeID, string Name, string? Color, bool LabelOnly)> Rows { get; } = new();
+            public Dictionary<(int TypeID, DateTime Bucket), decimal> Cells { get; } = new();
+
+            public decimal Cell(int typeId, DateTime bucket) =>
+                Cells.TryGetValue((typeId, bucket), out var v) ? v : 0m;
+
+            public decimal RowTotal(int typeId) => Columns.Sum(c => Cell(typeId, c.Start));
+            public decimal ColTotal(DateTime bucket) => Rows.Sum(r => Cell(r.TypeID, bucket));
+            public decimal GrandTotal => Rows.Sum(r => RowTotal(r.TypeID));
+        }
+
+        // >>> KEEP YOUR OWN VERSION OF THIS LINE (the one that already compiles for you). <<<
+        // It is whatever property on RecordLineItem holds the amount.
+        private static decimal LineAmount(RecordLineItem l) => l.BaseAmount;
+
+        // lower-case letters/digits only: "Mayor's Permit Fees" and "mayors permit fees" match
+        private static string Norm(string? s) =>
+            new string((s ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+        // Older / shorter names -> the name used on the sheet (keys are Norm()-ed)
+        private static readonly Dictionary<string, string> NameAliases = new()
+        {
+            ["mayorpermit"]      = "Mayor's Permit",
+            ["mayorspermit"]     = "Mayor's Permit",
+            ["mayorpermits"]     = "Mayor's Permit",
+            ["mayorspermitfees"] = "Mayor's Permit",
+            ["businesstax"]      = "Mun. License & Business Tax",
+            ["burialpermit"]     = "Burial",
+            ["kabutungan"]       = "KABUTONGAN",
+            ["buildingpermit"]   = "Building Permit Fee",
+            ["buildingpermits"]  = "Building Permit Fee",
+            ["civilregistry"]    = "Civil Registry Fees",
+            ["occupationalfee"]  = "Occupational Fees",
+            ["watersfees"]       = "Water Fees",
+            ["waterfee"]         = "Water Fees",
+            ["marketrentals"]    = "Market/Rentals",
+            ["marketrental"]     = "Market/Rentals",
+            ["garbagefees"]      = "Garbage Fee",
+            ["cockfighting"]     = "Cock Fight",
+        };
+
+        // The paper sheet's row ORDER and band COLORS (fixed, so they live here, not in the database).
+        // Rows are matched to the RevenueTypes table by Name. Types not listed go to the bottom.
+        // Label   = text printed on the report
+        // Color   = band color (whole row for Kabutongan/Inambakan/Cock Fight, label cell only for the Business Taxes block)
+        // Match   = RevenueTypes.Name to take the numbers from (defaults to Label)
+        // Heading = title row with no numbers      Indent = shown indented under the heading
+        private sealed record SheetRow(
+            string Label, string? Color = null, string? Match = null,
+            bool Heading = false, bool Indent = false);
+
+        private static readonly SheetRow[] SheetLayout =
+        {
+            new("Mun. License & Business Tax"),
+            new("Mayor's Permit"),
+            new("Garbage Fee"),
+            new("BUSINESS TAXES", "#5B9BD5", Heading: true),
+            new("Retailers", "#9BC2E6", "Business Tax - Retailers", Indent: true),
+            new("Financial", "#A9D08E", "Business Tax - Financial", Indent: true),
+            new("Others",    "#F4B183", "Business Tax - Others",    Indent: true),
+            new("Peddlers Tax"),
+            new("CTC"),
+            new("Police Clearance"),
+            new("A.I. Fee"),
+            new("ZONING"),
+            new("Building Permit Fee"),
+            new("Brgy./Sec.'s Fee"),
+            new("Miscellaneous"),
+            new("Medical, Dental and Lab. Fee"),
+            new("Fishery Rentals, Fees and Charges/Service Income"),
+            new("CIVIL REGISTRY FEES"),
+            new("Other Clearances and Cert."),
+            new("POLICE"),
+            new("BUSINESS INCOME/PARKING FEE"),
+            new("OCCUPATIONAL FEES"),
+            new("Marriage"),
+            new("Birth Certificate"),
+            new("Cab/Bicycle Registration"),
+            new("Burial"),
+            new("Weights and Measure"),
+            new("Water Fees"),
+            new("Market/Cash Tickets"),
+            new("Market/Rentals"),
+            new("BIR Doc Stamp"),
+            new("PTR"),
+            new("Mining Fee"),
+            new("KABUTONGAN", "#92D050"),   // green band
+            new("Inambakan",  "#00B0F0"),   // blue band
+            new("COCK FIGHT", "#FFFF00"),   // yellow band
+            new("Brgy. Clearance"),
+            new("PCA"),
+        };
+
+        // Month names the way the paper sheet writes them
+        private static readonly string[] MonthAbbr =
+            { "JAN.", "FEB.", "MAR.", "APR.", "MAY", "JUNE", "JULY", "AUG.", "SEPT.", "OCT.", "NOV.", "DEC." };
+
+        private static string DayLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Day:00}, {d.Year}";
+        private static string MonthLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Year}";
+
+        // Top-left cell of the sheet ("Sep-26")
+        private static string PeriodLabel(DateTime from, DateTime to)
+        {
+            var f = from.ToString("MMM-yy", CultureInfo.InvariantCulture);
+            var t = to.ToString("MMM-yy", CultureInfo.InvariantCulture);
+            return f == t ? f : $"{f} to {t}";
+        }
+
+        private static Matrix BuildMatrix(
+            List<PaymentRecord> payments, List<RevenueType> types,
+            DateTime from, DateTime to, int? revenueTypeId)
+        {
+            // Up to ~31 days: one column per day (like the paper sheet).
+            // Longer ranges: one column per month.
+            var byMonth = (to.Date - from.Date).TotalDays > 31;
+            DateTime Bucket(DateTime d) => byMonth ? new DateTime(d.Year, d.Month, 1) : d.Date;
+
+            var m = new Matrix();
 
             foreach (var p in payments)
             {
-                var txnID  = "TXN-" + p.PaymentID.ToString("D6");
-                var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
-                var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
-                var method = p.PaymentMethod ?? "—";
+                foreach (var l in p.RecordLineItems ?? Enumerable.Empty<RecordLineItem>())
+                {
+                    if (revenueTypeId.HasValue && l.TypeID != revenueTypeId.Value)
+                        continue;
 
-                sb.AppendLine(string.Join(",",
-                    CsvField(txnID),
-                    CsvField(p.OfficialReceipt),
-                    CsvField(payee),
-                    CsvField(type),
-                    CsvField(method),
-                    Money(p.TotalBaseAmount),
-                    Money(p.TotalSurcharge),
-                    Money(p.TotalInterest),
-                    Money(p.TotalAmount),
-                    CsvField(p.DateIssued.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture))));
+                    var key = (l.TypeID, Bucket(p.DateIssued));
+                    m.Cells[key] = m.Cell(key.TypeID, key.Item2) + LineAmount(l);
+                }
             }
 
-            sb.AppendLine();
-            sb.AppendLine($"Total Records: {payments.Count}");
-            sb.AppendLine($"Total Collected: {Money(payments.Sum(p => p.TotalAmount))}");
+            // Columns
+            if (byMonth)
+            {
+                for (var d = new DateTime(from.Year, from.Month, 1); d <= to; d = d.AddMonths(1))
+                    m.Columns.Add((d, MonthLabel(d)));
+            }
+            else
+            {
+                // Every weekday in the range, plus any weekend date that has collections
+                var dataDates = m.Cells.Keys.Select(k => k.Bucket).ToHashSet();
+                for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
+                {
+                    var weekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
+                    if (!weekend || dataDates.Contains(d))
+                        m.Columns.Add((d, DayLabel(d)));
+                }
+            }
 
-            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            // Rows: every active type (even with no collections, like the sheet);
+            // inactive types only if they have collections in the range.
+            // 1) EVERY line of the paper sheet, in the sheet's order, always shown
+            //    (even if the type is inactive, or not in the table yet -> blank row).
+            // Names are matched ignoring case, spaces and punctuation, and a few older/shorter
+            // names are mapped to the sheet's name (see NameAliases).
+            var byName = new Dictionary<string, RevenueType>();
+            foreach (var t in types)
+            {
+                var key = Norm(t.Name);
+                if (NameAliases.TryGetValue(key, out var canonical)) key = Norm(canonical);
+                if (!byName.ContainsKey(key)) byName[key] = t;
+            }
+
+            var used = new HashSet<int>();
+            var missingId = -1;   // placeholder id for sheet lines that have no row in the table
+            foreach (var row in SheetLayout)
+            {
+                var label = (row.Indent ? "\u00A0\u00A0\u00A0\u00A0" : "") + row.Label;
+                int id;
+                if (row.Heading)
+                    id = missingId--;   // title row, never has numbers
+                else
+                    id = byName.TryGetValue(Norm(row.Match ?? row.Label), out var found) ? found.TypeID : missingId--;
+
+                if (revenueTypeId.HasValue && id != revenueTypeId.Value) continue;
+                used.Add(id);
+                m.Rows.Add((id, label, row.Color, row.Heading || row.Indent));
+            }
+
+            // 2) Any other types in the table that are not on the sheet:
+            //    shown at the bottom if active or if they have collections in the range.
+            foreach (var t in types.OrderBy(t => t.Name))
+            {
+                if (used.Contains(t.TypeID)) continue;
+                if (revenueTypeId.HasValue && t.TypeID != revenueTypeId.Value) continue;
+                var hasData = m.Cells.Keys.Any(k => k.TypeID == t.TypeID);
+                if (t.IsActive || hasData)
+                    m.Rows.Add((t.TypeID, (t.Name ?? "").Trim(), null, false));
+            }
+
+            return m;
+        }
+
+        // blank for zero, like the printed sheet
+        private static string Amt(decimal v) =>
+            v == 0 ? "" : v.ToString("N2", CultureInfo.InvariantCulture);
+
+        // ── CSV ───────────────────────────────────────
+        private IActionResult GenerateCsv(
+            Matrix m, string fileName, string reportType,
+            DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
+            sb.AppendLine(CsvField($"Report Type: {reportType}"));
+            if (!string.IsNullOrEmpty(revenueTypeName))
+                sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
+            sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
+            sb.AppendLine();
+
+            sb.AppendLine(string.Join(",",
+                new[] { CsvField(PeriodLabel(from, to)) }
+                    .Concat(m.Columns.Select(c => CsvField(c.Label)))
+                    .Append(CsvField("TOTAL"))));
+
+            foreach (var r in m.Rows)
+            {
+                var cells = new List<string> { CsvField(r.Name) };
+                foreach (var c in m.Columns)
+                {
+                    var v = m.Cell(r.TypeID, c.Start);
+                    cells.Add(v == 0 ? "" : v.ToString("0.00", CultureInfo.InvariantCulture));
+                }
+                cells.Add(m.RowTotal(r.TypeID).ToString("0.00", CultureInfo.InvariantCulture));
+                sb.AppendLine(string.Join(",", cells));
+            }
+
+            var totals = new List<string> { CsvField("Total") };
+            totals.AddRange(m.Columns.Select(c => m.ColTotal(c.Start).ToString("0.00", CultureInfo.InvariantCulture)));
+            totals.Add(m.GrandTotal.ToString("0.00", CultureInfo.InvariantCulture));
+            sb.AppendLine(string.Join(",", totals));
+
+            var bytes = new UTF8Encoding(true).GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
             return File(bytes, "text/csv", fileName + ".csv");
         }
 
-        // Escapes a value for CSV (RFC 4180) and neutralizes spreadsheet formula
-        // injection: a leading =, +, -, @, tab or CR would otherwise be evaluated as
-        // a formula by Excel / LibreOffice when the file is opened.
         private static string CsvField(string? value)
         {
             var v = value ?? string.Empty;
@@ -224,16 +430,290 @@ namespace LGUTreasury.Controllers
             return "\"" + v.Replace("\"", "\"\"") + "\"";
         }
 
-        private static string Money(decimal value) =>
-            value.ToString("N2", CultureInfo.InvariantCulture);
-
-        // ── EXCEL (XLSX) GENERATOR ────────────────────
+        // ── EXCEL (XLSX) ──────────────────────────────
         private IActionResult GenerateXlsx(
+            Matrix m, string fileName, string reportType,
+            DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Revenue Summary");
+            ws.Style.Font.FontName = "Arial";
+            ws.Style.Font.FontSize = 10;
+
+            var n = m.Columns.Count;
+            var totalCols = n + 2;   // name + dates + TOTAL
+            const string red = "#C62828";
+
+            void Title(int row, string text, bool bold, int size)
+            {
+                ws.Cell(row, 1).Value = text;
+                ws.Range(row, 1, row, totalCols).Merge();
+                ws.Cell(row, 1).Style.Font.Bold = bold;
+                ws.Cell(row, 1).Style.Font.FontSize = size;
+                ws.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            Title(1, "LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM", true, 14);
+            Title(2, reportType, true, 12);
+            Title(3, $"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}", false, 10);
+
+            var h1 = 5;
+            if (!string.IsNullOrEmpty(revenueTypeName))
+            {
+                Title(4, $"Revenue Type: {revenueTypeName}", false, 10);
+                h1 = 6;
+            }
+            var h2 = h1 + 1;
+
+            // Header, 2 rows like the sheet:  [Sep-26 | GENERAL COLLECTIONS | TOTAL]
+            //                                 [       | SEPT. 01, 2026 ...  |       ]
+            ws.Cell(h1, 1).Value = PeriodLabel(from, to);
+            if (n > 0)
+            {
+                ws.Cell(h1, 2).Value = "GENERAL COLLECTIONS";
+                ws.Range(h1, 2, h1, n + 1).Merge();
+            }
+            for (var i = 0; i < n; i++)
+                ws.Cell(h2, i + 2).Value = m.Columns[i].Label;
+            ws.Cell(h1, totalCols).Value = "TOTAL";
+            ws.Range(h1, totalCols, h2, totalCols).Merge();
+
+            var header = ws.Range(h1, 1, h2, totalCols);
+            header.Style.Font.Bold = true;
+            header.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            header.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            header.Style.Alignment.WrapText = true;
+            header.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+
+            // Body: one row per revenue type
+            var row = h2 + 1;
+            foreach (var r in m.Rows)
+            {
+                if (!string.IsNullOrEmpty(r.Color))
+                    (r.LabelOnly ? ws.Range(row, 1, row, 1) : ws.Range(row, 1, row, totalCols))
+                        .Style.Fill.BackgroundColor = XLColor.FromHtml(r.Color);
+
+                ws.Cell(row, 1).Value = r.Name;
+                ws.Cell(row, 1).Style.Font.Bold = true;
+
+                for (var i = 0; i < n; i++)
+                {
+                    var v = m.Cell(r.TypeID, m.Columns[i].Start);
+                    if (v != 0) ws.Cell(row, i + 2).Value = (double)v;
+                }
+
+                var rt = m.RowTotal(r.TypeID);
+                if (rt != 0) ws.Cell(row, totalCols).Value = (double)rt;
+                ws.Cell(row, totalCols).Style.Font.FontColor = XLColor.FromHtml(red);
+                row++;
+            }
+
+            // Total row (red, like the sheet)
+            ws.Cell(row, 1).Value = "Total";
+            for (var i = 0; i < n; i++)
+                ws.Cell(row, i + 2).Value = (double)m.ColTotal(m.Columns[i].Start);
+            ws.Cell(row, totalCols).Value = (double)m.GrandTotal;
+            ws.Range(row, 1, row, totalCols).Style.Font.FontColor = XLColor.FromHtml(red);
+            ws.Range(row, 1, row, totalCols).Style.Font.Bold = true;
+
+            // Grid + formatting
+            var table = ws.Range(h1, 1, row, totalCols);
+            table.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+            table.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            var nums = ws.Range(h2 + 1, 2, row, totalCols);
+            nums.Style.NumberFormat.Format = "#,##0.00";
+            nums.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            ws.Column(1).Width = 40;
+            for (var c = 2; c <= totalCols; c++) ws.Column(c).Width = 14;
+
+            ws.SheetView.Freeze(h2, 1);
+            ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+            ws.PageSetup.FitToPages(1, 0);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName + ".xlsx");
+        }
+
+        // ── PDF ───────────────────────────────────────
+        private IActionResult GeneratePdf(
+            Matrix m, string fileName, string reportType,
+            DateTime from, DateTime to, string generatedBy,
+            string? revenueTypeName = null)
+        {
+            var n = m.Columns.Count;
+            var wide = n > 12;
+            var fontSize = n > 24 ? 6f : 7f;
+            const string red = "#C62828";
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(wide ? PageSizes.A3.Landscape() : PageSizes.A4.Landscape());
+                    page.Margin(20);
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM")
+                            .Bold().FontSize(14).AlignCenter();
+                        col.Item().Text(reportType)
+                            .Bold().FontSize(11).AlignCenter();
+                        col.Item().Text($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}")
+                            .FontSize(9).AlignCenter();
+                        if (!string.IsNullOrEmpty(revenueTypeName))
+                        {
+                            col.Item().Text($"Revenue Type: {revenueTypeName}")
+                                .FontSize(9).AlignCenter();
+                        }
+                        col.Item().PaddingTop(4).BorderBottom(1).BorderColor("#000000");
+                    });
+
+                    page.Content().PaddingTop(10).Table(table =>
+                    {
+                        table.ColumnsDefinition(cols =>
+                        {
+                            cols.ConstantColumn(wide ? 150 : 120);               // revenue type
+                            foreach (var _ in m.Columns) cols.RelativeColumn();  // one per date
+                            cols.ConstantColumn(wide ? 70 : 62);                 // TOTAL
+                        });
+
+                        IContainer Box(IContainer c, string? bg) =>
+                            c.Border(0.5f).BorderColor("#616161").Background(bg ?? "#FFFFFF").Padding(3);
+
+                        // Header (2 rows): [Sep-26 | GENERAL COLLECTIONS | TOTAL]
+                        //                  [       | dates...            |       ]
+                        table.Header(h =>
+                        {
+                            h.Cell().Element(c => Box(c, "#F2F2F2").AlignCenter())
+                                .Text(PeriodLabel(from, to)).Bold().FontSize(fontSize);
+                            if (n > 0)
+                                h.Cell().ColumnSpan((uint)n).Element(c => Box(c, "#F2F2F2").AlignCenter())
+                                    .Text("GENERAL COLLECTIONS").Bold().FontSize(fontSize);
+                            h.Cell().RowSpan(2).Element(c => Box(c, "#F2F2F2").AlignCenter().AlignMiddle())
+                                .Text("TOTAL").Bold().FontSize(fontSize).FontColor(red);
+
+                            h.Cell().Element(c => Box(c, "#F2F2F2")).Text("");
+                            foreach (var col in m.Columns)
+                                h.Cell().Element(c => Box(c, "#F2F2F2").AlignCenter())
+                                    .Text(col.Label).Bold().FontSize(fontSize);
+                        });
+
+                        foreach (var r in m.Rows)
+                        {
+                            var bg = string.IsNullOrEmpty(r.Color) ? null : r.Color;
+                            var bgRow = r.LabelOnly ? null : bg;   // label-only for the Business Taxes block
+
+                            table.Cell().Element(c => Box(c, bg))
+                                .Text(r.Name).Bold().FontSize(fontSize);
+                            foreach (var col in m.Columns)
+                                table.Cell().Element(c => Box(c, bgRow)).AlignRight()
+                                    .Text(Amt(m.Cell(r.TypeID, col.Start))).FontSize(fontSize);
+                            table.Cell().Element(c => Box(c, bgRow)).AlignRight()
+                                .Text(Amt(m.RowTotal(r.TypeID))).FontSize(fontSize).FontColor(red);
+                        }
+
+                        // Total row (red, like the sheet)
+                        table.Cell().Element(c => Box(c, null))
+                            .Text("Total").Bold().FontSize(fontSize).FontColor(red);
+                        foreach (var col in m.Columns)
+                            table.Cell().Element(c => Box(c, null)).AlignRight()
+                                .Text(m.ColTotal(col.Start).ToString("N2", CultureInfo.InvariantCulture))
+                                .Bold().FontSize(fontSize).FontColor(red);
+                        table.Cell().Element(c => Box(c, null)).AlignRight()
+                            .Text(m.GrandTotal.ToString("N2", CultureInfo.InvariantCulture))
+                            .Bold().FontSize(fontSize).FontColor(red);
+                    });
+
+                    page.Footer().AlignRight().Text(text =>
+                    {
+                        text.Span($"Generated by: {generatedBy}  |  ").FontSize(8);
+                        text.Span($"{DateTime.Now:MMMM dd, yyyy hh:mm tt}  |  Page ").FontSize(8);
+                        text.CurrentPageNumber().FontSize(8);
+                        text.Span(" of ").FontSize(8);
+                        text.TotalPages().FontSize(8);
+                    });
+                });
+            });
+
+            var pdfBytes = document.GeneratePdf();
+            return File(pdfBytes, "application/pdf", fileName + ".pdf");
+        }
+
+        // ── DETAILED COLLECTION LIST ───────────────────────────────
+        // The summary reports above are matrices (revenue type x date). This one
+        // lists the individual transactions behind those totals, so the OR
+        // number, payor, payment method and the base/surcharge/interest
+        // breakdown stay exportable for reconciliation and audit.
+
+        private static string DetailPayee(PaymentRecord p) =>
+            p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
+
+        private static string DetailType(PaymentRecord p) =>
+            p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+
+        private static string DetailMethod(PaymentRecord p) =>
+            p.PaymentMethod ?? "—";
+
+        private IActionResult GenerateDetailedCsv(
+            List<PaymentRecord> payments, string fileName,
+            string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
+            sb.AppendLine(CsvField($"Report Type: {reportType}"));
+            if (!string.IsNullOrEmpty(revenueTypeName))
+                sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
+            sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
+            sb.AppendLine();
+
+            sb.AppendLine(string.Join(",", new[]
+            {
+                CsvField("Transaction ID"), CsvField("OR Number"), CsvField("Payor"),
+                CsvField("Collection Type"), CsvField("Payment Method"),
+                CsvField("Base Amount"), CsvField("Surcharge"), CsvField("Interest"),
+                CsvField("Total Amount"), CsvField("Date Issued")
+            }));
+
+            foreach (var p in payments)
+            {
+                sb.AppendLine(string.Join(",", new[]
+                {
+                    CsvField("TXN-" + p.PaymentID.ToString("D6")),
+                    CsvField(p.OfficialReceipt),
+                    CsvField(DetailPayee(p)),
+                    CsvField(DetailType(p)),
+                    CsvField(DetailMethod(p)),
+                    AmountOrBlankCsv(p.TotalBaseAmount),
+                    AmountOrBlankCsv(p.TotalSurcharge),
+                    AmountOrBlankCsv(p.TotalInterest),
+                    AmountOrBlankCsv(p.TotalAmount),
+                    CsvField(p.DateIssued.ToString("yyyy-MM-dd hh:mm tt", CultureInfo.InvariantCulture))
+                }));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(CsvField($"Total Records: {payments.Count}"));
+            sb.AppendLine(CsvField($"Total Collected: {AmountOrBlank(payments.Sum(p => p.TotalAmount))}"));
+
+            // UTF-8 with BOM so Excel shows characters correctly
+            var bytes = new UTF8Encoding(true).GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+            return File(bytes, "text/csv", fileName + ".csv");
+        }
+
+        private IActionResult GenerateDetailedXlsx(
             List<PaymentRecord> payments, string fileName,
             string reportType, DateTime from, DateTime to, string? revenueTypeName = null)
         {
             using var workbook = new XLWorkbook();
-            var ws = workbook.Worksheets.Add("Revenue Summary");
+            var ws = workbook.Worksheets.Add("Collection List");
             ws.Style.Font.FontName = "Arial";
             ws.Style.Font.FontSize = 10;
 
@@ -279,15 +759,11 @@ namespace LGUTreasury.Controllers
             var row = headerRow + 1;
             foreach (var p in payments)
             {
-                var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
-                var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
-                var method = p.PaymentMethod ?? "—";
-
                 ws.Cell(row, 1).Value = "TXN-" + p.PaymentID.ToString("D6");
                 ws.Cell(row, 2).Value = p.OfficialReceipt ?? "—";
-                ws.Cell(row, 3).Value = payee;
-                ws.Cell(row, 4).Value = type;
-                ws.Cell(row, 5).Value = method;
+                ws.Cell(row, 3).Value = DetailPayee(p);
+                ws.Cell(row, 4).Value = DetailType(p);
+                ws.Cell(row, 5).Value = DetailMethod(p);
                 ws.Cell(row, 6).Value = (double)p.TotalBaseAmount;
                 ws.Cell(row, 7).Value = (double)p.TotalSurcharge;
                 ws.Cell(row, 8).Value = (double)p.TotalInterest;
@@ -317,8 +793,7 @@ namespace LGUTreasury.Controllers
                 fileName + ".xlsx");
         }
 
-        // ── PDF GENERATOR ─────────────────────────────
-        private IActionResult GeneratePdf(
+        private IActionResult GenerateDetailedPdf(
             List<PaymentRecord> payments, string fileName,
             string reportType, DateTime from, DateTime to, string generatedBy,
             string? revenueTypeName = null)
@@ -331,7 +806,7 @@ namespace LGUTreasury.Controllers
                 {
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lato"));
 
                     page.Header().Column(col =>
                     {
@@ -388,22 +863,17 @@ namespace LGUTreasury.Controllers
                             var bg = rowIndex % 2 == 0 ? "#ffffff" : "#f9f9f9";
                             rowIndex++;
 
-                            var txnID  = "TXN-" + p.PaymentID.ToString("D6");
-                            var payee  = p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
-                            var type   = p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
-                            var method = p.PaymentMethod ?? "—";
-
                             IContainer Cell(IContainer c) => c.Background(bg).Padding(4);
 
-                            table.Cell().Element(Cell).Text(txnID).FontSize(8);
+                            table.Cell().Element(Cell).Text("TXN-" + p.PaymentID.ToString("D6")).FontSize(8);
                             table.Cell().Element(Cell).Text(p.OfficialReceipt ?? "—").FontSize(8);
-                            table.Cell().Element(Cell).Text(payee).FontSize(8);
-                            table.Cell().Element(Cell).Text(type).FontSize(8);
-                            table.Cell().Element(Cell).Text(method).FontSize(8);
-                            table.Cell().Element(Cell).AlignRight().Text($"₱ {p.TotalBaseAmount:N2}").FontSize(8);
-                            table.Cell().Element(Cell).AlignRight().Text($"₱ {p.TotalSurcharge:N2}").FontSize(8);
-                            table.Cell().Element(Cell).AlignRight().Text($"₱ {p.TotalInterest:N2}").FontSize(8);
-                            table.Cell().Element(Cell).AlignRight().Text($"₱ {p.TotalAmount:N2}").Bold().FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailPayee(p)).FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailType(p)).FontSize(8);
+                            table.Cell().Element(Cell).Text(DetailMethod(p)).FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalBaseAmount:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalSurcharge:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalInterest:N2}").FontSize(8);
+                            table.Cell().Element(Cell).AlignRight().Text($"{p.TotalAmount:N2}").Bold().FontSize(8);
                             table.Cell().Element(Cell).Text(p.DateIssued.ToString("MM/dd/yyyy")).FontSize(8);
                         }
 
@@ -412,13 +882,13 @@ namespace LGUTreasury.Controllers
                         table.Cell().ColumnSpan(5).Element(TotalCell)
                             .Text($"TOTAL — {payments.Count} record(s)").Bold().FontSize(8);
                         table.Cell().Element(TotalCell).AlignRight()
-                            .Text($"₱ {payments.Sum(p => p.TotalBaseAmount):N2}").Bold().FontSize(8);
+                            .Text($"{payments.Sum(p => p.TotalBaseAmount):N2}").Bold().FontSize(8);
                         table.Cell().Element(TotalCell).AlignRight()
-                            .Text($"₱ {payments.Sum(p => p.TotalSurcharge):N2}").Bold().FontSize(8);
+                            .Text($"{payments.Sum(p => p.TotalSurcharge):N2}").Bold().FontSize(8);
                         table.Cell().Element(TotalCell).AlignRight()
-                            .Text($"₱ {payments.Sum(p => p.TotalInterest):N2}").Bold().FontSize(8);
+                            .Text($"{payments.Sum(p => p.TotalInterest):N2}").Bold().FontSize(8);
                         table.Cell().Element(TotalCell).AlignRight()
-                            .Text($"₱ {totalAmount:N2}").Bold().FontSize(8);
+                            .Text($"{totalAmount:N2}").Bold().FontSize(8);
                         table.Cell().Element(TotalCell).Text("").FontSize(8);
                     });
 
@@ -457,9 +927,9 @@ namespace LGUTreasury.Controllers
         }
 
         // Aggregates already-loaded payments per revenue type. The "remittance"
-        // layout splits FEE-category types from everything else (MISCELLANEOUS
-        // section); "monthly-remittance" builds a per-day matrix instead.
-        private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime? fromDate = null, DateTime? toDate = null)
+        // layout groups types under their revenue category heading;
+        // "monthly-remittance" builds a per-day matrix instead.
+        private RemittanceReport BuildRemittance(string type, List<PaymentRecord> payments, int? revenueTypeId, DateTime fromDate, DateTime toDate)
         {
             var report = new RemittanceReport { IsMonthly = type == "monthly-remittance" };
 
@@ -467,6 +937,7 @@ namespace LGUTreasury.Controllers
             // a type filter narrows the list to that single type, active or not.
             var types = _context.RevenueTypes
                 .AsNoTracking()
+                .Include(t => t.Category)
                 .Where(t => revenueTypeId.HasValue ? t.TypeID == revenueTypeId.Value : t.IsActive)
                 .ToList();
 
@@ -514,25 +985,31 @@ namespace LGUTreasury.Controllers
             }
             else
             {
-                var ordered = types
-                    .OrderBy(t => IsFeeCategory(t.CategoryID) ? 0 : 1)
-                    .ThenBy(t => t.TypeID)
+                var groups = types
+                    .GroupBy(t => t.CategoryID ?? "")
+                    .OrderBy(g => g.First().Category?.Name ?? g.Key, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var sectionInserted = false;
-                foreach (var t in ordered)
+                foreach (var group in groups)
                 {
-                    var isMisc = !IsFeeCategory(t.CategoryID);
-                    if (isMisc && !sectionInserted)
-                    {
-                        report.Rows.Add(new RemittanceRow { Name = "MISCELLANEOUS:", IsSection = true });
-                        sectionInserted = true;
-                    }
+                    var categoryName = group.First().Category?.Name ?? group.Key;
+                    if (string.IsNullOrWhiteSpace(categoryName))
+                        categoryName = "UNCATEGORIZED";
+
                     report.Rows.Add(new RemittanceRow
                     {
-                        Name = t.Name ?? "",
-                        Total = byType.GetValueOrDefault(t.TypeID)
+                        Name = $"{categoryName.ToUpperInvariant()}:",
+                        IsSection = true
                     });
+
+                    foreach (var t in group.OrderBy(t => t.TypeID))
+                    {
+                        report.Rows.Add(new RemittanceRow
+                        {
+                            Name = t.Name ?? "",
+                            Total = byType.GetValueOrDefault(t.TypeID)
+                        });
+                    }
                 }
 
                 report.GrandTotal = report.Rows.Where(r => !r.IsSection).Sum(r => r.Total);
@@ -540,9 +1017,6 @@ namespace LGUTreasury.Controllers
 
             return report;
         }
-
-        private static bool IsFeeCategory(string? categoryId) =>
-            string.Equals(categoryId, "FEE", StringComparison.OrdinalIgnoreCase);
 
         private static string MonthlyRowClass(string name)
         {
@@ -566,6 +1040,13 @@ namespace LGUTreasury.Controllers
             return $"{month}. {day.ToString("dd", CultureInfo.InvariantCulture)}, {day.ToString("yyyy", CultureInfo.InvariantCulture)}";
         }
 
+        private static string ShortDayHeader(DateTime day)
+        {
+            var month = day.ToString("MMM", CultureInfo.InvariantCulture).ToUpperInvariant();
+            if (month == "SEP") month = "SEPT";
+            return $"{month}. {day.ToString("dd", CultureInfo.InvariantCulture)}";
+        }
+
         private static string MonthlyPeriodTitle(DateTime from, DateTime to) =>
             from.Month == to.Month && from.Year == to.Year
                 ? from.ToString("MMM-yy", CultureInfo.InvariantCulture)
@@ -576,14 +1057,14 @@ namespace LGUTreasury.Controllers
             string reportType, DateTime from, DateTime to, string? revenueTypeName)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM");
-            sb.AppendLine($"Report Type: {reportType}");
+            sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
+            sb.AppendLine(CsvField($"Report Type: {reportType}"));
             if (!string.IsNullOrEmpty(revenueTypeName))
-                sb.AppendLine($"Revenue Type: {revenueTypeName}");
-            sb.AppendLine($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}");
+                sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
             if (report.IsMonthly)
-                sb.AppendLine("GENERAL COLLECTIONS");
-            sb.AppendLine($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}");
+                sb.AppendLine(CsvField("GENERAL COLLECTIONS"));
+            sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
             sb.AppendLine();
 
             if (!report.IsMonthly)
@@ -626,7 +1107,9 @@ namespace LGUTreasury.Controllers
                 sb.AppendLine(totals.ToString());
             }
 
-            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            // UTF-8 with BOM so Excel shows characters correctly
+            var bytes = new UTF8Encoding(true).GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
             return File(bytes, "text/csv", fileName + ".csv");
         }
 
@@ -808,16 +1291,16 @@ namespace LGUTreasury.Controllers
             {
                 if (report.IsMonthly)
                 {
-                    // Wide landscape: item column + one column per day + TOTAL
-                    var width = 40f + 150f + 64f + report.Days.Count * 50f;
-                    page.Size(new PageSize(Math.Max(width, 842f), 595f));
+                    // Use a standard printable page so PDF viewers and printers do
+                    // not crop the right-hand side of a wide custom page.
+                    page.Size(PageSizes.A4.Landscape());
                 }
                 else
                 {
                     page.Size(PageSizes.A4.Portrait());
                 }
                 page.Margin(20);
-                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lato"));
 
                 page.Header().Column(col =>
                 {
@@ -880,34 +1363,43 @@ namespace LGUTreasury.Controllers
                     }
                     else
                     {
+                        // Scale the layout down as the number of day columns grows
+                        // so every column stays inside the printable page width.
+                        var dayCount = report.Days.Count;
+                        var cellFont = dayCount > 20 ? 4.5f : dayCount > 14 ? 5.5f : dayCount > 7 ? 6.5f : 7f;
+                        var nameFont = Math.Min(7f, cellFont + 0.5f);
+                        var cellPad = dayCount > 20 ? 1f : 2f;
+                        var shortHeaders = dayCount > 10;
+
                         table.ColumnsDefinition(cols =>
                         {
-                            cols.ConstantColumn(150);   // revenue type
+                            cols.RelativeColumn(2.6f);  // revenue type
                             foreach (var _ in report.Days)
-                                cols.ConstantColumn(50);
-                            cols.ConstantColumn(64);    // TOTAL
+                                cols.RelativeColumn(1f);
+                            cols.RelativeColumn(1.3f);  // TOTAL
                         });
 
-                        static IContainer MCell(IContainer c, string? bg = null)
+                        IContainer MCell(IContainer c, string? bg = null)
                         {
-                            c = c.Border(1).BorderColor("#99AAAA").Padding(3);
+                            c = c.Border(1).BorderColor("#99AAAA").Padding(cellPad);
                             if (!string.IsNullOrEmpty(bg)) c = c.Background(bg);
                             return c;
                         }
 
-                        static IContainer MTot(IContainer c) =>
-                            c.Border(1).BorderColor("#99AAAA").Background("#F0F2F6").Padding(3);
+                        IContainer MTot(IContainer c) =>
+                            c.Border(1).BorderColor("#99AAAA").Background("#F0F2F6").Padding(cellPad);
 
                         table.Header(h =>
                         {
-                            h.Cell().Element(c => MCell(c, "#F0F2F6")).Text("").FontSize(7);
+                            h.Cell().Element(c => MCell(c, "#F0F2F6")).Text("").FontSize(cellFont);
                             foreach (var day in report.Days)
                             {
                                 h.Cell().Element(c => MCell(c, "#F0F2F6"))
-                                    .Text(DayHeader(day)).Bold().FontSize(6);
+                                    .Text(shortHeaders ? ShortDayHeader(day) : DayHeader(day))
+                                    .Bold().FontSize(cellFont);
                             }
                             h.Cell().Element(c => MCell(c, "#F0F2F6"))
-                                .Text("TOTAL").Bold().FontSize(7);
+                                .Text("TOTAL").Bold().FontSize(cellFont);
                         });
 
                         foreach (var row in report.Rows)
@@ -923,28 +1415,28 @@ namespace LGUTreasury.Controllers
                             var nameBg = isBt ? "#4A86E8" : rowBg;
 
                             var nameText = table.Cell().Element(c => MCell(c, nameBg))
-                                .Text(row.Name).Bold().FontSize(7);
+                                .Text(row.Name).Bold().FontSize(nameFont);
                             if (isBt) nameText.FontColor("#FFFFFF");
 
                             for (var i = 0; i < report.Days.Count; i++)
                             {
                                 table.Cell().Element(c => MCell(c, rowBg))
-                                    .AlignRight().Text(AmountOrBlank(row.Cells[i])).FontSize(7);
+                                    .AlignRight().Text(AmountOrBlank(row.Cells[i])).FontSize(cellFont);
                             }
 
                             table.Cell().Element(c => MCell(c, rowBg)).AlignRight()
                                 .Text(AmountOrBlank(row.Total))
-                                .Bold().FontSize(7).FontColor("#C0392B");
+                                .Bold().FontSize(cellFont).FontColor("#C0392B");
                         }
 
-                        table.Cell().Element(MTot).Text("Total").Bold().FontSize(7).FontColor("#C0392B");
+                        table.Cell().Element(MTot).Text("Total").Bold().FontSize(cellFont).FontColor("#C0392B");
                         foreach (var total in report.DayTotals)
                         {
                             table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(total))
-                                .Bold().FontSize(7).FontColor("#C0392B");
+                                .Bold().FontSize(cellFont).FontColor("#C0392B");
                         }
                         table.Cell().Element(MTot).AlignRight().Text(AmountOrBlank(report.GrandTotal))
-                            .Bold().FontSize(7).FontColor("#C0392B");
+                            .Bold().FontSize(cellFont).FontColor("#C0392B");
                     }
                 });
 

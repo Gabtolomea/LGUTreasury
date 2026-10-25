@@ -37,7 +37,7 @@
 }
 .data-table td { padding: 11px 14px; border-bottom: 1px solid #f0f0f0; color: var(--text); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: #fafafa; }
+.data-table tbody tr:hover td { background: #80e584; }
 
 .action-edit-btn, .action-remove-btn {
     width: 26px; height: 26px; border: none; border-radius: 6px;

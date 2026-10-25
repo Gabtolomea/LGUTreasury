@@ -17,7 +17,7 @@ namespace LGUTreasury.Migrations
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
-
+#pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
@@ -677,7 +677,7 @@ namespace LGUTreasury.Migrations
                 {
                     b.Navigation("RevenuePolicies");
                 });
-
+#pragma warning restore 612, 618
         }
     }
 }

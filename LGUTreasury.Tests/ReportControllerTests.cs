@@ -76,7 +76,7 @@ public class ReportControllerTests
     }
 
     [Fact]
-    public async Task Generate_Csv_IncludesOnlyPaymentsWithinDateRange()
+    public async Task Generate_DetailedCsv_IncludesOnlyPaymentsWithinDateRange()
     {
         using var db = TestFactory.NewDb();
         var type = TestData.AddType(db, 1, "Business Permit");
@@ -85,7 +85,7 @@ public class ReportControllerTests
         var controller = TestFactory.NewController(db);
         var today = DateTime.Today.ToString("yyyy-MM-dd");
 
-        var result = await controller.Generate("daily", "csv", today, today, null);
+        var result = await controller.Generate("detailed", "csv", today, today, null);
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
         Assert.Contains("OR-IN-RANGE", csv);
@@ -94,7 +94,27 @@ public class ReportControllerTests
     }
 
     [Fact]
-    public async Task Generate_Csv_FiltersByRevenueType()
+    public async Task Generate_SummaryCsv_TotalsOnlyPaymentsWithinDateRange()
+    {
+        using var db = TestFactory.NewDb();
+        var type = TestData.AddType(db, 1, "Business Permit");
+        TestData.AddPayment(db, 1, "OR-IN-RANGE", DateTime.Today, type, baseAmount: 100m);
+        TestData.AddPayment(db, 2, "OR-OUT-RANGE", DateTime.Today.AddDays(-10), type, baseAmount: 500m);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate("daily", "csv", today, today, null);
+        var csv = CsvOf(Assert.IsType<FileContentResult>(result));
+
+        // The summary matrix carries the in-range amount only, and the
+        // out-of-range payment must not inflate the total.
+        Assert.Contains("Business Permit", csv);
+        Assert.Contains("100.00", csv);
+        Assert.DoesNotContain("500.00", csv);
+    }
+
+    [Fact]
+    public async Task Generate_DetailedCsv_FiltersByRevenueType()
     {
         using var db = TestFactory.NewDb();
         var typeA = TestData.AddType(db, 1, "Business Permit");
@@ -104,12 +124,33 @@ public class ReportControllerTests
         var controller = TestFactory.NewController(db);
         var today = DateTime.Today.ToString("yyyy-MM-dd");
 
-        var result = await controller.Generate("daily", "csv", today, today, revenueTypeId: 1);
+        var result = await controller.Generate("detailed", "csv", today, today, revenueTypeId: 1);
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
         Assert.Contains("OR-TYPE-A", csv);
         Assert.DoesNotContain("OR-TYPE-B", csv);
         Assert.Contains("Revenue Type: Business Permit", csv);
+    }
+
+    [Fact]
+    public async Task Generate_SummaryCsv_FiltersByRevenueType()
+    {
+        using var db = TestFactory.NewDb();
+        var typeA = TestData.AddType(db, 1, "Business Permit");
+        var typeB = TestData.AddType(db, 2, "Real Property Tax");
+        TestData.AddPayment(db, 1, "OR-TYPE-A", DateTime.Today, typeA, baseAmount: 100m);
+        TestData.AddPayment(db, 2, "OR-TYPE-B", DateTime.Today, typeB, baseAmount: 500m);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate("daily", "csv", today, today, revenueTypeId: 1);
+        var csv = CsvOf(Assert.IsType<FileContentResult>(result));
+
+        // Only the filtered revenue type becomes a row of the matrix.
+        Assert.Contains("Business Permit", csv);
+        Assert.DoesNotContain("Real Property Tax", csv);
+        Assert.Contains("100.00", csv);
+        Assert.DoesNotContain("500.00", csv);
     }
 
     [Theory]
@@ -119,6 +160,7 @@ public class ReportControllerTests
     [InlineData("custom", "Custom Report")]
     [InlineData("remittance", "Remittance Summary")]
     [InlineData("monthly-remittance", "Monthly Remittance")]
+    [InlineData("detailed", "Detailed Collection List")]
     public async Task Generate_Csv_UsesExpectedReportTypeName(string type, string expectedName)
     {
         using var db = TestFactory.NewDb();
@@ -131,6 +173,44 @@ public class ReportControllerTests
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
         Assert.Contains($"Report Type: {expectedName}", csv);
+    }
+
+    [Fact]
+    public async Task Generate_SummaryCsv_UsesBaseAmountOnly()
+    {
+        using var db = TestFactory.NewDb();
+        var type = TestData.AddType(db, 1, "Business Permit");
+        TestData.AddPayment(db, 1, "OR-000001", DateTime.Today, type,
+            baseAmount: 100m, surcharge: 10m, interest: 5m);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate("daily", "csv", today, today, null);
+        var csv = CsvOf(Assert.IsType<FileContentResult>(result));
+
+        // The summary uses the revenue type's base amount only.
+        Assert.Contains("100.00", csv);
+        Assert.DoesNotContain("115.00", csv);
+    }
+
+    [Fact]
+    public async Task Generate_SummaryUsesBaseAmount_WhileRemittanceUsesLineTotal()
+    {
+        using var db = TestFactory.NewDb();
+        var type = TestData.AddType(db, 1, "Business Permit");
+        TestData.AddPayment(db, 1, "OR-000001", DateTime.Today, type,
+            baseAmount: 100m, surcharge: 10m, interest: 5m);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var summary = await controller.Generate("daily", "csv", today, today, null);
+        var remittance = await controller.Generate("remittance", "csv", today, today, null);
+
+        var summaryCsv = CsvOf(Assert.IsType<FileContentResult>(summary));
+        var remittanceCsv = CsvOf(Assert.IsType<FileContentResult>(remittance));
+
+        Assert.Contains("100.00", summaryCsv);
+        Assert.Contains("115.00", remittanceCsv);
     }
 
     [Fact]
@@ -147,6 +227,25 @@ public class ReportControllerTests
 
         Assert.Contains("Report Type: Revenue Summary", csv);
         Assert.DoesNotContain("Weekly Revenue Summary", csv);
+    }
+
+    [Theory]
+    [InlineData("remittance")]
+    [InlineData("monthly-remittance")]
+    public async Task Generate_RemittanceCsv_EscapesRevenueTypeNameInHeader(string type)
+    {
+        using var db = TestFactory.NewDb();
+        var revenueType = TestData.AddType(db, 1, "Build, Permit");
+        TestData.AddPayment(db, 1, "OR-000001", DateTime.Today, revenueType);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        var result = await controller.Generate(type, "csv", today, today, revenueTypeId: 1);
+        var csv = CsvOf(Assert.IsType<FileContentResult>(result));
+
+        // A comma in the name must not spill into extra columns.
+        Assert.Contains("\"Build, Permit\"", csv);
+        Assert.Contains("\"Revenue Type: Build, Permit\"", csv);
     }
 
     [Fact]
@@ -182,7 +281,7 @@ public class ReportControllerTests
     }
 
     [Fact]
-    public async Task Generate_RemittanceCsv_PlacesMiscellaneousSectionAfterFeeTypes()
+    public async Task Generate_RemittanceCsv_GroupsTypesUnderTheirCategory()
     {
         using var db = TestFactory.NewDb();
         var fee = TestData.AddType(db, 1, "CTC Fee", "FEE");
@@ -195,14 +294,15 @@ public class ReportControllerTests
         var result = await controller.Generate("remittance", "csv", today, today, null);
         var csv = CsvOf(Assert.IsType<FileContentResult>(result));
 
+        var feeSectionIndex = csv.IndexOf("CATEGORY FEE:", StringComparison.Ordinal);
         var feeIndex = csv.IndexOf("CTC Fee", StringComparison.Ordinal);
-        var sectionIndex = csv.IndexOf("MISCELLANEOUS:", StringComparison.Ordinal);
+        var miscSectionIndex = csv.IndexOf("CATEGORY MISC:", StringComparison.Ordinal);
         var miscIndex = csv.IndexOf("Water Fees", StringComparison.Ordinal);
-        Assert.True(feeIndex >= 0, "FEE-category type should be listed.");
-        Assert.True(sectionIndex >= 0, "MISCELLANEOUS section header should be present.");
-        Assert.True(miscIndex >= 0, "Non-FEE type should be listed.");
-        Assert.True(feeIndex < sectionIndex, "FEE type should come before the MISCELLANEOUS section.");
-        Assert.True(sectionIndex < miscIndex, "Non-FEE type should come after the MISCELLANEOUS section.");
+        Assert.True(feeSectionIndex >= 0, "FEE category header should be present.");
+        Assert.True(miscSectionIndex >= 0, "MISC category header should be present.");
+        Assert.True(feeSectionIndex < feeIndex, "FEE type should come after its category header.");
+        Assert.True(miscSectionIndex < miscIndex, "MISC type should come after its category header.");
+        Assert.DoesNotContain("MISCELLANEOUS", csv);
         Assert.Contains("TOTAL,350.00", csv);
     }
 

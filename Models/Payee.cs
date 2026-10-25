@@ -13,7 +13,8 @@ namespace LGUTreasury.Models
       [Required]
       public string? Lastname {get; set;}
         public string? Suffix {get; set;}
-        public string? ContactNumber {get; set;}        
+        [ContactNumber]
+        public string? ContactNumber {get; set;}
         public string? ResidenceAddress {get; set;}
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
