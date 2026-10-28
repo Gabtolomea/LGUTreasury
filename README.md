@@ -189,6 +189,8 @@ volume or database backups.
 Deployment logs are appended to `logs/deployment.log`. The runner requires
 `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env` or the host environment. Native
 MySQL deployments using `compose.native-mysql.yaml` are not handled by this runner.
+After a successful deployment, it prints the LAN application URL, the localhost URL,
+and the LAN health endpoint.
 
 ---
 

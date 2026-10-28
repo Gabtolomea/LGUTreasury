@@ -1,5 +1,7 @@
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -174,6 +176,22 @@ class DeploymentRunnerTests(unittest.TestCase):
         exit_code = run(make_config(project_directory), command_runner)
 
         self.assertEqual(exit_code, 0)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    @patch("deploy.get_lan_addresses", return_value=["192.168.1.50"])
+    def test_successful_deployment_displays_application_urls(self, unused_addresses, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner()
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Application URL: http://192.168.1.50:8080", output.getvalue())
+        self.assertIn("Local URL: http://localhost:8080", output.getvalue())
+        self.assertIn("Health endpoint: http://192.168.1.50:8080/health", output.getvalue())
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_database_readiness_completes_before_database_backup(self, unused_which):

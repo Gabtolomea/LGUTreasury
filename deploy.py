@@ -8,6 +8,7 @@ from scripts.deployment import deploy as deploy_application
 from scripts.deployment import validate_compose
 from scripts.health import run_health_checks
 from scripts.logger import Logger
+from scripts.network import get_lan_addresses
 from scripts.preflight import run_preflight
 from scripts.rollback import rollback as restore_rollback
 
@@ -26,6 +27,8 @@ CONFIG = {
     "minimum_free_space_mb": 100,
     "app_service": "app",
     "app_image": "lgu-treasury-app:local",
+    "app_port": 8080,
+    "health_path": "/health",
     "services": ["db", "app"],
     "compose": {
         "deploy_args": ["up", "-d", "--build", "app"],
@@ -204,8 +207,34 @@ class DeploymentRunner:
             "logs/deployment.log",
         )
         self.logger.info("Deployment logs are preserved at {0}.".format(log_path))
+        if self.status == "successful":
+            self._report_application_urls()
         for error in self.errors:
             self.logger.fail(error)
+
+    def _report_application_urls(self):
+        port = self.config.get("app_port", 8080)
+        health_path = self.config.get("health_path", "/health")
+        lan_addresses = get_lan_addresses()
+        for address in lan_addresses:
+            self.logger.info("Application URL: http://{0}:{1}.".format(address, port))
+        self.logger.info("Local URL: http://localhost:{0}.".format(port))
+        if lan_addresses:
+            for address in lan_addresses:
+                self.logger.info(
+                    "Health endpoint: http://{0}:{1}{2}.".format(
+                        address,
+                        port,
+                        health_path,
+                    )
+                )
+        else:
+            self.logger.info(
+                "Health endpoint: http://localhost:{0}{1}.".format(
+                    port,
+                    health_path,
+                )
+            )
 
     def run(self):
         try:
