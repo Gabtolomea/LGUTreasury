@@ -12,7 +12,9 @@
 <style>
     .lt-page { padding:0 24px 32px; }
     .page-header-row { display:flex; align-items:center; gap:12px; padding:18px 0 14px; }
-    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); font-size:16px; text-decoration:none; }
+    .back-btn { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:white; border:1px solid var(--gray-border); cursor:pointer; color:var(--text-2); text-decoration:none; transition:background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease; }
+    .back-btn:hover { background:var(--gray-bg); border-color:#cfcfcf; color:var(--text); }
+    .back-btn:active { transform:translateX(-1px); }
     .page-title { font-size:20px; font-weight:700; color:var(--text); }
     .page-sub { font-size:13px; color:var(--green); }
 
@@ -49,8 +51,8 @@
     .form-input { width:100%; padding:10px 14px; background:var(--gray-input); border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; transition:border-color .2s,background .2s; }
     .form-input:focus { border-color:var(--green); background:white; }
     .form-input[readonly] { background:#f5f5f5; color:var(--text-3); }
-    .form-select { width:100%; padding:10px 14px; background:var(--gray-input); border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; cursor:pointer; appearance:none; }
-    .form-select:focus { border-color:var(--green); background:white; }
+    .form-select { width:100%; padding:10px 36px 10px 14px; background-color:var(--gray-input); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.75L6 6.25L11 1.75' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; background-size:12px 8px; border:1.5px solid transparent; border-radius:8px; font-size:13.5px; font-family:inherit; color:var(--text); outline:none; cursor:pointer; appearance:none; -webkit-appearance:none; }
+    .form-select:focus { border-color:var(--green); background-color:white; }
 
     @@media print {
         .lt-page > .page-header-row .btn-add,
@@ -65,7 +67,8 @@
 
 <div class="lt-page">
     <div class="page-header-row">
-        <a asp-action="Index" class="back-btn">←</a>
+        @{ ViewData["BackController"] = "LongTermTenant"; ViewData["BackAction"] = "Index"; }
+<partial name="_BackBtn" />
         <div style="flex:1">
             <div class="page-title">@fullName</div>
             <div class="page-sub">@accountNo · @(Model.Address ?? "No address") · Bills every @Model.BillGenerationDay of the month</div>

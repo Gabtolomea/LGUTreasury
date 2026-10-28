@@ -20,7 +20,7 @@ namespace LGUTreasury.Migrations
                 defaultValue: false);
 
             migrationBuilder.CreateTable(
-                name: "EditRequest",
+                name: "Editrequests",
                 columns: table => new
                 {
                     RequestID = table.Column<int>(type: "int", nullable: false)
@@ -36,21 +36,21 @@ namespace LGUTreasury.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EditRequest", x => x.RequestID);
+                    table.PrimaryKey("PK_Editrequests", x => x.RequestID);
                     table.ForeignKey(
-                        name: "FK_EditRequest_PaymentRecords_PaymentID",
+                        name: "FK_Editrequests_PaymentRecords_PaymentID",
                         column: x => x.PaymentID,
                         principalTable: "PaymentRecords",
                         principalColumn: "PaymentID",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EditRequest_UserAccounts_RequestedBy_UserID",
+                        name: "FK_Editrequests_UserAccounts_RequestedBy_UserID",
                         column: x => x.RequestedBy_UserID,
                         principalTable: "UserAccounts",
                         principalColumn: "UserID",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EditRequest_UserAccounts_ReviewedBy_UserID",
+                        name: "FK_Editrequests_UserAccounts_ReviewedBy_UserID",
                         column: x => x.ReviewedBy_UserID,
                         principalTable: "UserAccounts",
                         principalColumn: "UserID");
@@ -58,18 +58,18 @@ namespace LGUTreasury.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EditRequest_PaymentID",
-                table: "EditRequest",
+                name: "IX_Editrequests_PaymentID",
+                table: "Editrequests",
                 column: "PaymentID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EditRequest_RequestedBy_UserID",
-                table: "EditRequest",
+                name: "IX_Editrequests_RequestedBy_UserID",
+                table: "Editrequests",
                 column: "RequestedBy_UserID");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EditRequest_ReviewedBy_UserID",
-                table: "EditRequest",
+                name: "IX_Editrequests_ReviewedBy_UserID",
+                table: "Editrequests",
                 column: "ReviewedBy_UserID");
         }
 
@@ -77,7 +77,7 @@ namespace LGUTreasury.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "EditRequest");
+                name: "Editrequests");
 
             migrationBuilder.DropColumn(
                 name: "HasPendingRequest",

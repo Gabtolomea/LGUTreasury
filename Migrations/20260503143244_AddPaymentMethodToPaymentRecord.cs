@@ -10,39 +10,27 @@ namespace LGUTreasury.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "MiddleName",
-                table: "Payees",
-                newName: "Middlename");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `MiddleName` `Middlename` LONGTEXT NULL;");
 
-            migrationBuilder.RenameColumn(
-                name: "LastName",
-                table: "Payees",
-                newName: "Lastname");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `LastName` `Lastname` LONGTEXT NOT NULL;");
 
-            migrationBuilder.RenameColumn(
-                name: "FirstName",
-                table: "Payees",
-                newName: "Firstname");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `FirstName` `Firstname` LONGTEXT NOT NULL;");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "Middlename",
-                table: "Payees",
-                newName: "MiddleName");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `Middlename` `MiddleName` LONGTEXT NULL;");
 
-            migrationBuilder.RenameColumn(
-                name: "Lastname",
-                table: "Payees",
-                newName: "LastName");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `Lastname` `LastName` LONGTEXT NOT NULL;");
 
-            migrationBuilder.RenameColumn(
-                name: "Firstname",
-                table: "Payees",
-                newName: "FirstName");
+            migrationBuilder.Sql(
+                "ALTER TABLE `Payees` CHANGE COLUMN `Firstname` `FirstName` LONGTEXT NOT NULL;");
         }
     }
 }

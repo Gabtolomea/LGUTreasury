@@ -24,7 +24,7 @@ public IActionResult Login()
     if (HttpContext.Session.GetInt32("UserID") != null)
         return RedirectToAction("Index", "Home");
 
-    return View();
+    return View(new LoginViewModel());
 }
 
         // POST: /Account/Login
@@ -60,7 +60,7 @@ public IActionResult Login()
         // GET: /Account/Register
         public IActionResult Register()
         {
-            return View();
+            return View(new RegisterViewModel());
         }
 
 [HttpPost]
@@ -97,7 +97,7 @@ public async Task<IActionResult> Register(RegisterViewModel model)
         MiddleName = model.MiddleName,
         LastName = model.LastName,
         Suffix = model.Suffix,
-        ContactNumber = model.ContactNumber,
+        ContactNumber = ContactNumberRules.Normalize(model.ContactNumber),
         Email = model.Email,
         Address = model.Address,
         IsActive = true,

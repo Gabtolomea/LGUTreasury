@@ -1,10 +1,21 @@
-﻿﻿<!DOCTYPE html>
+﻿@using Microsoft.EntityFrameworkCore
+@inject LGUTreasury.Data.ApplicationDbContext _db
+@{
+    var navRoleName = ViewData["Role"]?.ToString();
+    var pendingMessages = (navRoleName == "Officer" || navRoleName == "Admin")
+        ? await _db.Editrequests.CountAsync(r => r.Status == "Pending")
+        : 0;
+}
+
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="preload" as="image" href="~/images/Logout.webp" />
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -44,6 +55,20 @@
 }
 */
         /* TOP NAV */
+      
+       .nav-badge {
+    margin-left: auto;
+    background: #e53935; color: #fff;
+    font-size: 11px; font-weight: 700;
+    min-width: 20px; height: 20px; padding: 0 6px;
+    border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-item.active .nav-badge { background: #fff; color: #c0392b; }
+
+
+
+
         .topnav {
             height: 80px; background: #388E3C;
             display: flex; align-items: center; padding: 0 24px;
@@ -113,20 +138,49 @@
         .nav-item.active { background: #388E3C; color: white; }
         .nav-item svg { flex-shrink: 0; width: 22px; height: 22px; }
 
-        .logout-btn {
-            display: flex; align-items: center; gap: 10px;
-            padding: 12px 16px; font-size: 15px; font-weight: 600;
-            color: #c0392b; cursor: pointer; border-radius: 12px;
-            margin-top: auto; border: none; background: transparent;
-            width: 100%; text-align: left; font-family: 'Inter', sans-serif;
+         /* LOGOUT BUTTON */
+            .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 550;
+            color: #c0392b;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: background .2s;
         }
-        .logout-btn:hover { background: #fdecea; }
 
+        .Logout-animation {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+            background: url('/images/Logout-static.png') center / contain no-repeat;
+        }
+
+                .logout-btn:hover .Logout-animation,
+        .logout-btn:active .Logout-animation {
+            background-image: url('/images/Logout.webp'), url('/images/Logout-static.png');
+            background-position: center, center;
+            background-size: contain, contain;
+            background-repeat: no-repeat, no-repeat;
+        }
         /* MAIN CONTENT — only this scrolls */
         .main-content {
-            flex: 1;
-            overflow-y: auto;  /* ← scroll happens here only */
-            background: #f0f0f0;
+        flex: 1;
+        overflow-y: auto; 
+        background: #f0f0f0;
+        }
+
+        .page-wrap {
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 20px;
         }
 
         /* SHARED FORM STYLES */
@@ -145,15 +199,19 @@
         }
         .form-input:focus { border-color: #388E3C; background: white; }
         .form-select {
-            width: 100%; padding: 11px 14px;
-            background: var(--gray-input);
+            width: 100%; padding: 11px 36px 11px 14px;
+            background-color: var(--gray-input);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.75L6 6.25L11 1.75' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 12px 8px;
             border: 1.5px solid transparent;
             border-radius: 8px; font-size: 14px;
             font-family: inherit; color: var(--text);
-            appearance: none; cursor: pointer; outline: none;
+            appearance: none; -webkit-appearance: none; cursor: pointer; outline: none;
             transition: border-color .2s;
         }
-        .form-select:focus { border-color: var(--green); background: white; }
+        .form-select:focus { border-color: var(--green); background-color: white; }
         .btn-primary {
             width: 100%; padding: 14px;
             background: #388E3C; color: white;
@@ -193,6 +251,7 @@
         .modal-overlay {
             position: fixed; inset: 0;
             background: rgba(0,0,0,.45);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
             z-index: 500; display: none;
             align-items: center; justify-content: center;
         }
@@ -258,6 +317,10 @@
             <a asp-controller="Record" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "records" ? "active" : "")">
                 <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 Records
+                 @if (pendingMessages > 0)
+                {
+                    <span class="nav-badge">@pendingMessages</span>
+                }
             </a>
 
             @* Revenue Type — Officer and Admin only *@
@@ -270,7 +333,7 @@
             }
 
             @* Long Term Tenants — Officer only *@
-            @if (ViewData["Role"]?.ToString() == "Officer")
+            @if (ViewData["Role"]?.ToString() == "Officer" || ViewData["Role"]?.ToString() == "Admin")
             {
                 <a asp-controller="LongTermTenant" asp-action="Index" class="nav-item @(ViewData["ActiveNav"]?.ToString() == "longterm" ? "active" : "")">
                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
@@ -313,10 +376,15 @@
                 </a>
             }
 
-            <div style="flex:1"></div>
-            <a asp-controller="Account" asp-action="Logout" class="logout-btn">
-                <svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4M12 13l4-4-4-4M16 9H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Logout
+            <div style="flex: 1;"></div>
+
+            <a asp-controller="Account"
+              asp-action="Logout"
+              class="logout-btn">
+              <img src="~/images/Logout-static.png"
+               alt="Logout"
+               class="Logout-animation" />
+               <span>Logout</span>
             </a>
         </div>
 
@@ -328,6 +396,7 @@
     <div class="toast" id="toast"></div>
 
     <script>
+
         let toastTimer;
         function showToast(msg, isError = false) {
             const t = document.getElementById('toast');

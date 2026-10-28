@@ -60,8 +60,11 @@ namespace LGUTreasury.Controllers
 
             ViewBag.RecentRecords = payments.Take(5).Select(p => new RecentRecordViewModel
             {
-                Initials  = $"{p.Payee?.Firstname?[0]}{p.Payee?.Lastname?[0]}".ToUpper(),
-                PayeeName = $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
+                Initials  = ((p.Payee?.Firstname?.FirstOrDefault().ToString() ?? "") +
+             (p.Payee?.Lastname?.FirstOrDefault().ToString() ?? "")).Trim().ToUpper(),
+PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
+                ? (p.Payee?.Firstname ?? "—")
+                : $"{p.Payee?.Lastname}, {p.Payee?.Firstname}",
                 Type      = lineItems.FirstOrDefault(l => l.PaymentID == p.PaymentID)?.RevenueType?.Name ?? "Payment",
                 ReceiptNo = p.OfficialReceipt,
                 Amount    = p.TotalAmount.ToString("N2"),
@@ -109,6 +112,7 @@ namespace LGUTreasury.Controllers
                 .Select(t => (int)Math.Round((t / maxTotal) * 100)).ToList();
             ViewBag.BarLabels  = Enumerable.Range(0, 7)
                 .Select(i => weekStart.AddDays(i).ToString("ddd")).ToList();
+            ViewBag.TodayTotal = dailyTotals.Last().ToString("N2");
 
             // ── Collector Summary ─────────────────────────────────────────
             var leaderboardFrom = DateTime.TryParse(Request.Query["from"].ToString(), out var parsedFrom)
@@ -142,10 +146,14 @@ namespace LGUTreasury.Controllers
             ViewBag.Leaderboard = leaderboard;
 
             // Widgets match the collector summary range exactly
-            ViewBag.CollectedTotal = leaderboard.Sum(c => (decimal)c.Total).ToString("N2");
-            ViewBag.PaymentsCount  = await _context.PaymentRecords
+            var collectedTotal = leaderboard.Sum(c => (decimal)c.Total);
+            var paymentsCount  = await _context.PaymentRecords
                 .Where(p => p.DateIssued.Date >= leaderboardFrom && p.DateIssued.Date <= leaderboardTo)
                 .CountAsync();
+
+            ViewBag.CollectedTotal = collectedTotal.ToString("N2");
+            ViewBag.PaymentsCount  = paymentsCount;
+            ViewBag.AveragePayment = (paymentsCount > 0 ? collectedTotal / paymentsCount : 0m).ToString("N2");
 
             return View();
         }
