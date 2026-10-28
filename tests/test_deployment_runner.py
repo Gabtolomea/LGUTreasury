@@ -9,6 +9,7 @@ from deploy import run
 from scripts.commands import CommandResult
 from scripts.cleanup import clean
 from scripts.logger import redact_text
+from scripts.network import get_lan_addresses
 
 
 class FakeCommandRunner:
@@ -192,6 +193,17 @@ class DeploymentRunnerTests(unittest.TestCase):
         self.assertIn("Application URL: http://192.168.1.50:8080", output.getvalue())
         self.assertIn("Local URL: http://localhost:8080", output.getvalue())
         self.assertIn("Health endpoint: http://192.168.1.50:8080/health", output.getvalue())
+
+    @patch("scripts.network.socket.socket")
+    def test_lan_address_discovery_returns_only_primary_route_address(self, socket_factory):
+        network_socket = socket_factory.return_value
+        network_socket.getsockname.return_value = ("192.168.1.50", 0)
+
+        addresses = get_lan_addresses()
+
+        self.assertEqual(addresses, ["192.168.1.50"])
+        network_socket.connect.assert_called_once_with(("8.8.8.8", 80))
+        network_socket.close.assert_called_once_with()
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_database_readiness_completes_before_database_backup(self, unused_which):
