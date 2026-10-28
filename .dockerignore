@@ -15,3 +15,4 @@ LGUTreasury.Tests/
 .idea/
 *.user
 *.suo
+*.csproj.lscache

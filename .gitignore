@@ -49,6 +49,7 @@ artifacts/
 *.nupkg
 *.snupkg
 .nuget/
+*.csproj.lscache
 
 # ── Secrets / local config (NEVER commit) ────────────────────
 .env
