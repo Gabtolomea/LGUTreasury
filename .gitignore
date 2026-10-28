@@ -12,6 +12,8 @@ publish/
 
 # ── Test / coverage output ───────────────────────────────────
 [Tt]est[Rr]esult*/
+__pycache__/
+*.pyc
 *.trx
 *.coverage
 *.coveragexml
@@ -55,6 +57,7 @@ artifacts/
 .env
 .env.*
 !.env.example
+/backups/
 appsettings.*.Local.json
 secrets.json
 *.pfx

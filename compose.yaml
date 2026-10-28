@@ -16,6 +16,7 @@ services:
       start_period: 30s
 
   app:
+    image: lgu-treasury-app:local
     build:
       context: .
       dockerfile: Dockerfile

@@ -42,6 +42,7 @@ payees, provides analytics, and exports revenue summary reports.
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - MySQL server (local or remote)
 - Docker Desktop (for the Docker workflow)
+- Python 3.8 or newer (for the safe deployment runner)
 - Git
 
 ---
@@ -171,6 +172,24 @@ Docker data, run `docker compose down -v`.
 The development admin account is employee ID `ADMIN001` with password `Admin@1234`.
 Change it when using data outside a private development environment.
 
+### Safe Docker deployment
+
+For the bundled-MySQL Compose workflow, run the deployment runner from the project root:
+
+```powershell
+python deploy.py
+```
+
+The runner checks Docker and the environment, waits for MySQL readiness, saves a
+timestamped database dump and recovery image under `backups/`, validates Compose, deploys
+the app, and checks both the container health and `/health` endpoint. It rolls back the
+previous app image when deployment or health checks fail. It never removes the MySQL
+volume or database backups.
+
+Deployment logs are appended to `logs/deployment.log`. The runner requires
+`MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env` or the host environment. Native
+MySQL deployments using `compose.native-mysql.yaml` are not handled by this runner.
+
 ---
 
 ### 5. Run the Docker app with native MySQL
@@ -217,6 +236,12 @@ required).
 
 ```bash
 dotnet test LGUTreasury.Tests/LGUTreasury.Tests.csproj
+```
+
+The deployment runner tests use only Python's standard library:
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
 **If the app is running**, its `bin/…/LGUTreasury.dll` is locked and a normal build fails.

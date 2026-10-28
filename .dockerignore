@@ -3,6 +3,8 @@
 .env
 .env.*
 !.env.example
+/backups/
+/logs/
 **/bin/
 bin2/
 **/bin2/
