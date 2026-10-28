@@ -21,6 +21,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "Database connection string is not configured. Copy .env.example to .env and set " +
         "ConnectionStrings__DefaultConnection (or provide it as an environment variable).");
 
+var applyMigrations = builder.Configuration.GetValue<bool>("Database:ApplyMigrations");
+var disableHttpsRedirection = builder.Configuration.GetValue<bool>("DisableHttpsRedirection");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySQL(connectionString));
 
@@ -31,7 +34,31 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    context.Database.EnsureCreated();
+    if (applyMigrations)
+    {
+        const int databaseConnectionAttempts = 10;
+        var databaseIsReachable = false;
+        for (var attempt = 1; attempt <= databaseConnectionAttempts; attempt++)
+        {
+            if (context.Database.CanConnect())
+            {
+                databaseIsReachable = true;
+                break;
+            }
+
+            if (attempt < databaseConnectionAttempts)
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+        }
+
+        if (!databaseIsReachable)
+            throw new InvalidOperationException("The database could not be reached for migrations.");
+
+        context.Database.Migrate();
+    }
+    else
+    {
+        context.Database.EnsureCreated();
+    }
 
     if (!context.UserAccounts.Any(u => u.Role == "Admin"))
     {
@@ -56,11 +83,16 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!disableHttpsRedirection)
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession(); 
 app.UseAuthorization();
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapControllerRoute(
     name: "default",

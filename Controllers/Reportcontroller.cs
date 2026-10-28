@@ -959,8 +959,8 @@ namespace LGUTreasury.Controllers
             if (report.IsMonthly)
             {
                 // Generate all days in the date range (inclusive) so empty days are displayed
-                var fromDay = fromDate.Value.Date;
-                var toDay = toDate.Value.Date;
+                var fromDay = fromDate.Date;
+                var toDay = toDate.Date;
                 if (toDay > fromDay.AddDays(31)) toDay = fromDay.AddDays(31); // safety
                 for (var d = fromDay; d <= toDay; d = d.AddDays(1))
                 {

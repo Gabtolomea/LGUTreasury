@@ -41,6 +41,7 @@ payees, provides analytics, and exports revenue summary reports.
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - MySQL server (local or remote)
+- Docker Desktop (for the Docker workflow)
 - Git
 
 ---
@@ -89,13 +90,51 @@ dotnet restore
 dotnet run
 ```
 
-On first run the app creates the schema (`Database.EnsureCreated()`) and seeds starter data:
+On first native run the app creates the schema (`Database.EnsureCreated()`) and seeds starter data:
 revenue categories/types/policies and a default admin account.
 
 > **Default admin (development):** employee ID `ADMIN001`, password `Admin@1234`.
 > Change it immediately in any shared environment.
 
 Then open the URL printed in the console (e.g. `https://localhost:7xxx`).
+
+---
+
+### 4. Run with Docker Compose
+
+The Docker workflow runs the ASP.NET Core app and MySQL together. It is intended for
+local development and uses a persistent MySQL volume.
+
+Copy the example environment file and set your local database passwords:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Start the application:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080` after the containers start. Docker Compose applies the
+checked-in EF Core migrations and seeds the starter data. The Docker app connects to
+MySQL through the Compose service name `db`; native development continues to use the
+`localhost` connection string.
+
+Useful commands:
+
+```bash
+docker compose ps
+docker compose logs -f app
+docker compose down
+```
+
+`docker compose down` preserves the database volume. To intentionally reset all local
+Docker data, run `docker compose down -v`.
+
+The development admin account is employee ID `ADMIN001` with password `Admin@1234`.
+Change it when using data outside a private development environment.
 
 ---
 
