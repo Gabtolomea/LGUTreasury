@@ -193,7 +193,13 @@ def _backup_app_image(config, compose_executable, command_runner, logger, backup
         logger.info("No previous application container was found; an image backup is not required.")
         return ""
 
-    container_image_command = ["docker", "inspect", "--format", "{{.Image}}", container_id]
+    container_image_command = [
+        "docker",
+        "inspect",
+        "--format",
+        "{{.Config.Image}}",
+        container_id,
+    ]
     container_image_result = run_logged_command(
         command_runner,
         container_image_command,
@@ -212,10 +218,10 @@ def _backup_app_image(config, compose_executable, command_runner, logger, backup
         "Stable application image lookup",
     )
     container_image = container_image_result.stdout.strip()
-    stable_image = image_id_result.stdout.strip()
-    if not container_image_result.ok() or not image_id_result.ok() or not container_image or not stable_image:
+    stable_image_id = image_id_result.stdout.strip()
+    if not container_image_result.ok() or not image_id_result.ok() or not container_image or not stable_image_id:
         return "The active application image could not be identified."
-    if container_image != stable_image:
+    if container_image != image_name:
         return "The active application image is not the stable rollback image."
 
     image_file = backup_dir / "app-image.tar"

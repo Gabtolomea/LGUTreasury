@@ -18,6 +18,7 @@ class FakeCommandRunner:
         fail_deployment=False,
         fail_health=False,
         fail_rollback=False,
+        buildkit_image_ids=False,
     ):
         self.commands = []
         self.existing_app = existing_app
@@ -26,6 +27,7 @@ class FakeCommandRunner:
         self.fail_deployment = fail_deployment
         self.fail_health = fail_health
         self.fail_rollback = fail_rollback
+        self.buildkit_image_ids = buildkit_image_ids
         self.health_checks = 0
 
     def __call__(self, command, cwd=None, timeout=None):
@@ -46,8 +48,12 @@ class FakeCommandRunner:
         if command[:2] == ["docker", "inspect"]:
             if "db-container" in command:
                 return CommandResult(0, "healthy\n", "")
+            if "{{.Config.Image}}" in command:
+                return CommandResult(0, "lgu-treasury-app:local\n", "")
             return CommandResult(0, "sha256:old-image\n", "")
         if command[:3] == ["docker", "image", "inspect"]:
+            if self.buildkit_image_ids:
+                return CommandResult(0, "sha256:buildkit-platform-image\n", "")
             return CommandResult(0, "sha256:old-image\n", "")
         if command[:3] == ["docker", "image", "save"]:
             output_index = command.index("--output") + 1
@@ -155,6 +161,19 @@ class DeploymentRunnerTests(unittest.TestCase):
         )
         self.assertLess(validation_index, deployment_index)
         self.assertLess(deployment_index, health_index)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_buildkit_image_id_difference_does_not_block_stable_tag(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner(
+            existing_app=True,
+            buildkit_image_ids=True,
+        )
+
+        exit_code = run(make_config(project_directory), command_runner)
+
+        self.assertEqual(exit_code, 0)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_database_readiness_completes_before_database_backup(self, unused_which):
