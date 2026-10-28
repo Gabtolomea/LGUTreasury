@@ -130,6 +130,41 @@ docker compose logs -f app
 docker compose down
 ```
 
+### Docker development commands
+
+Open the MySQL console:
+
+```bash
+docker compose exec db mysql -u root -p
+```
+
+Enter the `MYSQL_ROOT_PASSWORD` from your `.env` file when asked. Then use:
+
+```sql
+SHOW DATABASES;
+USE LGU_Treasury_DB;
+SHOW TABLES;
+EXIT;
+```
+
+If you changed `MYSQL_DATABASE` in `.env`, use that database name instead.
+
+Other useful commands:
+
+```bash
+# View database logs
+docker compose logs -f db
+
+# Restart only the app
+docker compose restart app
+
+# Open a shell inside the app container
+docker compose exec app sh
+
+# Check the app health page
+# Open http://localhost:8080/health in a browser
+```
+
 `docker compose down` preserves the database volume. To intentionally reset all local
 Docker data, run `docker compose down -v`.
 
