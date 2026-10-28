@@ -138,6 +138,27 @@ Change it when using data outside a private development environment.
 
 ---
 
+### 5. Run the Docker app with native MySQL
+
+To run only the app container while using MySQL installed on the host machine, set
+`NATIVE_MYSQL_CONNECTION` in `.env`. Use `host.docker.internal` as the MySQL host:
+
+```env
+NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
+```
+
+Start the app without starting the bundled MySQL container:
+
+```bash
+docker compose -f compose.yaml -f compose.native-mysql.yaml up --build --no-deps app
+```
+
+The native MySQL server must accept TCP connections from Docker Desktop on port 3306,
+and the configured user must have access to the database. Keep `SslMode=Required` when
+the server has TLS enabled; use the setting supported by the local development server.
+
+---
+
 ## Reports
 
 The **Generate Report** page (`/Report`) is titled *Revenue Summaries*.

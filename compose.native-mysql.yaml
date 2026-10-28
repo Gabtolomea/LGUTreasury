@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      ConnectionStrings__DefaultConnection: "${NATIVE_MYSQL_CONNECTION:?NATIVE_MYSQL_CONNECTION is required}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
