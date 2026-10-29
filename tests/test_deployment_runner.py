@@ -8,7 +8,7 @@ from unittest.mock import patch
 from deploy import run
 from scripts.commands import CommandResult
 from scripts.cleanup import clean
-from scripts.logger import redact_text
+from scripts.logger import Logger, redact_text
 from scripts.network import get_lan_addresses
 
 
@@ -327,6 +327,19 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertNotIn("root-password", redacted)
         self.assertIn("[REDACTED]", redacted)
+
+    @patch.dict("os.environ", {"NO_COLOR": ""})
+    def test_logger_colors_only_the_level(self):
+        stream = io.StringIO()
+        stream.isatty = lambda: True
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            logger = Logger(Path(temporary_directory) / "app.log", stream=stream)
+            logger.info("message")
+            logger.close()
+
+            self.assertEqual(stream.getvalue(), "\033[36m[INFO]\033[0m message\n")
+            self.assertNotIn("\033[", (Path(temporary_directory) / "app.log").read_text())
 
     def test_cleanup_preserves_backup_and_log_paths(self):
         temporary_directory, project_directory = self.create_project()

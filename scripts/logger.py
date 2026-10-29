@@ -36,7 +36,8 @@ class Logger:
 
     def _write(self, level, message):
         clean_message = redact_text(message, self.secret_values)
-        line = "[{0}] {1}".format(level, clean_message)
+        level_label = "[{0}]".format(level)
+        line = "{0} {1}".format(level_label, clean_message)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.file.write("[{0}] {1}\n".format(timestamp, line))
         self.file.flush()
@@ -52,7 +53,7 @@ class Logger:
                 color = "\033[33m"
             elif level == "FAIL":
                 color = "\033[31m"
-            terminal_line = color + line + "\033[0m"
+            terminal_line = color + level_label + "\033[0m " + clean_message
         self.stream.write(terminal_line + "\n")
         self.stream.flush()
 
