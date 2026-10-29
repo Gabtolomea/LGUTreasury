@@ -71,9 +71,82 @@ namespace LGUTreasury.Controllers
             if (type == "monthly-remittance" && (toDate.Date - fromDate.Date).Days > 31)
                 return BadRequest("Monthly Remittance accepts a date range of at most 31 days.");
 
-            // Normalize the range to whole days
+            var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
+
+            // Save the parameters so the report can be downloaded again later
+            var log = new ReportLog
+            {
+                ReportType = ReportTypeName(type),
+                ReportKind = type,
+                Format = normalizedFormat.ToUpper(),
+                GeneratedAt = DateTime.Now,
+                GeneratedByUserID = userID.Value,
+                GeneratedByName = fullName,
+                FromDate = fromDate.Date,
+                ToDate = toDate.Date,
+                RevenueTypeID = revenueTypeId
+            };
+            _context.ReportLog.Add(log);
+            await _context.SaveChangesAsync();
+
+            return await BuildReportFile(type, normalizedFormat, fromDate.Date, toDate.Date, revenueTypeId, fullName);
+        }
+
+        // GET: /Report/Download/5
+        // Re-creates a previously generated report from its saved parameters.
+        // Does NOT add a new row to the log.
+        public async Task<IActionResult> Download(int id)
+        {
+            if (HttpContext.Session.GetInt32("UserID") == null)
+                return RedirectToAction("Login", "Account");
+
+            var log = await _context.ReportLog.FindAsync(id);
+            if (log == null)
+                return NotFound("Report not found.");
+
+            if (log.FromDate == null || log.ToDate == null)
+                return BadRequest("This report was generated before downloads were supported. Please generate it again.");
+
+            var fullName = log.GeneratedByName
+                           ?? HttpContext.Session.GetString("FullName")
+                           ?? "Officer";
+
+            return await BuildReportFile(
+                log.ReportKind ?? "custom",
+                (log.Format ?? "pdf").ToLowerInvariant(),
+                log.FromDate.Value.Date,
+                log.ToDate.Value.Date,
+                log.RevenueTypeID,
+                fullName);
+        }
+
+        private static string ReportTypeName(string? type)
+        {
+            if (type == "daily")
+                return "Daily Collection Report";
+            if (type == "monthly")
+                return "Monthly Revenue Summary";
+            if (type == "annual")
+                return "Annual Revenue Summary";
+            if (type == "custom")
+                return "Custom Report";
+            if (type == "remittance")
+                return "Remittance Summary";
+            if (type == "monthly-remittance")
+                return "Monthly Remittance";
+            if (type == "detailed")
+                return "Detailed Collection List";
+
+            return "Revenue Summary";
+        }
+
+        // Builds the file for a date range. Used by both Generate and Download.
+        private async Task<IActionResult> BuildReportFile(
+            string type, string format, DateTime fromDate, DateTime toDate,
+            int? revenueTypeId, string fullName)
+        {
             fromDate = fromDate.Date;
-            toDate = toDate.Date.AddDays(1).AddSeconds(-1);
+            toDate = toDate.Date.AddDays(1).AddSeconds(-1);   // end of the "to" day
 
             var query = _context.PaymentRecords
                 .Include(p => p.Payee)
@@ -95,17 +168,7 @@ namespace LGUTreasury.Controllers
 
             var matrix = BuildMatrix(payments, revenueTypes, fromDate, toDate, revenueTypeId);
 
-            var reportTypeName = type switch
-            {
-                "daily"              => "Daily Collection Report",
-                "monthly"            => "Monthly Revenue Summary",
-                "annual"             => "Annual Revenue Summary",
-                "custom"             => "Custom Report",
-                "remittance"         => "Remittance Summary",
-                "monthly-remittance" => "Monthly Remittance",
-                "detailed"           => "Detailed Collection List",
-                _                    => "Revenue Summary"
-            };
+            var reportTypeName = ReportTypeName(type);
 
             string? revenueTypeName = null;
             if (revenueTypeId.HasValue)
@@ -127,24 +190,13 @@ namespace LGUTreasury.Controllers
             }
 
             var fileName = $"{reportTypeName.Replace(" ", "_")}{fileNameSuffix}_{fromDate:yyyy-MM-dd}_to_{toDate:yyyy-MM-dd}";
-            var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
-
-            var log = new ReportLog
-            {
-                ReportType = reportTypeName,
-                Format = normalizedFormat.ToUpper(),
-                GeneratedAt = DateTime.Now,
-                GeneratedByUserID = userID.Value
-            };
-            _context.ReportLog.Add(log);
-            await _context.SaveChangesAsync();
 
             // Remittance reports aggregate line items per revenue type instead of
             // listing transactions, so they use their own data shape and exporters.
             if (type is "remittance" or "monthly-remittance")
             {
                 var remittance = BuildRemittance(type, payments, revenueTypeId, fromDate, toDate);
-                return normalizedFormat switch
+                return format switch
                 {
                     "csv"  => GenerateRemittanceCsv(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
                     "xlsx" => GenerateRemittanceXlsx(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
@@ -157,7 +209,7 @@ namespace LGUTreasury.Controllers
             // base/surcharge/interest breakdown).
             if (type == "detailed")
             {
-                return normalizedFormat switch
+                return format switch
                 {
                     "csv"  => GenerateDetailedCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
                     "xlsx" => GenerateDetailedXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
@@ -166,7 +218,7 @@ namespace LGUTreasury.Controllers
             }
 
             // Generate and return the file
-            return normalizedFormat switch
+            return format switch
             {
                 "csv"  => GenerateCsv(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
                 "xlsx" => GenerateXlsx(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),

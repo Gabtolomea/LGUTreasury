@@ -263,6 +263,10 @@ public class ReportControllerTests
         Assert.Equal("Custom Report", log.ReportType);
         Assert.Equal("CSV", log.Format);
         Assert.Equal(7, log.GeneratedByUserID);
+        Assert.Equal("custom", log.ReportKind);
+        Assert.Equal(DateTime.Today, log.FromDate);
+        Assert.Equal(DateTime.Today, log.ToDate);
+        Assert.Equal("Juan Dela Cruz", log.GeneratedByName);
     }
 
     [Fact]
@@ -278,6 +282,25 @@ public class ReportControllerTests
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.NotEmpty(file.FileContents);
+    }
+
+    [Fact]
+    public async Task Download_RecreatesReportWithoutAddingAnotherLog()
+    {
+        using var db = TestFactory.NewDb();
+        var revenueType = TestData.AddType(db, 1, "Business Permit");
+        TestData.AddPayment(db, 1, "OR-000001", DateTime.Today, revenueType);
+        var controller = TestFactory.NewController(db);
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+        await controller.Generate("custom", "csv", today, today, null);
+        var log = Assert.Single(db.ReportLog);
+
+        var result = await controller.Download(log.LogID);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.EndsWith(".csv", file.FileDownloadName);
+        Assert.Single(db.ReportLog);
     }
 
     [Fact]

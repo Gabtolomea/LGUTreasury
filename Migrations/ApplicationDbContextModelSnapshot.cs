@@ -378,15 +378,30 @@ namespace LGUTreasury.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("GeneratedByName")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("GeneratedByUserID")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("FromDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("RevenueTypeID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportKind")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("ReportType")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ToDate")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("LogID");
 
