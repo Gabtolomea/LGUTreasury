@@ -293,6 +293,19 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertNotEqual(exit_code, 0)
         self.assertTrue(any(command[:3] == ["docker", "load", "--input"] for command in command_runner.commands))
+        rollback_commands = [
+            command for command in command_runner.commands if "--no-build" in command
+        ]
+        self.assertEqual(len(rollback_commands), 1)
+        self.assertIn("--wait", rollback_commands[0])
+
+    def test_default_deployment_waits_for_compose_health(self):
+        runner = DeploymentRunner()
+
+        deploy_args = runner.config["compose"]["deploy_args"]
+
+        self.assertIn("--wait", deploy_args)
+        self.assertIn("--wait-timeout", deploy_args)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_health_failure_triggers_verified_rollback(self, unused_which):

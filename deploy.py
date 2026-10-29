@@ -36,7 +36,15 @@ CONFIG = {
     "health_path": "/health",
     "services": ["db", "app"],
     "compose": {
-        "deploy_args": ["up", "-d", "--build", "app"],
+        "deploy_args": [
+            "up",
+            "-d",
+            "--build",
+            "--wait",
+            "--wait-timeout",
+            "180",
+            "app",
+        ],
     },
     "database": {
         "service": "db",

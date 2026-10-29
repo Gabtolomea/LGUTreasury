@@ -68,20 +68,15 @@ def _wait_for_database(config, compose_executable, command_runner, logger):
     container_id = ""
     for attempt in range(retries):
         lookup_command = compose_command(config, compose_executable, ["ps", "-q", service])
-        lookup_result = run_logged_command(
-            command_runner,
-            lookup_command,
-            project_dir,
-            60,
-            logger,
-            "Database container lookup",
-        )
+        lookup_result = command_runner(lookup_command, project_dir, 60)
         if lookup_result.ok():
             output = lookup_result.stdout.strip()
             if output:
                 container_id = output.splitlines()[0]
             else:
                 container_id = ""
+        elif lookup_result.stderr.strip():
+            last_error = lookup_result.stderr.strip()
 
         if container_id:
             inspect_command = [
@@ -91,14 +86,7 @@ def _wait_for_database(config, compose_executable, command_runner, logger):
                 "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
                 container_id,
             ]
-            inspect_result = run_logged_command(
-                command_runner,
-                inspect_command,
-                project_dir,
-                60,
-                logger,
-                "Database readiness check",
-            )
+            inspect_result = command_runner(inspect_command, project_dir, 60)
             status = inspect_result.stdout.strip()
             if inspect_result.ok() and status == "healthy":
                 logger.ok("The database is ready.")

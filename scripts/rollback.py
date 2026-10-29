@@ -34,7 +34,15 @@ def rollback(config, backup_result, compose_executable, command_runner, logger):
     restore_command = compose_command(
         config,
         compose_executable,
-        ["up", "-d", "--no-build", config.get("app_service", "app")],
+        [
+            "up",
+            "-d",
+            "--no-build",
+            "--wait",
+            "--wait-timeout",
+            "180",
+            config.get("app_service", "app"),
+        ],
     )
     restore_result = run_logged_command(
         command_runner,
