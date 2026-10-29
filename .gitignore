@@ -62,6 +62,7 @@ appsettings.*.Local.json
 secrets.json
 *.pfx
 *.key
+.aspnet/
 
 # ── OS cruft ─────────────────────────────────────────────────
 .DS_Store

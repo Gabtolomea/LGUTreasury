@@ -5,9 +5,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
-EXPOSE 8080
-ENV ASPNETCORE_HTTP_PORTS=8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent http://localhost:8080/health || exit 1
+EXPOSE 8080 8443
+ENV ASPNETCORE_URLS="http://+:8080;https://+:8443"
+ENV ASPNETCORE_HTTPS_PORT=8443
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent --insecure https://localhost:8443/health || exit 1
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release

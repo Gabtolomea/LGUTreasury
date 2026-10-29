@@ -100,6 +100,8 @@ def make_config(project_directory):
         "temporary_paths": [".deployment-tmp"],
         "minimum_free_space_mb": 1,
         "app_image": "lgu-treasury-app:local",
+        "app_scheme": "https",
+        "app_port": 8443,
         "database": {
             "service": "db",
             "name": "LGUTreasury",
@@ -190,9 +192,9 @@ class DeploymentRunnerTests(unittest.TestCase):
             exit_code = run(make_config(project_directory), command_runner)
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("Application URL: http://192.168.1.50:8080", output.getvalue())
-        self.assertIn("Local URL: http://localhost:8080", output.getvalue())
-        self.assertIn("Health endpoint: http://192.168.1.50:8080/health", output.getvalue())
+        self.assertIn("Application URL: https://192.168.1.50:8443", output.getvalue())
+        self.assertIn("Local URL: https://localhost:8443", output.getvalue())
+        self.assertIn("Health endpoint: https://192.168.1.50:8443/health", output.getvalue())
 
     @patch("scripts.network.socket.socket")
     def test_lan_address_discovery_returns_only_primary_route_address(self, socket_factory):

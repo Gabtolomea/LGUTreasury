@@ -19,7 +19,12 @@ CONFIG = {
     "project_dir": str(PROJECT_DIRECTORY),
     "compose_files": ["compose.yaml"],
     "env_file": ".env",
-    "required_env": ["MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD"],
+    "required_env": [
+        "MYSQL_PASSWORD",
+        "MYSQL_ROOT_PASSWORD",
+        "HTTPS_CERT_DIR",
+        "HTTPS_CERT_PASSWORD",
+    ],
     "backup_paths": ["compose.yaml", "Dockerfile", ".env.example"],
     "backup_dir": "backups",
     "log_file": "logs/deployment.log",
@@ -27,7 +32,8 @@ CONFIG = {
     "minimum_free_space_mb": 100,
     "app_service": "app",
     "app_image": "lgu-treasury-app:local",
-    "app_port": 8080,
+    "app_scheme": "https",
+    "app_port": 8443,
     "health_path": "/health",
     "services": ["db", "app"],
     "compose": {
@@ -50,7 +56,7 @@ CONFIG = {
         {
             "name": "Application health endpoint",
             "type": "url",
-            "url": "http://127.0.0.1:8080/health",
+            "url": "https://localhost:8443/health",
             "expected_status": 200,
             "retries": 10,
             "interval": 3,
@@ -84,6 +90,7 @@ class DeploymentRunner:
         secret_values = [
             values.get("MYSQL_PASSWORD", ""),
             values.get("MYSQL_ROOT_PASSWORD", ""),
+            values.get("HTTPS_CERT_PASSWORD", ""),
         ]
         self.logger = Logger(log_path, secret_values=secret_values)
         self.logger.info("Starting the Docker deployment.")
@@ -213,16 +220,18 @@ class DeploymentRunner:
             self.logger.fail(error)
 
     def _report_application_urls(self):
-        port = self.config.get("app_port", 8080)
+        scheme = self.config.get("app_scheme", "https")
+        port = self.config.get("app_port", 8443)
         health_path = self.config.get("health_path", "/health")
         lan_addresses = get_lan_addresses()
         for address in lan_addresses:
-            self.logger.info("Application URL: http://{0}:{1}.".format(address, port))
-        self.logger.info("Local URL: http://localhost:{0}.".format(port))
+            self.logger.info("Application URL: {0}://{1}:{2}.".format(scheme, address, port))
+        self.logger.info("Local URL: {0}://localhost:{1}.".format(scheme, port))
         if lan_addresses:
             for address in lan_addresses:
                 self.logger.info(
-                    "Health endpoint: http://{0}:{1}{2}.".format(
+                    "Health endpoint: {0}://{1}:{2}{3}.".format(
+                        scheme,
                         address,
                         port,
                         health_path,
@@ -230,7 +239,8 @@ class DeploymentRunner:
                 )
         else:
             self.logger.info(
-                "Health endpoint: http://localhost:{0}{1}.".format(
+                "Health endpoint: {0}://localhost:{1}{2}.".format(
+                    scheme,
                     port,
                     health_path,
                 )
