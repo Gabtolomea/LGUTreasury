@@ -35,7 +35,17 @@ def read_environment_file(path):
 
 def environment_names(config):
     names = set(config.get("required_env", []))
-    names.update(["MYSQL_DATABASE", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD"])
+    names.update(
+        [
+            "MYSQL_DATABASE",
+            "MYSQL_USER",
+            "MYSQL_PASSWORD",
+            "MYSQL_ROOT_PASSWORD",
+            "ENABLE_HTTPS",
+            "HTTPS_CERT_DIR",
+            "HTTPS_CERT_PASSWORD",
+        ]
+    )
     return names
 
 

@@ -6,9 +6,8 @@ RUN apt-get update \
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080 8443
-ENV ASPNETCORE_URLS="http://+:8080;https://+:8443"
-ENV ASPNETCORE_HTTPS_PORT=8443
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent --insecure https://localhost:8443/health || exit 1
+ENV ENABLE_HTTPS=false
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent --location --insecure http://localhost:8080/health || exit 1
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
@@ -21,4 +20,5 @@ RUN dotnet publish "LGUTreasury.csproj" -c $BUILD_CONFIGURATION -o /app/publish 
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "LGUTreasury.dll"]
+COPY docker-entrypoint.sh .
+ENTRYPOINT ["sh", "./docker-entrypoint.sh"]

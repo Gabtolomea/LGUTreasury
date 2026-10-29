@@ -75,6 +75,7 @@ cp .env.example .env
 ```env
 ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 Database__ApplyMigrations=true
+ENABLE_HTTPS=false
 ```
 
 `SslMode=Required` forces a TLS connection to MySQL. MySQL 8's default
@@ -105,7 +106,8 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 ### 4. Run with Docker Compose
 
 The Docker workflow runs the ASP.NET Core app and MySQL together. It is intended for
-local development, uses a persistent MySQL volume, and matches native HTTPS behavior.
+local development, uses a persistent MySQL volume, and uses HTTP by default. Native
+development continues to use HTTPS.
 
 Copy the example environment file and set your local database passwords:
 
@@ -113,7 +115,8 @@ Copy the example environment file and set your local database passwords:
 Copy-Item .env.example .env
 ```
 
-Create the local HTTPS certificate used by the app container:
+Docker uses `http://localhost:8080` by default. No HTTPS certificate is needed. To
+enable HTTPS later, set these values in `.env`:
 
 ```powershell
 New-Item -ItemType Directory -Force .aspnet\https | Out-Null
@@ -124,6 +127,7 @@ dotnet dev-certs https --trust
 Set the same certificate password in `.env`:
 
 ```env
+ENABLE_HTTPS=true
 HTTPS_CERT_DIR=./.aspnet/https
 HTTPS_CERT_PASSWORD=YOUR_CERT_PASSWORD
 ```
@@ -134,12 +138,12 @@ Start the application:
 docker compose up --build
 ```
 
-Open `https://localhost:8443` after the containers start. Requests to
-`http://localhost:8080` redirect to HTTPS. Docker Compose applies the checked-in EF
-Core migrations and seeds the starter data. The Docker app connects to MySQL through
-the Compose service name `db`; native development continues to use the `localhost`
-connection string. The development certificate is trusted for `localhost`; LAN access
-needs a certificate that includes the LAN hostname or IP address.
+Open `http://localhost:8080` after the containers start. Docker Compose applies the
+checked-in EF Core migrations and seeds the starter data. The Docker app connects to
+MySQL through the Compose service name `db`; native development continues to use the
+`localhost` connection string. When HTTPS is enabled, use `https://localhost:8443` and
+HTTP redirects to HTTPS. The development certificate is trusted for `localhost`; LAN
+access needs a certificate that includes the LAN hostname or IP address.
 
 Useful commands:
 
@@ -181,7 +185,7 @@ docker compose restart app
 docker compose exec app sh
 
 # Check the app health page
-# Open https://localhost:8443/health in a browser
+# Open http://localhost:8080/health in a browser
 ```
 
 `docker compose down` preserves the database volume. To intentionally reset all local
@@ -205,11 +209,10 @@ previous app image when deployment or health checks fail. It never removes the M
 volume or database backups.
 
 Deployment logs are appended to `logs/deployment.log`. The runner requires
-`MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `HTTPS_CERT_DIR`, and `HTTPS_CERT_PASSWORD` in
-`.env` or the host environment. Native MySQL deployments using
-`compose.native-mysql.yaml` are not handled by this runner. After a successful
-deployment, it prints the HTTPS LAN application URL, the HTTPS localhost URL, and the
-HTTPS LAN health endpoint.
+`MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env` or the host environment. When
+`ENABLE_HTTPS=true`, it also requires `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`. Native
+MySQL deployments using `compose.native-mysql.yaml` are not handled by this runner.
+After a successful deployment, it prints URLs matching the selected HTTP or HTTPS mode.
 
 ---
 

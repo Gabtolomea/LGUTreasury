@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 
 from scripts.backup import create_backups
@@ -22,18 +23,16 @@ CONFIG = {
     "required_env": [
         "MYSQL_PASSWORD",
         "MYSQL_ROOT_PASSWORD",
-        "HTTPS_CERT_DIR",
-        "HTTPS_CERT_PASSWORD",
     ],
-    "backup_paths": ["compose.yaml", "Dockerfile", ".env.example"],
+    "backup_paths": ["compose.yaml", "Dockerfile", "docker-entrypoint.sh", ".env.example"],
     "backup_dir": "backups",
     "log_file": "logs/deployment.log",
     "temporary_paths": [".deployment-tmp"],
     "minimum_free_space_mb": 100,
     "app_service": "app",
     "app_image": "lgu-treasury-app:local",
-    "app_scheme": "https",
-    "app_port": 8443,
+    "app_scheme": "http",
+    "app_port": 8080,
     "health_path": "/health",
     "services": ["db", "app"],
     "compose": {
@@ -56,7 +55,7 @@ CONFIG = {
         {
             "name": "Application health endpoint",
             "type": "url",
-            "url": "https://localhost:8443/health",
+            "url": "http://localhost:8080/health",
             "expected_status": 200,
             "retries": 10,
             "interval": 3,
@@ -67,7 +66,9 @@ CONFIG = {
 
 class DeploymentRunner:
     def __init__(self, config=None, command_runner=None):
-        self.config = config or CONFIG
+        self.config = deepcopy(CONFIG if config is None else config)
+        if config is None:
+            self._configure_transport()
         self.command_runner = command_runner or run_command
         self.logger = None
         self.compose_executable = None
@@ -80,6 +81,27 @@ class DeploymentRunner:
         self.failed_stage = ""
         self.deployment_started = False
         self.status = "failed"
+
+    def _configure_transport(self):
+        values = environment_values(self.config)
+        enable_https = values.get("ENABLE_HTTPS", "false").strip().lower() == "true"
+
+        if enable_https:
+            scheme = "https"
+            port = 8443
+            required_env = self.config.setdefault("required_env", [])
+            for name in ("HTTPS_CERT_DIR", "HTTPS_CERT_PASSWORD"):
+                if name not in required_env:
+                    required_env.append(name)
+        else:
+            scheme = "http"
+            port = 8080
+
+        self.config["app_scheme"] = scheme
+        self.config["app_port"] = port
+        for health_check in self.config.get("health_checks", []):
+            if health_check.get("type") == "url":
+                health_check["url"] = "{0}://localhost:{1}/health".format(scheme, port)
 
     def initialize(self):
         log_path = project_directory(self.config) / self.config.get(

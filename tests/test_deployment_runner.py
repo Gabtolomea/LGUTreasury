@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from deploy import run
+from deploy import DeploymentRunner, run
 from scripts.commands import CommandResult
 from scripts.cleanup import clean
 from scripts.logger import Logger, redact_text
@@ -327,6 +327,30 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertNotIn("root-password", redacted)
         self.assertIn("[REDACTED]", redacted)
+
+    @patch("deploy.environment_values", return_value={"ENABLE_HTTPS": "false"})
+    def test_deployment_defaults_to_http_when_https_is_disabled(self, unused_values):
+        runner = DeploymentRunner()
+
+        self.assertEqual(runner.config["app_scheme"], "http")
+        self.assertEqual(runner.config["app_port"], 8080)
+        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8080/health")
+
+    @patch(
+        "deploy.environment_values",
+        return_value={
+            "ENABLE_HTTPS": "true",
+            "HTTPS_CERT_DIR": ".aspnet/https",
+            "HTTPS_CERT_PASSWORD": "certificate-password",
+        },
+    )
+    def test_deployment_switches_to_https_when_enabled(self, unused_values):
+        runner = DeploymentRunner()
+
+        self.assertEqual(runner.config["app_scheme"], "https")
+        self.assertEqual(runner.config["app_port"], 8443)
+        self.assertEqual(runner.config["health_checks"][1]["url"], "https://localhost:8443/health")
+        self.assertIn("HTTPS_CERT_PASSWORD", runner.config["required_env"])
 
     @patch.dict("os.environ", {"NO_COLOR": ""})
     def test_logger_colors_only_the_level(self):
