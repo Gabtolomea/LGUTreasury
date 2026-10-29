@@ -21,7 +21,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "Database connection string is not configured. Copy .env.example to .env and set " +
         "ConnectionStrings__DefaultConnection (or provide it as an environment variable).");
 
-var applyMigrations = builder.Configuration.GetValue<bool>("Database:ApplyMigrations");
+var applyMigrations = builder.Configuration.GetValue("Database:ApplyMigrations", true);
 var disableHttpsRedirection = builder.Configuration.GetValue<bool>("DisableHttpsRedirection");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
