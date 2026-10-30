@@ -1,0 +1,134 @@
+@model LGUTreasury.Controllers.GeneralCollectionsVm
+@using System.Globalization
+@{
+    ViewData["Title"] = "General Collections";
+    ViewData["ActiveNav"] = "report";
+
+    string Amt(decimal v) => v == 0 ? "" : v.ToString("N2", CultureInfo.InvariantCulture);
+    string Money(decimal v) => v.ToString("N2", CultureInfo.InvariantCulture);
+    string Bg(string? c) => string.IsNullOrEmpty(c) ? "" : "background:" + c + ";"; 
+
+    var n = Model.DateLabels.Count;
+    var rows = Model.Rows;
+    var monthNames = CultureInfo.InvariantCulture.DateTimeFormat.MonthNames;
+}
+
+<link rel="stylesheet" href="~/css/general-collections.css" />
+
+<div class="report-page-wrap">
+    <div class="page-header-row no-print">
+        <partial name="_BackBtn" />
+        <div>
+            <div class="page-title">General Collections</div>
+            <div class="page-sub">Monthly collection ledger by revenue category and date</div>
+        </div>
+    </div>
+
+    <form method="get" class="gc-filter no-print">
+        <label>Month
+            <select name="month" class="form-select">
+                @for (var i = 1; i <= 12; i++)
+                {
+                    <option value="@i" selected="@(i == Model.Month)">@monthNames[i - 1]</option>
+                }
+            </select>
+        </label>
+        <label>Year
+            <input type="number" name="year" class="form-input" min="2000" max="2100" value="@Model.Year" />
+        </label>
+        <label class="gc-check">
+            <input type="checkbox" name="allDays" value="true" checked="@Model.AllDays" /> Show all weekdays
+        </label>
+        <button type="submit" class="btn-generate">VIEW</button>
+        <button type="button" class="btn-generate" onclick="window.print()">PRINT</button>
+    </form>
+
+    @if (Model.RawTotal != Model.GrandTotal)
+    {
+        <div class="gc-warn no-print">
+            Totals do not reconcile: the grand total is @Money(Model.GrandTotal) but the records add up to @Money(Model.RawTotal).
+            Some line items may belong to a revenue type that is not shown on the sheet.
+        </div>
+    }
+
+    @if (n == 0)
+    {
+        <div class="gc-warn no-print">No collections were recorded for this period.</div>
+    }
+
+    <div class="gc-sheet">
+        <div class="gc-title">
+            <div>@Model.Title</div>
+            <div>GENERAL COLLECTIONS</div>
+        </div>
+
+        <div class="gc-scroll">
+            <table class="gc-table">
+                <thead>
+                    <tr>
+                        <th colspan="2" class="gc-period">@Model.PeriodText</th>
+                        @if (n > 0)
+                        {
+                            <th colspan="@n">GENERAL COLLECTIONS</th>
+                        }
+                        <th rowspan="2" class="gc-total-head">TOTAL</th>
+                    </tr>
+                    <tr>
+                        <th colspan="2"></th>
+                        @foreach (var d in Model.DateLabels)
+                        {
+                            <th class="gc-date">@d</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < rows.Count; i++)
+                    {
+                        var r = rows[i];
+
+                        // The BUSINESS TAXES heading is drawn as one tall cell beside its sub-rows
+                        var hasSubs = r.IsHeading && i + 1 < rows.Count && rows[i + 1].IsSub;
+                        if (hasSubs) { continue; }
+
+                        <tr style="@(r.FullRowColor ? Bg(r.Color) : "")">
+                            @if (r.IsSub)
+                            {
+                                var prev = i > 0 ? rows[i - 1] : null;
+                                if (prev != null && prev.IsHeading)
+                                {
+                                    var span = 0;
+                                    for (var j = i; j < rows.Count && rows[j].IsSub; j++) { span++; }
+                                    <td rowspan="@span" class="gc-cat gc-center" style="@Bg(prev.Color)">@prev.Label</td>
+                                }
+                                else if (prev == null || !prev.IsSub)
+                                {
+                                    <td class="gc-cat"></td>
+                                }
+                                <td class="gc-sub" style="@Bg(r.Color)">@r.Label</td>
+                            }
+                            else
+                            {
+                                <td colspan="2" class="gc-cat">@r.Label</td>
+                            }
+
+                            @for (var c = 0; c < n; c++)
+                            {
+                                <td class="gc-amt">@Amt(r.Cells[c])</td>
+                            }
+                            <td class="gc-amt gc-red">@Amt(r.Total)</td>
+                        </tr>
+                    }
+
+                    <tr class="gc-total-row">
+                        <td colspan="2">Total</td>
+                        @for (var c = 0; c < n; c++)
+                        {
+                            <td class="gc-amt">@Money(Model.ColumnTotals[c])</td>
+                        }
+                        <td class="gc-amt">@Money(Model.GrandTotal)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -46,6 +46,71 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
+        // GET: /Report/GeneralCollections?month=9&year=2026&allDays=false
+        // On-screen / printable version of the paper GENERAL COLLECTIONS ledger.
+        public async Task<IActionResult> GeneralCollections(int? month, int? year, bool allDays = false)
+        {
+            if (HttpContext.Session.GetInt32("UserID") == null)
+                return RedirectToAction("Login", "Account");
+
+            ViewData["ActiveNav"] = "report";
+            ViewData["FullName"] = HttpContext.Session.GetString("FullName");
+            ViewData["Role"] = HttpContext.Session.GetString("Role");
+            ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
+
+            var today = DateTime.Today;
+            var m = month is >= 1 and <= 12 ? month.Value : today.Month;
+            var y = year is >= 2000 and <= 2100 ? year.Value : today.Year;
+
+            var from = new DateTime(y, m, 1);
+            var to = from.AddMonths(1).AddSeconds(-1);   // 23:59:59 on the last day
+
+            var payments = await _context.PaymentRecords
+                .Include(p => p.RecordLineItems)
+                    .ThenInclude(l => l.RevenueType)
+                .Where(p => p.DateIssued >= from && p.DateIssued <= to)
+                // TODO: also exclude voided / cancelled / unposted records here,
+                //       using whatever status field PaymentRecord has.
+                .OrderBy(p => p.DateIssued)
+                .ToListAsync();
+
+            var types = await _context.RevenueTypes.OrderBy(r => r.Name).ToListAsync();
+
+            // dataDatesOnly: only dates that actually have collections, like the paper sheet
+            var matrix = BuildMatrix(payments, types, from, to, null, dataDatesOnly: !allDays);
+
+            var vm = new GeneralCollectionsVm
+            {
+                Month = m,
+                Year = y,
+                AllDays = allDays,
+                Title = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m).ToUpper() + " " + y,
+                PeriodText = PeriodLabel(from, to),
+                DateLabels = matrix.Columns.Select(c => c.Label).ToList(),
+                ColumnTotals = matrix.Columns.Select(c => matrix.ColTotal(c.Start)).ToList(),
+                GrandTotal = matrix.GrandTotal,
+                RawTotal = payments.SelectMany(p => p.RecordLineItems ?? Enumerable.Empty<RecordLineItem>())
+                                   .Sum(l => LineAmount(l))
+            };
+
+            foreach (var r in matrix.Rows)
+            {
+                var isSub = r.Name.StartsWith("\u00A0");
+                vm.Rows.Add(new GcRow
+                {
+                    Label = r.Name.Trim('\u00A0', ' '),
+                    Color = r.Color,
+                    IsSub = isSub,
+                    IsHeading = r.LabelOnly && !isSub,
+                    FullRowColor = !string.IsNullOrEmpty(r.Color) && !r.LabelOnly,
+                    Cells = matrix.Columns.Select(c => matrix.Cell(r.TypeID, c.Start)).ToList(),
+                    Total = matrix.RowTotal(r.TypeID)
+                });
+            }
+
+            return View(vm);
+        }
+
         // GET: /Report/Generate
         public async Task<IActionResult> Generate(string type, string format, string from, string to, int? revenueTypeId)
         {
@@ -297,7 +362,7 @@ namespace LGUTreasury.Controllers
 
         private static Matrix BuildMatrix(
             List<PaymentRecord> payments, List<RevenueType> types,
-            DateTime from, DateTime to, int? revenueTypeId)
+            DateTime from, DateTime to, int? revenueTypeId, bool dataDatesOnly = false)
         {
             // Up to ~31 days: one column per day (like the paper sheet).
             // Longer ranges: one column per month.
@@ -331,7 +396,8 @@ namespace LGUTreasury.Controllers
                 for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
                 {
                     var weekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
-                    if (!weekend || dataDates.Contains(d))
+                    var include = dataDatesOnly ? dataDates.Contains(d) : (!weekend || dataDates.Contains(d));
+                    if (include)
                         m.Columns.Add((d, DayLabel(d)));
                 }
             }
@@ -661,5 +727,31 @@ namespace LGUTreasury.Controllers
                 return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
             return fullName[0].ToString().ToUpper();
         }
+    }
+
+    // ── View model for the General Collections screen ──
+    public class GeneralCollectionsVm
+    {
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public bool AllDays { get; set; }
+        public string Title { get; set; } = "";
+        public string PeriodText { get; set; } = "";
+        public List<string> DateLabels { get; set; } = new();
+        public List<GcRow> Rows { get; set; } = new();
+        public List<decimal> ColumnTotals { get; set; } = new();
+        public decimal GrandTotal { get; set; }
+        public decimal RawTotal { get; set; }   // straight sum of the line items, for the reconciliation check
+    }
+
+    public class GcRow
+    {
+        public string Label { get; set; } = "";
+        public string? Color { get; set; }
+        public bool IsHeading { get; set; }
+        public bool IsSub { get; set; }
+        public bool FullRowColor { get; set; }
+        public List<decimal> Cells { get; set; } = new();
+        public decimal Total { get; set; }
     }
 }
