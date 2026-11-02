@@ -240,20 +240,6 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-      <div class="or-sort-container">
-    <div class="or-sort-label">
-        <span class="or-sort-icon">⇅</span>
-        <div>
-            <label for="orSort">Sort Records</label>
-            <small>Arrange by Official Receipt Number</small>
-        </div>
-    </div>
-
-    <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()">
-        <option value="desc">Highest OR Number First ↓</option>
-        <option value="asc">Lowest OR Number First ↑</option>
-    </select>
-</div>
                 <tbody id="records-tbody">
                     @if (!Model.Any())
                     {
@@ -318,6 +304,21 @@
                     }
                 </tbody>
             </table>
+        </div>
+
+        <div class="or-sort-container">
+            <div class="or-sort-label">
+                <span class="or-sort-icon">⇅</span>
+                <div>
+                    <label for="orSort">Sort Records</label>
+                    <small>Arrange by Official Receipt Number</small>
+                </div>
+            </div>
+
+            <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()">
+                <option value="desc">Highest OR Number First ↓</option>
+                <option value="asc">Lowest OR Number First ↑</option>
+            </select>
         </div>
     </div>
 
