@@ -17,5 +17,11 @@ namespace LGUTreasury.Models
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
 
         public int GeneratedByUserID { get; set; }
+
+        public string? ReportKind { get; set; }
+public DateTime? FromDate { get; set; }
+public DateTime? ToDate { get; set; }
+public int? RevenueTypeID { get; set; }
+public string? GeneratedByName { get; set; }
     }
 }
