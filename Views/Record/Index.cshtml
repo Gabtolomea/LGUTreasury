@@ -10,6 +10,21 @@
     var isCollector = role == "Collector";
 }
 
+@functions {
+    string JsEscape(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("'", "\\'")
+            .Replace("\"", "\\u0022")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+            .Replace("\u2028", "\\u2028")
+            .Replace("\u2029", "\\u2029");
+    }
+}
+
 <link rel="stylesheet" href="~/css/records.css" />
 
 <style>
@@ -87,7 +102,7 @@
 {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            showToast('@TempData["Toast"]');
+            showToast('@Html.Raw(JsEscape(TempData["Toast"]?.ToString()))');
         });
     </script>
 }
@@ -272,7 +287,7 @@
                                 <td><span class="status-text-@statusClass">@status</span></td>
                                 <td style="white-space:nowrap">
                                    <button class="action-view-btn"
-        onclick="viewRecord('@txnID', '@payee', '@type', '@amount', '@date', '@orNumber', '@status', '@method', '@remarks', '@collector')"
+        onclick="viewRecord('@Html.Raw(JsEscape(txnID))', '@Html.Raw(JsEscape(payee))', '@Html.Raw(JsEscape(type))', '@Html.Raw(JsEscape(amount))', '@Html.Raw(JsEscape(date))', '@Html.Raw(JsEscape(orNumber))', '@Html.Raw(JsEscape(status))', '@Html.Raw(JsEscape(method))', '@Html.Raw(JsEscape(remarks))', '@Html.Raw(JsEscape(collector))')"
         title="View">
     <span class="btn-icon">
         <svg width="10" height="10" fill="none" viewBox="0 0 10 10">
@@ -284,16 +299,16 @@
 </button>
                                     @if (isCollector && !record.HasPendingRequest)
                                     {
-                                        <button class="action-modify-btn" onclick="openSendMessage(@record.PaymentID, '@txnID')" title="Send Message">
+                                        <button class="action-modify-btn" onclick="openSendMessage(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Send Message">
                                             <span class="btn-icon">✎</span>
                                         </button>
                                     }
                                     @if (isOfficerOrAdmin)
                                     {
-                                        <button class="action-modify-btn" onclick="openEditRecord(@record.PaymentID, '@txnID')" title="Edit Record">
+                                        <button class="action-modify-btn" onclick="openEditRecord(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Edit Record">
                                             <span class="btn-icon">✎</span>
                                         </button>
-                                        <button class="action-delete-btn" onclick="confirmDelete(@record.PaymentID, '@txnID')" title="Delete">
+                                        <button class="action-delete-btn" onclick="confirmDelete(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Delete">
                                             <span class="btn-icon">🗑</span>
                                         </button>
                                     }
@@ -378,9 +393,9 @@
                                     <td style="white-space:nowrap">
                                         @if (isPending)
                                         {
-                                            <button class="action-approve-btn" onclick="openResolve(@req.RequestID, '@txnID')" title="Mark Resolved"><span class="btn-icon">✓</span></button>
+                                            <button class="action-approve-btn" onclick="openResolve(@req.RequestID, '@Html.Raw(JsEscape(txnID))')" title="Mark Resolved"><span class="btn-icon">✓</span></button>
                                         }
-                                        <button class="action-view-btn" onclick="viewMessage(@req.RequestID, '@txnID', '@payee', '@(req.Reason ?? "")', '@req.CreatedAt.ToString("MMM dd, yyyy")', '@reqBy', '@req.Status', '@(req.ReviewNote ?? "")')" title="View">
+                                        <button class="action-view-btn" onclick="viewMessage(@req.RequestID, '@Html.Raw(JsEscape(txnID))', '@Html.Raw(JsEscape(payee))', '@Html.Raw(JsEscape(req.Reason ?? ""))', '@Html.Raw(JsEscape(req.CreatedAt.ToString("MMM dd, yyyy")))', '@Html.Raw(JsEscape(reqBy))', '@Html.Raw(JsEscape(req.Status))', '@Html.Raw(JsEscape(req.ReviewNote ?? ""))')" title="View">
                                             <span class="btn-icon"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg></span>
                                         </button>
                                     </td>
@@ -428,10 +443,10 @@
                                     <td style="color:var(--text-3)">@d.DeletedByName</td>
                                     <td style="color:var(--text-3)">@d.DeletedAt.ToString("MMM dd, yyyy hh:mm tt")</td>
                                     <td style="white-space:nowrap">
-                                        <button class="action-restore-btn" onclick="restoreRecord(@d.DeletedRecordID, '@dtxnID')" title="Restore">
+                                        <button class="action-restore-btn" onclick="restoreRecord(@d.DeletedRecordID, '@Html.Raw(JsEscape(dtxnID))')" title="Restore">
                                             <span class="btn-icon" style="color:white;font-size:13px">↩</span>
                                         </button>
-                                        <button class="action-perm-btn" onclick="permanentDelete(@d.DeletedRecordID, '@dtxnID')" title="Permanently Delete">
+                                        <button class="action-perm-btn" onclick="permanentDelete(@d.DeletedRecordID, '@Html.Raw(JsEscape(dtxnID))')" title="Permanently Delete">
                                             <span class="btn-icon" style="color:white;font-size:11px">✕</span>
                                         </button>
                                     </td>
