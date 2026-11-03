@@ -66,11 +66,14 @@
     text-decoration: none; display: inline-flex; align-items: center;
 }
 .filter-clear-btn:hover { border-color: var(--text-2); }
-.records-stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-.records-stat-card { background: white; border: 1px solid var(--gray-border); border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow); }
-.records-stat-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
-.records-stat-value { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
-.records-stat-sub { font-size: 11.5px; color: var(--green); font-weight: 500; margin-top: 3px; }
+.records-stats-inline { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.records-stat-card { background: white; border: 1px solid var(--gray-border); border-radius: 8px; padding: 7px 12px; box-shadow: var(--shadow); min-width: 120px; }
+.records-stat-label { font-size: 9.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+.records-stat-value { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1; }
+.records-stat-sub { font-size: 9.5px; color: var(--green); font-weight: 500; margin-top: 2px; }
+@@media (max-width: 640px) {
+    .records-stats-inline { width: 100%; justify-content: flex-start; }
+}
 /* Delete button */
 .action-delete-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -199,24 +202,38 @@
                 <button type="submit" class="filter-apply-btn">Apply</button>
                 <a href="/Record/Index" class="filter-clear-btn">Clear</a>
             </div>
-        </form>
-
-        <div class="records-stats-row">
-            <div class="records-stat-card">
-                <div class="records-stat-label">Total Amount</div>
-                <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
-                <div class="records-stat-sub">
-                    @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
-                    { <span>Filtered results</span> }
-                    else
-                    { <span>All records</span> }
+            <div class="records-stats-inline">
+                <div class="records-stat-card">
+                    <div class="records-stat-label">Total Amount</div>
+                    <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
+                    <div class="records-stat-sub">
+                        @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
+                        { <span>Filtered results</span> }
+                        else
+                        { <span>All records</span> }
+                    </div>
+                </div>
+                <div class="records-stat-card">
+                    <div class="records-stat-label">Transactions</div>
+                    <div class="records-stat-value">@ViewBag.FilteredCount</div>
+                    <div class="records-stat-sub">payment records</div>
                 </div>
             </div>
-            <div class="records-stat-card">
-                <div class="records-stat-label">Transactions</div>
-                <div class="records-stat-value">@ViewBag.FilteredCount</div>
-                <div class="records-stat-sub">payment records</div>
+        </form>
+
+        <div class="or-sort-container">
+            <div class="or-sort-label">
+                <span class="or-sort-icon">⇅</span>
+                <div>
+                    <label for="orSort">Sort Records</label>
+                    <small>Arrange by Official Receipt Number</small>
+                </div>
             </div>
+
+            <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()">
+                <option value="desc">Highest OR Number First ↓</option>
+                <option value="asc">Lowest OR Number First ↑</option>
+            </select>
         </div>
 
         <div class="records-toolbar">
@@ -304,21 +321,6 @@
                     }
                 </tbody>
             </table>
-        </div>
-
-        <div class="or-sort-container">
-            <div class="or-sort-label">
-                <span class="or-sort-icon">⇅</span>
-                <div>
-                    <label for="orSort">Sort Records</label>
-                    <small>Arrange by Official Receipt Number</small>
-                </div>
-            </div>
-
-            <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()">
-                <option value="desc">Highest OR Number First ↓</option>
-                <option value="asc">Lowest OR Number First ↑</option>
-            </select>
         </div>
     </div>
 
