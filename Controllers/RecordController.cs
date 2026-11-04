@@ -320,8 +320,8 @@ public async Task<IActionResult> CreateBulk(
             var filterTo   = DateTime.TryParse(toStr,   out var pTo)   ? pTo.Date   : (DateTime?)null;
             var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0 ? pCol : (int?)null;
 
-            ViewBag.FilterFrom        = filterFrom?.ToString("yyyy-MM-dd") ?? "";
-            ViewBag.FilterTo          = filterTo?.ToString("yyyy-MM-dd") ?? "";
+            ViewBag.FilterFrom        = (filterFrom ?? DateTime.Today).ToString("yyyy-MM-dd");
+            ViewBag.FilterTo          = (filterTo ?? DateTime.Today).ToString("yyyy-MM-dd");
             ViewBag.FilterCollectorId = filterCollectorId ?? 0;
 
             var query = _context.PaymentRecords
