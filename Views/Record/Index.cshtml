@@ -382,6 +382,7 @@
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
                                 var txnID     = "TXN-" + req.PaymentID.ToString("D6");
+    
                                 var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
