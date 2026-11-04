@@ -349,8 +349,12 @@ namespace LGUTreasury.Controllers
         private static readonly string[] MonthAbbr =
             { "JAN.", "FEB.", "MAR.", "APR.", "MAY", "JUNE", "JULY", "AUG.", "SEPT.", "OCT.", "NOV.", "DEC." };
 
-        private static string DayLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Day:00}, {d.Year}";
+        private static string DayLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Day:00}";
         private static string MonthLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Year}";
+
+        // One clear year marker for the whole sheet instead of repeating it on every date.
+        private static string YearLabel(DateTime from, DateTime to) =>
+            from.Year == to.Year ? from.Year.ToString() : $"{from.Year}-{to.Year}";
 
         // Top-left cell of the sheet ("Sep-26")
         private static string PeriodLabel(DateTime from, DateTime to)
@@ -668,7 +672,7 @@ namespace LGUTreasury.Controllers
                                 .Text(PeriodLabel(from, to)).Bold().FontSize(fontSize);
                             if (n > 0)
                                 h.Cell().ColumnSpan((uint)n).Element(c => Box(c, "#F2F2F2").AlignCenter())
-                                    .Text("GENERAL COLLECTIONS").Bold().FontSize(fontSize);
+                                    .Text($"GENERAL COLLECTIONS — YEAR {YearLabel(from, to)}").Bold().FontSize(fontSize);
                             h.Cell().RowSpan(2).Element(c => Box(c, "#F2F2F2").AlignCenter().AlignMiddle())
                                 .Text("TOTAL").Bold().FontSize(fontSize).FontColor(red);
 
