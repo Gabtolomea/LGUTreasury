@@ -188,7 +188,7 @@ namespace LGUTreasury.Controllers
                 {
                     page.Size(PageSizes.A5);
                     page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
+                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Lato"));
 
                     page.Content().Column(col =>
                     {
