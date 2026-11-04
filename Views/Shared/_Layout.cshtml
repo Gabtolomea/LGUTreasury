@@ -40,6 +40,16 @@
             --shadow: 0 2px 12px rgba(0,0,0,.08);
         }
 
+        /* Back button (shared across all pages) */
+        .back-btn {
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; background: white; border: 1px solid var(--gray-border);
+            cursor: pointer; color: var(--text-2); text-decoration: none;
+            transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+        }
+        .back-btn:hover { background: var(--gray-bg); border-color: #cfcfcf; color: var(--text); }
+        .back-btn:active { transform: translateX(-1px); }
+
 
 /*@@keyframes fadeSlideIn {
     from { opacity: 0; transform: translateY(20px); }
