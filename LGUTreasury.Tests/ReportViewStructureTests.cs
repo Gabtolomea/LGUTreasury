@@ -43,6 +43,25 @@ public class ReportViewStructureTests
         Assert.Contains("id=\"report-revenue-type\"", view);
     }
 
+    [Theory]
+    [InlineData("remittance", "Remittance")]
+    [InlineData("monthly-remittance", "Monthly Remittance")]
+    public void ReportView_OffersRemittanceReportTypes(string value, string label)
+    {
+        var view = RepoPaths.ReportView();
+
+        Assert.Contains($"value=\"{value}\"", view);
+        Assert.Contains(label, view);
+    }
+
+    [Fact]
+    public void ReportView_MonthlyRemittance_AutoFillsMonthStartToDate()
+    {
+        var view = RepoPaths.ReportView();
+
+        Assert.Contains("type === 'monthly-remittance'", view);
+    }
+
     [Fact]
     public void ReportView_CustomReport_DoesNotAutoFillDates()
     {

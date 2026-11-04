@@ -21,6 +21,8 @@ namespace LGUTreasury.Models
         public string? Role { get; set; }
         
         public string? Email { get; set; }
+
+        [ContactNumber]
         public string? ContactNumber { get; set; }
 
         public string? Address { get; set; }

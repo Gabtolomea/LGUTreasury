@@ -1,3 +1,4 @@
+@model RegisterViewModel
 @{
     ViewData["Title"] = "Register";
     Layout = null;
@@ -10,130 +11,140 @@
     <title>Register — LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/auth.css" />
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; font-family: 'Inter', sans-serif; }
-        :root {
-            --green: #388E3C; --green-dark: #2E7D32; --green-light: #C8E6C9;
-            --gray-input: #ebebeb; --gray-border: #E0E0E0;
-            --text: #1a1a1a; --text-2: #444; --text-3: #888;
-            --red: #c0392b; --shadow: 0 2px 12px rgba(0,0,0,.08);
-        }
-        body { display: flex; min-height: 100vh; }
-        .form-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; display: block; }
-        .form-input { width: 100%; padding: 12px 14px; background: var(--gray-input); border: 1.5px solid transparent; border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); transition: border-color .2s, background .2s; outline: none; }
-        .form-input:focus { border-color: #388E3C; background: white; }
-        .btn-primary { width: 100%; padding: 14px; background: #388E3C; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; letter-spacing: .04em; }
-        .btn-primary:hover { background: #2E7D32; }
-        .toast { position: fixed; bottom: 24px; right: 24px; background: #2E7D32; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow); z-index: 999; transform: translateY(80px); opacity: 0; transition: transform .3s, opacity .3s; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast.error { background: var(--red); }
-        /* Right panel background image + translucent white overlay */
-        .auth-right.login-bg {
-            position: relative;
-            background: url('/images/municipality.png') center/cover no-repeat, #f5f7f5;
-        }
-        .auth-right.login-bg::before {
-            content: ''; position: absolute; inset: 0;
-            background: rgba(255,255,255,.75);
-            pointer-events: none;
-        }
-        .auth-right.login-bg .auth-card {
-            position: relative; z-index: 1;
-            background: rgba(255,255,255,.85);
-        }
-    </style>
 </head>
 <body>
-    <div class="auth-left" style="width:36%">
+    <div class="auth-left">
         <img src="~/images/lgu.png" alt="LGU Logo" onerror="this.style.display='none'" />
-        <div class="auth-left-title"><span>LGU</span> Revenue<br>Record System</div>
+        <div class="auth-left-title"><span>LGU</span> Revenue<br />Record System</div>
         <div class="auth-left-desc">Secure, efficient revenue collection management for Local Government Units. Track payments, generate reports, and maintain full audit trails.</div>
         <div class="auth-left-footer">Republic of the Philippines &nbsp;·&nbsp; Local Government Unit of Ginatilan</div>
     </div>
 
     <div class="auth-right login-bg">
-        <div class="auth-card register-card-wrap" style="max-width:560px;">
+        <div class="auth-card register-card-wrap">
             <div class="auth-card-header">
                 <div class="auth-card-label">Municipality of Ginatilan</div>
                 <div class="auth-card-title">Create Account</div>
             </div>
 
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success">@TempData["Success"]</div>
+            }
             @if (TempData["Error"] != null)
             {
-                <div style="background:#fdecea;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px">
-                    @TempData["Error"]
-                </div>
+                <div class="alert alert-error">@TempData["Error"]</div>
+            }
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-error">Please correct the highlighted fields below.</div>
             }
 
             <form asp-action="Register" asp-controller="Account" method="post">
                 @Html.AntiForgeryToken()
 
-                <!-- Account Credentials -->
-                <div class="form-section-label">Account Credentials</div>
-                <div class="auth-span-full" style="margin-bottom:10px">
-                    <label class="form-label">ID Number</label>
-                    <input type="text" class="form-input" name="EmployeeID" placeholder="Enter your assigned ID" required />
-                </div>
-                <div class="auth-grid-2" style="margin-bottom:10px">
-                    <div class="auth-form-group">
-                        <label class="form-label">Password</label>
-                        <input type="password" class="form-input" name="Password" placeholder="Create a password" required />
+                <div class="auth-form-grid">
+                    <!-- Account Credentials -->
+                    <div class="form-section-label">Account Credentials</div>
+
+                    <div class="auth-form-group auth-span-full">
+                        <label class="form-label" for="EmployeeID">ID Number</label>
+                        <input asp-for="EmployeeID" class="form-input" placeholder="Enter your assigned ID" autocomplete="username" required />
+                        <span asp-validation-for="EmployeeID" class="field-error"></span>
                     </div>
+
                     <div class="auth-form-group">
-                        <label class="form-label">Confirm Password</label>
-                        <input type="password" class="form-input" name="ConfirmPassword" placeholder="Re-enter your password" required />
+                        <label class="form-label" for="Password">Password</label>
+                        <div class="password-wrap">
+                            <input type="password" class="form-input" id="Password" name="Password" placeholder="Create a password" autocomplete="new-password" required />
+                            <button type="button" class="password-toggle" data-target="Password" aria-label="Show password">
+                                <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+                                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="Password" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="ConfirmPassword">Confirm Password</label>
+                        <div class="password-wrap">
+                            <input type="password" class="form-input" id="ConfirmPassword" name="ConfirmPassword" placeholder="Re-enter your password" autocomplete="new-password" required />
+                            <button type="button" class="password-toggle" data-target="ConfirmPassword" aria-label="Show password">
+                                <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+                                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="ConfirmPassword" class="field-error"></span>
+                        <span class="field-hint" id="passwordMatchHint"></span>
+                    </div>
+
+                    <!-- Personal Information -->
+                    <div class="form-section-label">Personal Information</div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="FirstName">First Name</label>
+                        <input asp-for="FirstName" class="form-input" placeholder="e.g. Juan" autocomplete="given-name" required />
+                        <span asp-validation-for="FirstName" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="LastName">Last Name</label>
+                        <input asp-for="LastName" class="form-input" placeholder="e.g. Cruz" autocomplete="family-name" required />
+                        <span asp-validation-for="LastName" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="MiddleName">Middle Name</label>
+                        <input asp-for="MiddleName" class="form-input" placeholder="Optional" autocomplete="additional-name" />
+                        <span asp-validation-for="MiddleName" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="Suffix">Suffix</label>
+                        <input asp-for="Suffix" class="form-input" placeholder="Sr., Jr., III…" />
+                        <span asp-validation-for="Suffix" class="field-error"></span>
+                    </div>
+
+                    <!-- Contact Details -->
+                    <div class="form-section-label">Contact Details</div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="Email">Email Address</label>
+                        <input asp-for="Email" class="form-input" placeholder="Optional" autocomplete="email" />
+                        <span asp-validation-for="Email" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group">
+                        <label class="form-label" for="ContactNumber">Contact No.</label>
+                        <input asp-for="ContactNumber" type="tel" inputmode="numeric" class="form-input" placeholder="09XX-XXX-XXXX" autocomplete="tel" maxlength="20" data-contact-number />
+                        <span asp-validation-for="ContactNumber" class="field-error"></span>
+                    </div>
+
+                    <div class="auth-form-group auth-span-full">
+                        <label class="form-label" for="Address">Address</label>
+                        <input asp-for="Address" class="form-input" placeholder="Complete address" autocomplete="street-address" />
+                        <span asp-validation-for="Address" class="field-error"></span>
                     </div>
                 </div>
 
-                <!-- Personal Information -->
-                <div class="form-section-label">Personal Information</div>
-                <div class="auth-grid-2" style="margin-bottom:10px">
-                    <div class="auth-form-group">
-                        <label class="form-label">First Name</label>
-                        <input type="text" class="form-input" name="FirstName" placeholder="e.g. Juan" required />
-                    </div>
-                    <div class="auth-form-group">
-                        <label class="form-label">Last Name</label>
-                        <input type="text" class="form-input" name="LastName" placeholder="e.g. Cruz" required />
-                    </div>
-
-                  
-
-                </div>
-                <div class="auth-grid-2" style="margin-bottom:10px">
-                   
-                    <div class="auth-form-group">
-                        <label class="form-label">Middle Name</label>
-                        <input type="text" class="form-input" name="MiddleName" placeholder="Optional" />
-                    </div>
-                       
-                    <div class="auth-form-group">
-                        <label class="form-label">Suffix</label>
-                        <input type="text" class="form-input" name="Suffix" placeholder="Sr., Jr., III…" />
-                    </div>
-                </div>
-
-                <!-- Contact Details -->
-                <div class="form-section-label">Contact Details</div>
-                <div class="auth-grid-2" style="margin-bottom:10px">
-                    <div class="auth-form-group">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" class="form-input" name="Email" placeholder="Optional" />
-                    </div>
-                    <div class="auth-form-group">
-                        <label class="form-label">Contact No.</label>
-                        <input type="text" class="form-input" name="ContactNumber" placeholder="09XX-XXX-XXXX" />
-                    </div>
-                </div>
-                <div class="auth-span-full" style="margin-bottom:18px">
-                    <label class="form-label">Address</label>
-                    <input type="text" class="form-input" name="Address" placeholder="Complete address" />
-                </div>
-
-                <!-- Note about role -->
-                <div style="background:#f0fdf4;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;font-size:12px;color:#388E3C;margin-bottom:16px">
-                    💡 Your account role will be assigned by the administrator after registration.
+                <div class="alert alert-info" style="margin-top:16px">
+                    Your account role will be assigned by the administrator after registration.
                 </div>
 
                 <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
@@ -146,14 +157,7 @@
     </div>
 
     <div class="toast" id="toast"></div>
-    <script>
-        function showToast(msg, isError = false) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = 'toast' + (isError ? ' error' : '');
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2800);
-        }
-    </script>
+    <script src="~/js/contact-number.js"></script>
+    <script src="~/js/auth.js"></script>
 </body>
 </html>

@@ -44,7 +44,12 @@ public async Task<IActionResult> SearchPayee(string? query)
         })
         .ToListAsync();
 
-    return Json(results);
+    return Json(results.Select(r => new {
+        r.PayeeID, r.Firstname, r.Middlename, r.Lastname,
+        r.Suffix,
+        ContactNumber = ContactNumberRules.Format(r.ContactNumber),
+        r.ResidenceAddress
+    }));
 }
 
         [HttpPost]
@@ -53,10 +58,15 @@ public async Task<IActionResult> SearchPayee(string? query)
             if (string.IsNullOrWhiteSpace(req.FirstName) || string.IsNullOrWhiteSpace(req.LastName))
                 return Json(new { success = false, message = "First and last name are required." });
 
+            if (!ContactNumberRules.IsValid(req.ContactNumber))
+                return Json(new { success = false, message = ContactNumberRules.LettersErrorMessage });
+
             var payee = new Payee
             {
                 Firstname = req.FirstName, Middlename = req.MiddleName,
                 Lastname = req.LastName, Suffix = req.Suffix,
+                ContactNumber = ContactNumberRules.Normalize(req.ContactNumber),
+                ResidenceAddress = req.ResidenceAddress,
                 CreatedAt = DateTime.Now
             };
             _context.Payees.Add(payee);
@@ -67,7 +77,8 @@ public async Task<IActionResult> SearchPayee(string? query)
                 payee = new {
                     payeeID = payee.PayeeID, firstname = payee.Firstname,
                     middlename = payee.Middlename, lastname = payee.Lastname,
-                    suffix = payee.Suffix
+                    suffix = payee.Suffix,
+                    contactNumber = ContactNumberRules.Format(payee.ContactNumber)
                 }
             });
         }
@@ -156,11 +167,28 @@ public async Task<IActionResult> SearchPayee(string? query)
                 return View();
             }
 
+            var orText = (OfficialReceipt ?? "").Trim();
+
+            // Reject if the single OR number is already used by an existing record
+            // (whether that record is a single OR or a bulk range).
+            var orMatch = System.Text.RegularExpressions.Regex.Match(orText, @"^\s*(\d+)\s*$");
+            if (orMatch.Success)
+            {
+                var orNumber = long.Parse(orMatch.Groups[1].Value);
+                var conflict = await FindOrConflict(orNumber, orNumber);
+                if (conflict != null)
+                {
+                    TempData["Error"] = $"OR number {orText} is already used by record {conflict}.";
+                    await ReloadCreateViewBags();
+                    return View();
+                }
+            }
+
             var payee = await FindOrCreatePayee(payorFullName);
 
             var payment = new PaymentRecord
             {
-                OfficialReceipt = OfficialReceipt, PayeeID = payee.PayeeID,
+                OfficialReceipt = orText, PayeeID = payee.PayeeID,
                 DateIssued = DateIssued, CollectedBy_UserID = CollectedBy_UserID,
                 Remarks = Remarks, PaymentMethod = PaymentMethod,
                 TotalBaseAmount = TotalBaseAmount, TotalSurcharge = TotalSurcharge,
@@ -217,23 +245,9 @@ public async Task<IActionResult> CreateBulk(
     // Reject if any OR number in the range is already used (single OR or another range)
     if (error == null)
     {
-        var used = await _context.PaymentRecords
-            .Where(p => !p.IsDeleted && p.OfficialReceipt != null)
-            .Select(p => p.OfficialReceipt!)
-            .ToListAsync();
-
-        foreach (var o in used)
-        {
-            var em = System.Text.RegularExpressions.Regex.Match(o, @"^\s*(\d+)(?:\s*-\s*(\d+))?\s*$");
-            if (!em.Success) continue;
-            var es = long.Parse(em.Groups[1].Value);
-            var ee = em.Groups[2].Success ? long.Parse(em.Groups[2].Value) : es;
-            if (es <= end && ee >= start)
-            {
-                error = $"OR number(s) already used by record {o}.";
-                break;
-            }
-        }
+        var conflict = await FindOrConflict(start, end);
+        if (conflict != null)
+            error = $"OR number(s) already used by record {conflict}.";
     }
 
     if (error != null)
@@ -309,8 +323,8 @@ public async Task<IActionResult> CreateBulk(
             var filterTo   = DateTime.TryParse(toStr,   out var pTo)   ? pTo.Date   : (DateTime?)null;
             var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0 ? pCol : (int?)null;
 
-            ViewBag.FilterFrom        = filterFrom?.ToString("yyyy-MM-dd") ?? "";
-            ViewBag.FilterTo          = filterTo?.ToString("yyyy-MM-dd") ?? "";
+            ViewBag.FilterFrom        = (filterFrom ?? DateTime.Today).ToString("yyyy-MM-dd");
+            ViewBag.FilterTo          = (filterTo ?? DateTime.Today).ToString("yyyy-MM-dd");
             ViewBag.FilterCollectorId = filterCollectorId ?? 0;
 
             var query = _context.PaymentRecords
@@ -352,7 +366,7 @@ public async Task<IActionResult> CreateBulk(
                 .ToListAsync();
 
             ViewBag.Collectors = await _context.UserAccounts
-                .Where(u => u.Role == "Collector" && u.IsActive == true)
+                .Where(u => u.Role == "Collector" && u.IsActive == true && u.Status == "Active")
                 .OrderBy(u => u.LastName)
                 .ToListAsync();
 
@@ -586,6 +600,28 @@ public async Task<IActionResult> CreateBulk(
             return payee;
         }
 
+        // Returns the existing OR text (single OR or range) that overlaps the
+        // supplied numeric range, or null when the range is free.
+        private async Task<string?> FindOrConflict(long start, long end)
+        {
+            var used = await _context.PaymentRecords
+                .Where(p => !p.IsDeleted && p.OfficialReceipt != null)
+                .Select(p => p.OfficialReceipt!)
+                .ToListAsync();
+
+            foreach (var o in used)
+            {
+                var em = System.Text.RegularExpressions.Regex.Match(o, @"^\s*(\d+)(?:\s*-\s*(\d+))?\s*$");
+                if (!em.Success) continue;
+                var es = long.Parse(em.Groups[1].Value);
+                var ee = em.Groups[2].Success ? long.Parse(em.Groups[2].Value) : es;
+                if (es <= end && ee >= start)
+                    return o;
+            }
+
+            return null;
+        }
+
         private async Task ReloadCreateViewBags()
         {
     ViewData["ActiveNav"] = "record";
@@ -604,7 +640,7 @@ public async Task<IActionResult> CreateBulk(
                 .ToListAsync();
 
             ViewBag.Collectors = await _context.UserAccounts
-                .Where(u => u.Role == "Collector" && u.IsActive == true)
+                .Where(u => u.Role == "Collector" && u.IsActive == true && u.Status == "Active")
                 .ToListAsync();
         }
 
@@ -623,6 +659,7 @@ public async Task<IActionResult> CreateBulk(
         public string? MiddleName       { get; set; }
         public string LastName          { get; set; } = "";
         public string? Suffix           { get; set; }
+        [ContactNumber]
         public string? ContactNumber    { get; set; }
         public string? ResidenceAddress { get; set; }
     }

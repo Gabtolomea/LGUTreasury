@@ -96,9 +96,13 @@ internal static class TestData
         RevenueType type,
         string firstName = "Juan",
         string lastName = "Dela Cruz",
-        decimal baseAmount = 100m)
+        decimal baseAmount = 100m,
+        decimal surcharge = 0m,
+        decimal interest = 0m)
     {
         AddUser(db, 1);
+
+        var totalAmount = baseAmount + surcharge + interest;
 
         var payment = new PaymentRecord
         {
@@ -110,9 +114,9 @@ internal static class TestData
             CollectedBy_UserID = 1,
             PaymentMethod = "Cash",
             TotalBaseAmount = baseAmount,
-            TotalSurcharge = 0m,
-            TotalInterest = 0m,
-            TotalAmount = baseAmount
+            TotalSurcharge = surcharge,
+            TotalInterest = interest,
+            TotalAmount = totalAmount
         };
 
         payment.RecordLineItems.Add(new RecordLineItem
@@ -123,7 +127,9 @@ internal static class TestData
             RevenueType = type,
             Quantity = 1,
             BaseAmount = baseAmount,
-            LineTotal = baseAmount
+            SurchargeAmount = surcharge,
+            InterestAmount = interest,
+            LineTotal = totalAmount
         });
 
         db.PaymentRecords.Add(payment);
