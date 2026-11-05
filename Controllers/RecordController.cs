@@ -437,6 +437,7 @@ public async Task<IActionResult> CreateBulk(
             var deleted = new DeletedRecord
             {
                 PaymentID        = payment.PaymentID,
+                OfficialReceipt  = payment.OfficialReceipt,
                 PayeeName        = payment.Payee != null ? $"{payment.Payee.Lastname}, {payment.Payee.Firstname}" : "—",
                 CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
@@ -531,6 +532,7 @@ public async Task<IActionResult> CreateBulk(
             var request = new EditRequest
             {
                 PaymentID          = PaymentID,
+                OfficialReceipt = payment.OfficialReceipt,
                 RequestedBy_UserID = userID.Value,
                 Reason             = Reason,
                 Status             = "Pending",

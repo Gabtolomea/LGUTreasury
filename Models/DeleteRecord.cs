@@ -22,5 +22,6 @@ public class DeletedRecord
     public int DeletedBy_UserID { get; set; }
     public UserAccount? DeletedBy { get; set; }
     public DateTime DeletedAt { get; set; }
+    public string? OfficialReceipt { get; set; }
 }
 }

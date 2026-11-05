@@ -103,11 +103,11 @@
 
 @if (TempData["Toast"] != null)
 {
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            showToast('@Html.Raw(JsEscape(TempData["Toast"]?.ToString()))');
-        });
-    </script>
+   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast('@Html.Raw(JsEscape(TempData["Toast"]?.ToString() ?? ""))');
+    });
+</script>
 }
 
 @if (isCollector)
@@ -348,7 +348,7 @@
             </div>
             <div class="data-table-wrap">
                 <table class="data-table">
-                    <thead><tr><th>Transaction ID</th><th>Payor</th><th>Collection Type</th><th>Total Amount</th><th>Date Issued</th><th>OR Number</th><th>Method</th></tr></thead>
+                    <thead><tr><th>Official Receipt</th><th>Payor</th><th>Collection Type</th><th>Total Amount</th><th>Date Issued</th><th>OR Number</th><th>Method</th></tr></thead>
                     <tbody id="mycollections-tbody">
                         <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No records found for this period.</td></tr>
                     </tbody>
@@ -370,7 +370,7 @@
             <div class="data-table-wrap">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Message ID</th><th>Transaction ID</th><th>Payor</th><th>Message</th><th>Date</th><th>Sent By</th><th>Status</th><th>Actions</th></tr>
+                        <tr><th>Message ID</th><th>Official Receipt</th><th>Payor</th><th>Message</th><th>Date</th><th>Sent By</th><th>Status</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="approve-tbody">
                         @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
@@ -381,7 +381,9 @@
                         {
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
-                                var txnID     = "TXN-" + req.PaymentID.ToString("D6");
+                                var txnID = !string.IsNullOrEmpty(req.OfficialReceipt)
+    ? "OR-" + req.OfficialReceipt
+    : "-";
                                 var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
@@ -416,7 +418,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Transaction ID</th>
+                            <th>Official Receipt</th>
                             <th>Payor</th>
                             <th>Collection Type</th>
                             <th>Collector</th>
@@ -437,7 +439,9 @@
                         {
                             @foreach (var d in deletedList)
                             {
-                                var dtxnID = "TXN-" + d.PaymentID.ToString("D6");
+                               var dtxnID = !string.IsNullOrEmpty(d.OfficialReceipt)
+    ? "OR-" + d.OfficialReceipt
+    : "-";
                                 <tr id="deleted-row-@d.DeletedRecordID">
                                     <td style="font-weight:700;color:var(--text-2)">@dtxnID</td>
                                     <td>@d.PayeeName</td>

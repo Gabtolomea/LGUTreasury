@@ -520,7 +520,9 @@
           {
               var dotClass  = req.Status == "Approved" ? "dot-approved" : (req.Status == "Rejected" ? "dot-rejected" : "dot-pending");
               var pillClass = req.Status == "Approved" ? "pill-approved" : (req.Status == "Rejected" ? "pill-rejected" : "pill-pending");
-              var txnID     = "TXN-" + ((int)req.PaymentID).ToString("D6");
+              var txnID = !string.IsNullOrEmpty(req.PaymentRecord?.OfficialReceipt)
+    ? "OR-" + req.PaymentRecord.OfficialReceipt
+    : "-";
               <div class="rh-item">
                 <div class="rh-dot @dotClass"></div>
                 <div>
