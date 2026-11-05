@@ -362,53 +362,66 @@ namespace LGUTreasury.Controllers
         }
 
         // ── Private: Generate bills ──────────────────
-       private async Task GenerateBillsForTenant(int tenantID)
+      private async Task GenerateBillsForTenant(int tenantID)
 {
     var tenant = await _context.LongTermPayees
         .Include(t => t.AccountBillingTypes)
         .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
 
-    if (tenant == null) return;
+    // Stop if tenant doesn't exist or is disabled
+    if (tenant == null || !tenant.IsActive)
+        return;
 
-    var activeBillingTypes = tenant.AccountBillingTypes?.Where(bt => bt.IsActive).ToList();
-    if (activeBillingTypes == null || !activeBillingTypes.Any()) return;
+    var activeBillingTypes = tenant.AccountBillingTypes?
+        .Where(bt => bt.IsActive).ToList();
 
-    if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate)) return;
+    if (activeBillingTypes == null || !activeBillingTypes.Any())
+        return;
 
-    var billDay      = tenant.BillGenerationDay > 0 ? tenant.BillGenerationDay : 20;
+    if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate))
+        return;
+
+    var billDay = tenant.BillGenerationDay > 0
+        ? tenant.BillGenerationDay : 20;
+
     var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-    var cursor       = new DateTime(startDate.Year, startDate.Month, 1);
+    var cursor = new DateTime(startDate.Year, startDate.Month, 1);
 
     while (cursor <= currentMonth)
     {
-        // Stop at months whose billing day (e.g. the 20th) hasn't arrived yet
-        var day = Math.Min(billDay, DateTime.DaysInMonth(cursor.Year, cursor.Month));
-        if (new DateTime(cursor.Year, cursor.Month, day) > DateTime.Today) break;
+        var day = Math.Min(billDay,
+            DateTime.DaysInMonth(cursor.Year, cursor.Month));
+
+        if (new DateTime(cursor.Year, cursor.Month, day) > DateTime.Today)
+            break;
 
         var monthStr = cursor.ToString("yyyy-MM");
+
         foreach (var bt in activeBillingTypes)
         {
             var exists = await _context.MonthlyBills.AnyAsync(b =>
-                b.LongTermPayeeID      == tenantID &&
+                b.LongTermPayeeID == tenantID &&
                 b.AccountBillingTypeID == bt.AccountBillingTypeID &&
-                b.BillingMonth         == monthStr);
+                b.BillingMonth == monthStr);
 
             if (!exists)
             {
                 _context.MonthlyBills.Add(new MonthlyBill
                 {
-                    LongTermPayeeID      = tenantID,
+                    LongTermPayeeID = tenantID,
                     AccountBillingTypeID = bt.AccountBillingTypeID,
-                    BillingMonth         = monthStr,
-                    BillingType          = bt.BillingTypeName,
-                    BilledAmount         = bt.MonthlyRate,
-                    Status               = "Unpaid",
-                    CreatedAt            = DateTime.Now
+                    BillingMonth = monthStr,
+                    BillingType = bt.BillingTypeName,
+                    BilledAmount = bt.MonthlyRate,
+                    Status = "Unpaid",
+                    CreatedAt = DateTime.Now
                 });
             }
         }
+
         cursor = cursor.AddMonths(1);
     }
+
     await _context.SaveChangesAsync();
 }
 
@@ -440,4 +453,29 @@ namespace LGUTreasury.Controllers
         public string Name  { get; set; } = "";
         public decimal Rate { get; set; }
     }
+}
+
+[HttpPost]
+public async Task<IActionResult> ToggleStatus(int tenantID)
+{
+    var userID = HttpContext.Session.GetInt32("UserID");
+
+    if (userID == null)
+        return Json(new { success = false, message = "Not logged in." });
+
+    var tenant = await _context.LongTermPayees
+        .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+
+    if (tenant == null)
+        return Json(new { success = false, message = "Tenant not found." });
+
+    tenant.IsActive = !tenant.IsActive;
+
+    await _context.SaveChangesAsync();
+
+    return Json(new
+    {
+        success = true,
+        isActive = tenant.IsActive
+    });
 }
