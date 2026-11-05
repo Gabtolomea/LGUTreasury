@@ -358,8 +358,15 @@ public async Task<IActionResult> CreateBulk(
                     .Include(d => d.DeletedBy)
                     .OrderByDescending(d => d.DeletedAt)
                     .ToListAsync();
-            }
 
+              
+            }
+     ViewBag.RecentRequests = await _context.Editrequests
+                 .Include(r => r.PaymentRecord)
+                 .OrderByDescending(r => r.CreatedAt)
+                 .Take(5)
+                 .ToListAsync(); 
+                 
             ViewBag.RevenueTypes = await _context.RevenueTypes
                 .Where(r => r.IsActive)
                 .Select(r => new { r.TypeID, r.Name })
