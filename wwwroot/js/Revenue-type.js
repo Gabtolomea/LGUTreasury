@@ -65,7 +65,11 @@ async function saveRevType() {
 
 // ─── DELETE ───────────────────────────────────────
 async function removeRevType(btn) {
-    if (!confirm('Are you sure you want to delete this revenue type? This cannot be undone.')) return;
+    const ok = await UI.confirm(
+        'Are you sure you want to delete this revenue type? This cannot be undone.',
+        { title: 'Delete Revenue Type', type: 'error', confirmText: 'Delete', cancelText: 'Cancel', danger: true }
+    );
+    if (!ok) return;
 
     const row    = btn.closest('tr');
     const typeID = row.dataset.typeid;

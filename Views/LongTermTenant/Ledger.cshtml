@@ -278,7 +278,12 @@ async function confirmMarkPaid() {
 }
 
 async function markUnpaid(billID, billNo, month) {
-    if (!confirm('Mark ' + billNo + ' (' + month + ') as unpaid? The OR number will be removed.')) return;
+    const ok = await UI.confirm(
+        'Mark ' + billNo + ' (' + month + ') as unpaid? The OR number will be removed.',
+        { title: 'Mark as Unpaid', type: 'warning', confirmText: 'Mark Unpaid', cancelText: 'Cancel', danger: true }
+    );
+    if (!ok) return;
+
     const token = document.querySelector('input[name=__RequestVerificationToken]');
     try {
         const res    = await fetch('/LongTermTenant/MarkUnpaid', {

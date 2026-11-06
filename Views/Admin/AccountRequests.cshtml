@@ -76,18 +76,6 @@
     </div>
 </div>
 
-<!-- Confirm Reject Modal -->
-<div class="modal-overlay" id="modal-confirm-reject">
-    <div class="modal">
-        <div class="modal-title">Reject Account?</div>
-        <div class="modal-sub">This will permanently delete the account registration. This cannot be undone.</div>
-        <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeModal('modal-confirm-reject')">Cancel</button>
-            <button style="padding:10px 20px;background:var(--red);border:none;border-radius:8px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit" onclick="confirmReject()">Reject</button>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
 <script>
     let rejectTarget = null;
@@ -126,9 +114,15 @@
         }
     }
 
-    function openReject(userID) {
+    async function openReject(userID) {
+        const ok = await UI.confirm(
+            'This will permanently delete the account registration. This cannot be undone.',
+            { title: 'Reject Account?', type: 'error', confirmText: 'Reject Account', cancelText: 'Cancel', danger: true }
+        );
+        if (!ok) return;
+
         rejectTarget = userID;
-        openModal('modal-confirm-reject');
+        await confirmReject();
     }
     async function confirmReject() {
         if (!rejectTarget) return;
@@ -147,7 +141,6 @@
             if (result.success) {
                 const row = document.querySelector('[data-userid="' + rejectTarget + '"]');
                 if (row) row.remove();
-                closeModal('modal-confirm-reject');
                 showToast('Account rejected and removed.');
                 updateEmptyState();
             } else {
