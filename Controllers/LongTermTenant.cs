@@ -455,27 +455,4 @@ namespace LGUTreasury.Controllers
     }
 }
 
-[HttpPost]
-public async Task<IActionResult> ToggleStatus(int tenantID)
-{
-    var userID = HttpContext.Session.GetInt32("UserID");
 
-    if (userID == null)
-        return Json(new { success = false, message = "Not logged in." });
-
-    var tenant = await _context.LongTermPayees
-        .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
-
-    if (tenant == null)
-        return Json(new { success = false, message = "Tenant not found." });
-
-    tenant.IsActive = !tenant.IsActive;
-
-    await _context.SaveChangesAsync();
-
-    return Json(new
-    {
-        success = true,
-        isActive = tenant.IsActive
-    });
-}

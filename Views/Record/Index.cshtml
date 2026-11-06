@@ -116,7 +116,7 @@
         const allCollectorRecords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.Select(r => new {
                 paymentID    = r.PaymentID,
-                txnID        = "TXN-" + r.PaymentID.ToString("D6"),
+                txnID        = "TXN-" + r.PaymentID.ToString("D6"), //change to OR
                 payee        = r.Payee != null ? r.Payee.Lastname + ", " + r.Payee.Firstname : "—",
                 type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
                 amount       = r.TotalAmount,
@@ -205,7 +205,7 @@
             <div class="records-stats-inline">
                 <div class="records-stat-card">
                     <div class="records-stat-label">Total Amount</div>
-                    <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
+                    <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div> <!-- apply this to workspace-->
                     <div class="records-stat-sub">
                         @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
                         { <span>Filtered results</span> }
