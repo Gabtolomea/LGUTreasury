@@ -40,17 +40,17 @@ class FakeCommandRunner:
             return CommandResult(0, "Docker Compose version", "")
         if command == ["docker", "info", "--format", "{{.ServerVersion}}"]:
             return CommandResult(0, "28.0", "")
-        if "up" in command and "db" in command:
-            return CommandResult(0, "", "")
-        if "ps" in command and ("-q" in command or "-aq" in command) and "db" in command:
-            return CommandResult(0, "db-container\n", "")
+        #if "up" in command and "db" in command:
+        #    return CommandResult(0, "", "")
+        #if "ps" in command and ("-q" in command or "-aq" in command) and "db" in command:
+        #    return CommandResult(0, "db-container\n", "")
         if "ps" in command and ("-q" in command or "-aq" in command) and "app" in command:
             if self.existing_app:
                 return CommandResult(0, "app-container\n", "")
             return CommandResult(0, "", "")
         if command[:2] == ["docker", "inspect"]:
-            if "db-container" in command:
-                return CommandResult(0, "healthy\n", "")
+            #if "db-container" in command:
+            #    return CommandResult(0, "healthy\n", "")
             if "{{.Config.Image}}" in command:
                 return CommandResult(0, "lgu-treasury-app:local\n", "")
             return CommandResult(0, "sha256:old-image\n", "")
@@ -66,15 +66,28 @@ class FakeCommandRunner:
             if self.fail_rollback:
                 return CommandResult(1, "", "Rollback load failed")
             return CommandResult(0, "Loaded image", "")
-        if "mysqldump" in command:
+        #if "mysqldump" in command:
+        #    if self.fail_backup:
+        #        return CommandResult(1, "", "Database backup failed")
+        #    return CommandResult(0, "CREATE DATABASE LGUTreasury;\n", "")
+        if any("mysqldump" in str(part).lower() for part in command):
             if self.fail_backup:
                 return CommandResult(1, "", "Database backup failed")
-            return CommandResult(0, "CREATE DATABASE LGUTreasury;\n", "")
+
+            return CommandResult(
+                0,
+                "-- MySQL dump 10.13\nCREATE DATABASE lgutreasury;\n",
+                "",
+            )
+
+        
         if "config" in command:
             if self.fail_compose:
                 return CommandResult(1, "", "Compose validation failed")
+            #if "--services" in command:
+            #    return CommandResult(0, "db\napp\n", "")
             if "--services" in command:
-                return CommandResult(0, "db\napp\n", "")
+                return CommandResult(0, "app\n", "")
             return CommandResult(0, "", "")
         if "up" in command and "--build" in command and self.fail_deployment:
             return CommandResult(1, "", "Deployment failed")
@@ -85,7 +98,19 @@ class FakeCommandRunner:
             return CommandResult(0, "", "")
         if "up" in command and "--no-build" in command:
             return CommandResult(0, "", "")
+        if command[:2] == ["whoami", "/user"]:
+            return CommandResult(
+                0,
+                '"User","S-1-5-21-123456789-123456789-123456789-1001"\n',
+                "",
+            )
+
+        if command and command[0] == "icacls":
+            return CommandResult(0, "Successfully processed", "")
+
+        
         return CommandResult(0, "", "")
+    
 
 
 def make_config(project_directory):
@@ -93,7 +118,7 @@ def make_config(project_directory):
         "project_dir": str(project_directory),
         "compose_files": ["compose.yaml"],
         "env_file": ".env",
-        "required_env": ["MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD"],
+        "required_env": ["NATIVE_MYSQL_CONNECTION"],
         "backup_paths": ["compose.yaml", "Dockerfile"],
         "backup_dir": "backups",
         "log_file": "logs/deployment.log",
@@ -103,13 +128,13 @@ def make_config(project_directory):
         "app_scheme": "https",
         "app_port": 8443,
         "database": {
-            "service": "db",
-            "name": "LGUTreasury",
-            "readiness_retries": 1,
-            "readiness_interval": 0,
+            "name": "lgutreasury",
             "backup_file": "database.sql",
+            "mysqldump_executable": (
+                r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+            ),
         },
-        "services": ["db", "app"],
+        "services": ["app"],
         "compose": {
             "deploy_args": ["up", "-d", "--build", "app"],
         },
@@ -130,12 +155,14 @@ class DeploymentRunnerTests(unittest.TestCase):
         temporary_directory = tempfile.TemporaryDirectory()
         project_directory = Path(temporary_directory.name)
         (project_directory / "compose.yaml").write_text(
-            "services:\n  db:\n    image: mysql\n  app:\n    image: example\n",
+            "services:\n   app:\n    image: example\n",
             encoding="utf-8",
         )
         (project_directory / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
         (project_directory / ".env").write_text(
-            "MYSQL_PASSWORD=db-password\nMYSQL_ROOT_PASSWORD=root-password\n",
+            "NATIVE_MYSQL_CONNECTION="
+            "Server=127.0.0.1;Port=3306;Database=lgutreasury;"
+            "User=lgu_app;Password=test-db-password;SslMode=Required;\n",
             encoding="utf-8",
         )
         return temporary_directory, project_directory
@@ -194,7 +221,7 @@ class DeploymentRunnerTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Application URL: https://192.168.1.50:8443", output.getvalue())
         self.assertIn("Local URL: https://localhost:8443", output.getvalue())
-        self.assertIn("Health endpoint: https://192.168.1.50:8443/health", output.getvalue())
+        self.assertIn("Health endpoint: https://192.168.1.50:8443/health/ready", output.getvalue())
 
     @patch("scripts.network.socket.socket")
     def test_lan_address_discovery_returns_only_primary_route_address(self, socket_factory):
@@ -207,8 +234,9 @@ class DeploymentRunnerTests(unittest.TestCase):
         network_socket.connect.assert_called_once_with(("8.8.8.8", 80))
         network_socket.close.assert_called_once_with()
 
+
     @patch("scripts.preflight.shutil.which", return_value="docker")
-    def test_database_readiness_completes_before_database_backup(self, unused_which):
+    def test_native_mysql_backup_completes_before_deployment(self, unused_which):
         temporary_directory, project_directory = self.create_project()
         self.addCleanup(temporary_directory.cleanup)
         command_runner = FakeCommandRunner()
@@ -216,17 +244,30 @@ class DeploymentRunnerTests(unittest.TestCase):
         exit_code = run(make_config(project_directory), command_runner)
 
         self.assertEqual(exit_code, 0)
-        readiness_index = next(
-            index
-            for index, command in enumerate(command_runner.commands)
-            if command[:2] == ["docker", "inspect"] and "db-container" in command
-        )
+
         backup_index = next(
             index
             for index, command in enumerate(command_runner.commands)
-            if "mysqldump" in command
+            if any("mysqldump" in str(part).lower() for part in command)
         )
-        self.assertLess(readiness_index, backup_index)
+
+        deployment_index = next(
+            index
+            for index, command in enumerate(command_runner.commands)
+            if "--build" in command
+        )
+
+        self.assertLess(backup_index, deployment_index)
+
+        self.assertFalse(
+            any(command[:3] == ["docker", "image", "save"]
+                for command in command_runner.commands)
+        )
+
+        self.assertFalse(
+            any(command[:3] == ["docker", "load", "--input"]
+                for command in command_runner.commands)
+        )
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_preflight_failure_does_not_deploy_or_rollback(self, unused_which):
@@ -258,18 +299,22 @@ class DeploymentRunnerTests(unittest.TestCase):
     def test_invalid_database_name_stops_before_deployment(self, unused_which):
         temporary_directory, project_directory = self.create_project()
         self.addCleanup(temporary_directory.cleanup)
+
         (project_directory / ".env").write_text(
-            "MYSQL_PASSWORD=db-password\n"
-            "MYSQL_ROOT_PASSWORD=root-password\n"
-            "MYSQL_DATABASE=invalid;database\n",
+            "NATIVE_MYSQL_CONNECTION="
+            "Server=127.0.0.1;Port=3306;Database=invalid/name;"
+            "User=lgu_app;Password=test-db-password;SslMode=Required;\n",
             encoding="utf-8",
         )
+
         command_runner = FakeCommandRunner()
 
         exit_code = run(make_config(project_directory), command_runner)
 
         self.assertNotEqual(exit_code, 0)
-        self.assertFalse(any("--build" in command for command in command_runner.commands))
+        self.assertFalse(
+            any("--build" in command for command in command_runner.commands)
+        )
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_compose_validation_failure_does_not_trigger_rollback(self, unused_which):
@@ -347,7 +392,7 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertEqual(runner.config["app_scheme"], "http")
         self.assertEqual(runner.config["app_port"], 8080)
-        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8080/health")
+        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8080/health/ready")
 
     @patch(
         "deploy.environment_values",
@@ -362,7 +407,7 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertEqual(runner.config["app_scheme"], "https")
         self.assertEqual(runner.config["app_port"], 8443)
-        self.assertEqual(runner.config["health_checks"][1]["url"], "https://localhost:8443/health")
+        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8080/health/ready")
         self.assertIn("HTTPS_CERT_PASSWORD", runner.config["required_env"])
 
     @patch.dict("os.environ", {"NO_COLOR": ""})

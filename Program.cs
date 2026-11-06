@@ -62,10 +62,22 @@ using (var scope = app.Services.CreateScope())
 
     if (!context.UserAccounts.Any(u => u.Role == "Admin"))
     {
+        var initialAdminEmployeeId = builder.Configuration["INITIAL_ADMIN_EMPLOYEE_ID"];
+        var initialAdminPassword = builder.Configuration["INITIAL_ADMIN_PASSWORD"];
+
+        if (string.IsNullOrWhiteSpace(initialAdminEmployeeId) ||
+            string.IsNullOrWhiteSpace(initialAdminPassword) ||
+            initialAdminPassword.Length < 12)
+        {
+            throw new InvalidOperationException(
+                "No administrator account exists. Set INITIAL_ADMIN_EMPLOYEE_ID and " +
+                "INITIAL_ADMIN_PASSWORD (at least 12 characters) for the first startup.");
+        }
+
         context.UserAccounts.Add(new LGUTreasury.Models.UserAccount
         {
-            EmployeeID   = "ADMIN001",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@1234"),
+            EmployeeID   = initialAdminEmployeeId.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialAdminPassword),
             Role         = "Admin",
             Status       = "Active",
             FirstName    = "System",
@@ -85,14 +97,41 @@ if (!app.Environment.IsDevelopment())
 
 if (!disableHttpsRedirection)
 {
-    app.UseHttpsRedirection();
+    // Keep the internal container health endpoint reachable over HTTP. All other
+    // application routes continue to be redirected to HTTPS.
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/health"),
+        branch => branch.UseHttpsRedirection());
 }
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession(); 
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// Liveness only confirms that the ASP.NET Core process can answer requests.
+app.MapGet("/health/live", () => Results.Ok(new { status = "alive" }));
+
+// Readiness verifies the application's actual database connection. Do not expose
+// exception details or connection-string information through this public endpoint.
+Func<ApplicationDbContext, CancellationToken, Task<IResult>> readinessCheck = async
+    (db, cancellationToken) =>
+    {
+        try
+        {
+            var databaseIsReachable = await db.Database.CanConnectAsync(cancellationToken);
+            return databaseIsReachable
+                ? Results.Ok(new { status = "ready", database = "reachable" })
+                : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        catch
+        {
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+    };
+
+app.MapGet("/health/ready", readinessCheck);
+// Keep the old path working for existing local checks and monitoring clients.
+app.MapGet("/health", readinessCheck);
 
 app.MapControllerRoute(
     name: "default",

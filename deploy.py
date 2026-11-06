@@ -4,7 +4,11 @@ from pathlib import Path
 from scripts.backup import create_backups
 from scripts.cleanup import clean
 from scripts.commands import run_command
-from scripts.config import environment_values, project_directory
+from scripts.config import (
+    environment_values,
+    native_database_config,
+    project_directory,
+)
 from scripts.deployment import deploy as deploy_application
 from scripts.deployment import validate_compose
 from scripts.health import run_health_checks
@@ -21,8 +25,7 @@ CONFIG = {
     "compose_files": ["compose.yaml"],
     "env_file": ".env",
     "required_env": [
-        "MYSQL_PASSWORD",
-        "MYSQL_ROOT_PASSWORD",
+        "NATIVE_MYSQL_CONNECTION",
     ],
     "backup_paths": ["compose.yaml", "Dockerfile", "docker-entrypoint.sh", ".env.example"],
     "backup_dir": "backups",
@@ -33,8 +36,9 @@ CONFIG = {
     "app_image": "lgu-treasury-app:local",
     "app_scheme": "http",
     "app_port": 8080,
-    "health_path": "/health",
-    "services": ["db", "app"],
+    "health_path": "/health/ready",
+    "health_check_timeout": 120,
+    "services": ["app"],
     "compose": {
         "deploy_args": [
             "up",
@@ -47,11 +51,11 @@ CONFIG = {
         ],
     },
     "database": {
-        "service": "db",
-        "name": "LGUTreasury",
-        "readiness_retries": 30,
-        "readiness_interval": 2,
+        "name": "lgutreasury",
         "backup_file": "database.sql",
+        "mysqldump_executable": (
+            r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+        ),
     },
     "health_checks": [
         {
@@ -63,8 +67,9 @@ CONFIG = {
         {
             "name": "Application health endpoint",
             "type": "url",
-            "url": "http://localhost:8080/health",
+            "url": "http://localhost:8080/health/ready",
             "expected_status": 200,
+            "timeout": 5,
             "retries": 10,
             "interval": 3,
         },
@@ -109,7 +114,10 @@ class DeploymentRunner:
         self.config["app_port"] = port
         for health_check in self.config.get("health_checks", []):
             if health_check.get("type") == "url":
-                health_check["url"] = "{0}://localhost:{1}/health".format(scheme, port)
+                # The container exposes HTTP internally on 8080 even when external
+                # clients use HTTPS on 8443. Probe the internal endpoint to avoid
+                # false failures from self-signed/local TLS certificates.
+                health_check["url"] = "http://localhost:8080/health/ready"
 
     def initialize(self):
         log_path = project_directory(self.config) / self.config.get(
@@ -117,10 +125,14 @@ class DeploymentRunner:
             "logs/deployment.log",
         )
         values = environment_values(self.config)
+        database_config = native_database_config(self.config)
+
         secret_values = [
+            database_config.get("password", ""),
             values.get("MYSQL_PASSWORD", ""),
             values.get("MYSQL_ROOT_PASSWORD", ""),
             values.get("HTTPS_CERT_PASSWORD", ""),
+            values.get("INITIAL_ADMIN_PASSWORD", ""),
         ]
         self.logger = Logger(log_path, secret_values=secret_values)
         self.logger.info("Starting the Docker deployment.")
@@ -221,6 +233,18 @@ class DeploymentRunner:
             if self.health_result["ok"]:
                 health_status = "passed"
             self.logger.info("Health checks {0}.".format(health_status))
+            for check in self.health_result.get("checks", []):
+                status = check.get("status", "unknown").upper()
+                self.logger.info(
+                    "[{0}] {1}: {2} attempt(s), {3:.2f}s{4}.".format(
+                        status,
+                        check.get("name", "Health check"),
+                        check.get("attempts", 0),
+                        check.get("duration", 0.0),
+                        " - " + check.get("error", "") if check.get("error") else "",
+                    )
+                )
+            self.logger.info("Total health-check duration: {0:.2f}s.".format(self.health_result.get("duration", 0.0)))
         else:
             self.logger.info("Health checks did not run.")
         if self.rollback_result:
@@ -252,7 +276,7 @@ class DeploymentRunner:
     def _report_application_urls(self):
         scheme = self.config.get("app_scheme", "https")
         port = self.config.get("app_port", 8443)
-        health_path = self.config.get("health_path", "/health")
+        health_path = self.config.get("health_path", "/health/ready")
         lan_addresses = get_lan_addresses()
         for address in lan_addresses:
             self.logger.info("Application URL: {0}://{1}:{2}.".format(scheme, address, port))

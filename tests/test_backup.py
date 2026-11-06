@@ -1,6 +1,13 @@
-import unittest
 
-from scripts.backup import _wait_for_database
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from scripts.backup import (
+    _backup_database,
+    _option_value,
+)
 from scripts.commands import CommandResult
 
 
@@ -17,55 +24,202 @@ class RecordingLogger:
     def fail(self, message):
         self.messages.append(("fail", message))
 
+    def success(self, message):
+        self.messages.append(("success", message))
 
-class DatabaseReadinessRunner:
+
+class NativeMySQLBackupRunner:
     def __init__(self):
         self.commands = []
-        self.inspect_calls = 0
+        self.credentials_content = ""
 
     def __call__(self, command, cwd=None, timeout=None):
         self.commands.append(list(command))
-        if "up" in command and "db" in command:
-            return CommandResult(0, "", "")
-        if "ps" in command and "db" in command:
-            return CommandResult(0, "db-container\n", "")
-        if command[:2] == ["docker", "inspect"]:
-            self.inspect_calls += 1
-            if self.inspect_calls == 1:
-                return CommandResult(0, "starting\n", "")
-            return CommandResult(0, "healthy\n", "")
-        return CommandResult(0, "", "")
+
+        if command[0] == "whoami":
+            return CommandResult(
+                0,
+                '"User","S-1-5-21-123456789-123456789-123456789-1001"\n',
+                "",
+            )
+
+        if command[0] == "icacls":
+            return CommandResult(0, "Successfully processed 1 files.", "")
+
+        if "mysqldump.exe" in command[0]:
+            option_argument = next(
+                item for item in command
+                if item.startswith("--defaults-extra-file=")
+            )
+            credentials_file = Path(option_argument.split("=", 1)[1])
+
+            self.credentials_content = credentials_file.read_text(
+                encoding="utf-8"
+            )
+
+            return CommandResult(
+                0,
+                "-- MySQL dump 10.13\nCREATE DATABASE lgutreasury;\n",
+                "",
+            )
+
+        return CommandResult(1, "", "Unexpected command")
 
 
-class DatabaseReadinessTests(unittest.TestCase):
-    def test_readiness_retries_do_not_log_each_poll(self):
-        logger = RecordingLogger()
-        command_runner = DatabaseReadinessRunner()
-        config = {
-            "project_dir": ".",
-            "compose_files": ["compose.yaml"],
-            "database": {
-                "service": "db",
-                "readiness_retries": 3,
-                "readiness_interval": 0,
-            },
+class NativeMySQLBackupTests(unittest.TestCase):
+    def setUp(self):
+        self.database = {
+            "server": "host.docker.internal",
+            "port": 3306,
+            "database": "lgutreasury",
+            "user": "lgu_app",
+            "password": "Test-Password-123!",
+            "ssl_mode": "required",
         }
 
-        result = _wait_for_database(
-            config,
-            ["docker", "compose"],
-            command_runner,
-            logger,
+    def test_option_value_escapes_special_characters(self):
+        result = _option_value('test"password\\value')
+
+        self.assertEqual(
+            result,
+            '"test\\"password\\\\value"',
         )
 
-        self.assertTrue(result["ok"])
-        poll_messages = [
-            message
-            for level, message in logger.messages
-            if "Database container lookup" in message
-            or "Database readiness check" in message
-        ]
-        self.assertEqual(poll_messages, [])
+    def test_backup_uses_native_mysql_and_saves_sql_file(self):
+        logger = RecordingLogger()
+        runner = NativeMySQLBackupRunner()
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup_dir = Path(directory)
+
+            with patch(
+                "scripts.backup.native_database_config",
+                return_value=self.database,
+            ), patch(
+                "scripts.backup._mysqldump_executable",
+                return_value="mysqldump.exe",
+            ):
+                error = _backup_database(
+                    {"project_dir": directory},
+                    ["docker", "compose"],
+                    runner,
+                    logger,
+                    backup_dir,
+                )
+
+            self.assertEqual(error, "")
+
+            backup_file = backup_dir / "database.sql"
+            self.assertTrue(backup_file.exists())
+            self.assertIn(
+                "CREATE DATABASE lgutreasury;",
+                backup_file.read_text(encoding="utf-8"),
+            )
+
+            dump_commands = [
+                command for command in runner.commands
+                if "mysqldump.exe" in command[0]
+            ]
+
+            self.assertEqual(len(dump_commands), 1)
+            self.assertIn("--single-transaction", dump_commands[0])
+            self.assertIn("--databases", dump_commands[0])
+            self.assertIn("lgutreasury", dump_commands[0])
+
+            self.assertIn(
+                'password="Test-Password-123!"',
+                runner.credentials_content,
+            )
+
+            self.assertFalse(
+                any(
+                    "Test-Password-123!" in str(command)
+                    for command in runner.commands
+                )
+            )
+
+            self.assertFalse(
+                any(
+                    "Test-Password-123!" in message
+                    for _, message in logger.messages
+                )
+            )
+
+            credentials_argument = next(
+                item for item in dump_commands[0]
+                if item.startswith("--defaults-extra-file=")
+            )
+            credentials_file = Path(
+                credentials_argument.split("=", 1)[1]
+            )
+
+            self.assertFalse(credentials_file.exists())
+
+    def test_backup_rejects_missing_database_configuration(self):
+        logger = RecordingLogger()
+        runner = NativeMySQLBackupRunner()
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "scripts.backup.native_database_config",
+                return_value={},
+            ):
+                error = _backup_database(
+                    {"project_dir": directory},
+                    ["docker", "compose"],
+                    runner,
+                    logger,
+                    Path(directory),
+                )
+
+        self.assertEqual(error, "NATIVE_MYSQL_CONNECTION is missing.")
+        self.assertEqual(runner.commands, [])
+
+    def test_backup_rejects_non_tls_connection(self):
+        logger = RecordingLogger()
+        runner = NativeMySQLBackupRunner()
+
+        database = dict(self.database)
+        database["ssl_mode"] = "none"
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "scripts.backup.native_database_config",
+                return_value=database,
+            ):
+                error = _backup_database(
+                    {"project_dir": directory},
+                    ["docker", "compose"],
+                    runner,
+                    logger,
+                    Path(directory),
+                )
+
+        self.assertIn("must require TLS", error)
+        self.assertEqual(runner.commands, [])
+
+    def test_backup_rejects_invalid_database_name(self):
+        logger = RecordingLogger()
+        runner = NativeMySQLBackupRunner()
+
+        database = dict(self.database)
+        database["database"] = "lgu treasury; DROP DATABASE test"
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "scripts.backup.native_database_config",
+                return_value=database,
+            ):
+                error = _backup_database(
+                    {"project_dir": directory},
+                    ["docker", "compose"],
+                    runner,
+                    logger,
+                    Path(directory),
+                )
+
+        self.assertIn("database name is invalid", error)
+        self.assertEqual(runner.commands, [])
 
 
 if __name__ == "__main__":
