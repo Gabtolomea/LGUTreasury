@@ -11,6 +11,15 @@
 }
 
 @functions {
+    string FormatPayee(string? first, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(last))
+            return string.IsNullOrWhiteSpace(first) ? "—" : first!;
+        if (string.IsNullOrWhiteSpace(first))
+            return last!;
+        return $"{last}, {first}";
+    }
+
     string JsEscape(string value)
     {
         if (string.IsNullOrEmpty(value)) return "";
@@ -117,7 +126,7 @@
             Model.Select(r => new {
                 paymentID    = r.PaymentID,
                 txnID        = "TXN-" + r.PaymentID.ToString("D6"),
-                payee        = r.Payee != null ? r.Payee.Lastname + ", " + r.Payee.Firstname : "—",
+                payee        = r.Payee != null ? FormatPayee(r.Payee.Firstname, r.Payee.Lastname) : "—",
                 type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
                 amount       = r.TotalAmount,
                 date         = r.DateIssued.ToString("yyyy-MM-dd"),
@@ -268,7 +277,7 @@
                         {
                             <!--var txnID     = "OR-" + record.PaymentID.ToString("D6");-->
                             var txnID     = "OR-" + record.OfficialReceipt ?? "-";
-                            var payee     = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
+                            var payee     = record.Payee != null ? FormatPayee(record.Payee.Firstname, record.Payee.Lastname) : "—";
                             var type      = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var amount    = record.TotalAmount.ToString("N2");
                             var date      = record.DateIssued.ToString("MMM dd, yyyy");
@@ -383,7 +392,7 @@
                             {
                                 var txnID     = "TXN-" + req.PaymentID.ToString("D6");
     
-                                var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
+                                var payee     = req.PaymentRecord?.Payee != null ? FormatPayee(req.PaymentRecord.Payee.Firstname, req.PaymentRecord.Payee.Lastname) : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
                                 <tr data-requestid="@req.RequestID">
