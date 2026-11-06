@@ -1,3 +1,4 @@
+
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -5,65 +6,87 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace LGUTreasury.Migrations
 {
-    /// <inheritdoc />
     public partial class AddReportDownloadDetails : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
+            migrationBuilder.AlterColumn<string>(
                 name: "GeneratedByName",
                 table: "ReportLog",
                 type: "longtext",
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "varchar(150)",
+                oldNullable: true);
 
-            migrationBuilder.AddColumn<DateTime>(
+            migrationBuilder.AlterColumn<DateTime>(
                 name: "FromDate",
                 table: "ReportLog",
                 type: "datetime(6)",
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(DateTime),
+                oldType: "date",
+                oldNullable: true);
 
-            migrationBuilder.AddColumn<int>(
-                name: "RevenueTypeID",
-                table: "ReportLog",
-                type: "int",
-                nullable: true);
+            // RevenueTypeID is already int and nullable.
+            // No change is required.
 
-            migrationBuilder.AddColumn<string>(
+            migrationBuilder.AlterColumn<string>(
                 name: "ReportKind",
                 table: "ReportLog",
                 type: "longtext",
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "varchar(20)",
+                oldNullable: true);
 
-            migrationBuilder.AddColumn<DateTime>(
+            migrationBuilder.AlterColumn<DateTime>(
                 name: "ToDate",
                 table: "ReportLog",
                 type: "datetime(6)",
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(DateTime),
+                oldType: "date",
+                oldNullable: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<string>(
                 name: "GeneratedByName",
-                table: "ReportLog");
+                table: "ReportLog",
+                type: "varchar(150)",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "longtext",
+                oldNullable: true);
 
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<DateTime>(
                 name: "FromDate",
-                table: "ReportLog");
+                table: "ReportLog",
+                type: "date",
+                nullable: true,
+                oldClrType: typeof(DateTime),
+                oldType: "datetime(6)",
+                oldNullable: true);
 
-            migrationBuilder.DropColumn(
-                name: "RevenueTypeID",
-                table: "ReportLog");
-
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<string>(
                 name: "ReportKind",
-                table: "ReportLog");
+                table: "ReportLog",
+                type: "varchar(20)",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "longtext",
+                oldNullable: true);
 
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<DateTime>(
                 name: "ToDate",
-                table: "ReportLog");
+                table: "ReportLog",
+                type: "date",
+                nullable: true,
+                oldClrType: typeof(DateTime),
+                oldType: "datetime(6)",
+                oldNullable: true);
         }
     }
 }

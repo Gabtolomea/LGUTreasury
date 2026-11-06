@@ -16,7 +16,7 @@ namespace LGUTreasury.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("LGUTreasury.Models.AccountBillingType", b =>
@@ -90,6 +90,9 @@ namespace LGUTreasury.Migrations
                     b.Property<int>("DeletedBy_UserID")
                         .HasColumnType("int");
 
+                    b.Property<string>("OfficialReceipt")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("PayeeName")
                         .HasColumnType("longtext");
 
@@ -116,6 +119,9 @@ namespace LGUTreasury.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OfficialReceipt")
+                        .HasColumnType("longtext");
 
                     b.Property<int>("PaymentID")
                         .HasColumnType("int");
@@ -378,19 +384,16 @@ namespace LGUTreasury.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<string>("GeneratedByName")
-                        .HasColumnType("longtext");
+                    b.Property<DateTime?>("FromDate")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("GeneratedByName")
+                        .HasColumnType("longtext");
+
                     b.Property<int>("GeneratedByUserID")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("FromDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("RevenueTypeID")
                         .HasColumnType("int");
 
                     b.Property<string>("ReportKind")
@@ -399,6 +402,9 @@ namespace LGUTreasury.Migrations
                     b.Property<string>("ReportType")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int?>("RevenueTypeID")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ToDate")
                         .HasColumnType("datetime(6)");
