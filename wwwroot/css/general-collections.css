@@ -80,9 +80,54 @@
 }
 
 @media print {
+    @page { size: A4 portrait; margin: 10mm; }
+
+    /* Undo the app shell's fixed-height scroll containers so the whole
+       sheet prints instead of only the visible viewport. */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+    body { display: block !important; }
+
+    /* Hide the app chrome and on-screen controls. */
+    .topnav,
+    .sidebar,
     .no-print { display: none !important; }
-    .report-page-wrap { padding: 0; }
-    .gc-sheet { border: 0; box-shadow: none; padding: 0; }
-    .remit-table { max-width: none; }
-    .remit-table td { border-color: #000; }
+
+    .app-body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .main-content {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    .report-page-wrap { padding: 0 !important; }
+    .gc-sheet {
+        border: 0; box-shadow: none; padding: 0;
+        border-radius: 0; background: #fff;
+    }
+    .gc-scroll { overflow: visible !important; }
+
+    /* Compact sizing so the full ledger fits on a single A4 page. */
+    .gc-report-header { margin-bottom: 8px; padding-bottom: 5px; }
+    .gc-org { font-size: 14px; }
+    .gc-report-type { font-size: 12px; }
+    .gc-report-period { font-size: 11px; }
+    .gc-generated { font-size: 9px; margin-top: 5px; }
+
+    .remit-table {
+        max-width: none;
+        width: 100%;
+        font-size: 11px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .remit-table td { border: 1px solid #000; padding: 3px 6px; }
+    .remit-table tr { page-break-inside: avoid; break-inside: avoid; }
 }

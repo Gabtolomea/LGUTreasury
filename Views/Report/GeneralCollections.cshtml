@@ -15,7 +15,31 @@
     var periodText = $"{periodFrom:MMMM dd, yyyy} to {periodTo:MMMM dd, yyyy}";
 }
 
-<link rel="stylesheet" href="~/css/general-collections.css" />
+<link rel="stylesheet" href="~/css/general-collections.css" asp-append-version="true" />
+
+<style media="print">
+    /* Inline fallback: guarantees the app chrome is hidden and the whole
+       sheet prints even if the external stylesheet is cached. */
+    @@page { size: A4 portrait; margin: 10mm; }
+    html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+    body { display: block !important; }
+    .topnav, .sidebar, .no-print { display: none !important; }
+    .app-body { display: block !important; height: auto !important; overflow: visible !important; }
+    .main-content { height: auto !important; overflow: visible !important; background: #fff !important; }
+    .gc-scroll { overflow: visible !important; }
+    .report-page-wrap { padding: 0 !important; }
+    .gc-sheet { border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+
+    /* Compact sizing so the full ledger fits on a single A4 page. */
+    .gc-report-header { margin-bottom: 8px !important; padding-bottom: 5px !important; }
+    .gc-org { font-size: 14px !important; }
+    .gc-report-type { font-size: 12px !important; }
+    .gc-report-period { font-size: 11px !important; }
+    .gc-generated { font-size: 9px !important; margin-top: 5px !important; }
+    .remit-table { max-width: none !important; width: 100% !important; font-size: 11px !important; }
+    .remit-table td { border: 1px solid #000 !important; padding: 3px 6px !important; }
+    .remit-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+</style>
 
 <div class="report-page-wrap">
     <div class="page-header-row no-print">
