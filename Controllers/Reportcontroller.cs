@@ -46,6 +46,61 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
+        // GET: /Report/GeneralCollections?month=9&year=2026&allDays=false
+        // On-screen / printable version of the paper GENERAL COLLECTIONS ledger.
+        public async Task<IActionResult> GeneralCollections(int? month, int? year, bool allDays = false)
+        {
+            if (HttpContext.Session.GetInt32("UserID") == null)
+                return RedirectToAction("Login", "Account");
+
+            ViewData["ActiveNav"] = "report";
+            ViewData["FullName"] = HttpContext.Session.GetString("FullName");
+            ViewData["Role"] = HttpContext.Session.GetString("Role");
+            ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
+
+            var today = DateTime.Today;
+            var m = month is >= 1 and <= 12 ? month.Value : today.Month;
+            var y = year is >= 2000 and <= 2100 ? year.Value : today.Year;
+
+            var from = new DateTime(y, m, 1);
+            var to = from.AddMonths(1).AddSeconds(-1);   // 23:59:59 on the last day
+
+            var payments = await _context.PaymentRecords
+                .Include(p => p.RecordLineItems)
+                    .ThenInclude(l => l.RevenueType)
+                .Where(p => p.DateIssued >= from && p.DateIssued <= to)
+                // TODO: also exclude voided / cancelled / unposted records here,
+                //       using whatever status field PaymentRecord has.
+                .OrderBy(p => p.DateIssued)
+                .ToListAsync();
+
+            var types = await _context.RevenueTypes.OrderBy(r => r.Name).ToListAsync();
+
+            // The screen follows the paper remittance summary (Views/Report/remit.html).
+            var remit = BuildRemittance(payments, types);
+
+            var vm = new GeneralCollectionsVm
+            {
+                Month = m,
+                Year = y,
+                AllDays = allDays,
+                Title = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m).ToUpper() + " " + y,
+                PeriodText = PeriodLabel(from, to),
+                RemitTotal = remit.Total,
+                RawTotal = remit.Total
+            };
+
+            vm.RemitLines.AddRange(remit.Items.Select(i => new RemitLine
+            {
+                Label = i.Label,
+                Amount = i.Amount,
+                Kind = i.Kind.ToString(),
+                GroupSpan = i.GroupSpan
+            }));
+
+            return View(vm);
+        }
+
         // GET: /Report/Generate
         public async Task<IActionResult> Generate(string type, string format, string from, string to, int? revenueTypeId)
         {
@@ -66,17 +121,73 @@ namespace LGUTreasury.Controllers
             if (fromDate > toDate)
                 return BadRequest("From date cannot be after To date.");
 
-            // Monthly Remittance renders one column per day, so cap the range at
-            // one month to keep the table readable.
-            if (type == "monthly-remittance" && (toDate.Date - fromDate.Date).Days > 31)
-                return BadRequest("Monthly Remittance accepts a date range of at most 31 days.");
+            var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
 
-            // Normalize the range to whole days
+            // Save the parameters so the report can be downloaded again later
+            var log = new ReportLog
+            {
+                ReportType = ReportTypeName(type),
+                ReportKind = type,
+                Format = normalizedFormat.ToUpper(),
+                GeneratedAt = DateTime.Now,
+                GeneratedByUserID = userID.Value,
+                GeneratedByName = fullName,
+                FromDate = fromDate.Date,
+                ToDate = toDate.Date,
+                RevenueTypeID = revenueTypeId
+            };
+            _context.ReportLog.Add(log);
+            await _context.SaveChangesAsync();
+
+            return await BuildReportFile(type, normalizedFormat, fromDate.Date, toDate.Date, revenueTypeId, fullName);
+        }
+
+        // GET: /Report/Download/5
+        // Re-creates a previously generated report from its saved parameters.
+        // Does NOT add a new row to the log.
+        public async Task<IActionResult> Download(int id)
+        {
+            if (HttpContext.Session.GetInt32("UserID") == null)
+                return RedirectToAction("Login", "Account");
+
+            var log = await _context.ReportLog.FindAsync(id);
+            if (log == null)
+                return NotFound("Report not found.");
+
+            if (log.FromDate == null || log.ToDate == null)
+                return BadRequest("This report was generated before downloads were supported. Please generate it again.");
+
+            var fullName = log.GeneratedByName
+                           ?? HttpContext.Session.GetString("FullName")
+                           ?? "Officer";
+
+            return await BuildReportFile(
+                log.ReportKind ?? "custom",
+                (log.Format ?? "pdf").ToLowerInvariant(),
+                log.FromDate.Value.Date,
+                log.ToDate.Value.Date,
+                log.RevenueTypeID,
+                fullName);
+        }
+
+        private static string ReportTypeName(string? type) => type switch
+        {
+            "daily"   => "Daily Collection Report",
+            "monthly" => "Monthly Revenue Summary",
+            "annual"  => "Annual Revenue Summary",
+            "custom"  => "Custom Report",
+            _         => "Revenue Summary"
+        };
+
+        // Builds the file for a date range. Used by both Generate and Download.
+        private async Task<IActionResult> BuildReportFile(
+            string type, string format, DateTime fromDate, DateTime toDate,
+            int? revenueTypeId, string fullName)
+        {
             fromDate = fromDate.Date;
-            toDate = toDate.Date.AddDays(1).AddSeconds(-1);
+            toDate = toDate.Date.AddDays(1).AddSeconds(-1);   // end of the "to" day
 
             var query = _context.PaymentRecords
-                .Include(p => p.Payee)
                 .Include(p => p.RecordLineItems)
                     .ThenInclude(l => l.RevenueType)
                 .Where(p => p.DateIssued >= fromDate && p.DateIssued <= toDate);
@@ -95,17 +206,7 @@ namespace LGUTreasury.Controllers
 
             var matrix = BuildMatrix(payments, revenueTypes, fromDate, toDate, revenueTypeId);
 
-            var reportTypeName = type switch
-            {
-                "daily"              => "Daily Collection Report",
-                "monthly"            => "Monthly Revenue Summary",
-                "annual"             => "Annual Revenue Summary",
-                "custom"             => "Custom Report",
-                "remittance"         => "Remittance Summary",
-                "monthly-remittance" => "Monthly Remittance",
-                "detailed"           => "Detailed Collection List",
-                _                    => "Revenue Summary"
-            };
+            var reportTypeName = ReportTypeName(type);
 
             string? revenueTypeName = null;
             if (revenueTypeId.HasValue)
@@ -127,51 +228,185 @@ namespace LGUTreasury.Controllers
             }
 
             var fileName = $"{reportTypeName.Replace(" ", "_")}{fileNameSuffix}_{fromDate:yyyy-MM-dd}_to_{toDate:yyyy-MM-dd}";
-            var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
 
-            var log = new ReportLog
-            {
-                ReportType = reportTypeName,
-                Format = normalizedFormat.ToUpper(),
-                GeneratedAt = DateTime.Now,
-                GeneratedByUserID = userID.Value
-            };
-            _context.ReportLog.Add(log);
-            await _context.SaveChangesAsync();
-
-            // Remittance reports aggregate line items per revenue type instead of
-            // listing transactions, so they use their own data shape and exporters.
-            if (type is "remittance" or "monthly-remittance")
-            {
-                var remittance = BuildRemittance(type, payments, revenueTypeId, fromDate, toDate);
-                return normalizedFormat switch
-                {
-                    "csv"  => GenerateRemittanceCsv(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                    "xlsx" => GenerateRemittanceXlsx(remittance, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                    _      => GenerateRemittancePdf(remittance, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
-                };
-            }
-
-            // The detailed list keeps the individual transactions behind the
-            // summary matrix (OR number, payor, method, and the
-            // base/surcharge/interest breakdown).
-            if (type == "detailed")
-            {
-                return normalizedFormat switch
-                {
-                    "csv"  => GenerateDetailedCsv(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                    "xlsx" => GenerateDetailedXlsx(payments, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
-                    _      => GenerateDetailedPdf(payments, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
-                };
-            }
-
-            // Generate and return the file
-            return normalizedFormat switch
+            return format switch
             {
                 "csv"  => GenerateCsv(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
                 "xlsx" => GenerateXlsx(matrix, fileName, reportTypeName, fromDate, toDate, revenueTypeName),
                 _      => GeneratePdf(matrix, fileName, reportTypeName, fromDate, toDate, fullName, revenueTypeName)
             };
+        }
+
+        // ── REMITTANCE SUMMARY (Views/Report/remit.html) ──────────────
+
+        private enum RemitKind
+        {
+            Normal,
+            MiscHeading,
+            Blue,
+            GroupBlue,
+            GroupNormal,
+            SubInambakan,
+            SubKabutungan,
+            SubNormal
+        }
+
+        private sealed class RemitItem
+        {
+            public string Label { get; init; } = "";
+            public RemitKind Kind { get; init; }
+            public decimal Amount { get; init; }
+            public int GroupSpan { get; init; }
+        }
+
+        private sealed class RemitReport
+        {
+            public List<RemitItem> Items { get; } = new();
+            public decimal Total { get; set; }
+        }
+
+        // Row order and colours come from Views/Report/remit.html.
+        // Match = RevenueTypes.Name variants that feed the row (first match wins).
+        private static readonly (string Label, RemitKind Kind, string[]? Match)[] RemitLayout =
+        {
+            ("PTR", RemitKind.Normal, new[] { "PTR" }),
+            ("FEDLER", RemitKind.Normal, new[] { "FEDLER" }),
+            ("OCCUPATIONAL FEE", RemitKind.Normal, new[] { "Occupational Fees", "Occupational Fee" }),
+            ("GARBAGE", RemitKind.Normal, new[] { "Garbage Fee", "Garbage" }),
+            ("BIR", RemitKind.Normal, new[] { "BIR Doc Stamp", "BIR" }),
+            ("RHU", RemitKind.Normal, new[] { "RHU", "Medical, Dental and Lab. Fee" }),
+            ("ASSESOR", RemitKind.Normal, new[] { "Assessor", "Assessor's Fee" }),
+            ("AGRICULTURE", RemitKind.Normal, new[] { "Agriculture" }),
+            ("MCR", RemitKind.Normal, new[] { "MCR", "Civil Registry Fees" }),
+            ("CTC", RemitKind.Normal, new[] { "CTC" }),
+            ("MISCELLANEOUS:", RemitKind.MiscHeading, null),
+            ("MARKET", RemitKind.Blue, new[] { "Market Stall Fee", "Market" }),
+            ("POLICE", RemitKind.Blue, new[] { "Police Clearance", "POLICE" }),
+            ("AMUSEMENT", RemitKind.GroupBlue, null),
+            ("INAMBAKAN", RemitKind.SubInambakan, new[] { "Inambakan" }),
+            ("KABUTUNGAN", RemitKind.SubKabutungan, new[] { "KABUTONGAN", "Kabutungan" }),
+            ("OTHERS", RemitKind.Blue, new[] { "Amusement - Others", "Amusement Others" }),
+            ("COCKFIGHT", RemitKind.Blue, new[] { "Cock Fight", "Cockfight" }),
+            ("AI.FEE", RemitKind.Normal, new[] { "A.I. Fee", "AI Fee" }),
+            ("MAYOR'S PERMIT", RemitKind.Normal, new[] { "Mayor's Permit", "Mayors Permit" }),
+            ("OR. FOR BRGY. SECREATARY", RemitKind.Normal, new[] { "Brgy./Sec.'s Fee", "OR for Brgy Secretary" }),
+            ("BUILDING PERMIT", RemitKind.Normal, new[] { "Building Permit Fee", "Building Permit" }),
+            ("ZONING", RemitKind.Normal, new[] { "ZONING", "Zoning" }),
+            ("BRGY. CLEARANCE", RemitKind.Normal, new[] { "Brgy. Clearance", "Barangay Clearance" }),
+            ("BURIAL", RemitKind.Normal, new[] { "Burial", "Burial Permit" }),
+            ("RENTALS", RemitKind.Normal, new[] { "Rentals", "Rental" }),
+            ("BUSINESS TAX", RemitKind.GroupNormal, null),
+            ("RETAILERS", RemitKind.SubNormal, new[] { "Business Tax - Retailers", "Retailers" }),
+            ("FINANCIAL", RemitKind.SubNormal, new[] { "Business Tax - Financial", "Financial" }),
+            ("OTHERS", RemitKind.SubNormal, new[] { "Business Tax - Others", "Business Tax Others" }),
+            ("WATER FEES", RemitKind.Normal, new[] { "Water Fees" }),
+            ("MARKET CASH TICKETS", RemitKind.Normal, new[] { "Market/Cash Tickets", "Market Cash Tickets" }),
+        };
+
+        private static bool IsRemitSub(RemitKind kind) =>
+            kind is RemitKind.SubInambakan or RemitKind.SubKabutungan or RemitKind.SubNormal;
+
+        // Remittance reports use the line total (base + surcharge + interest).
+        private static decimal RemitLineAmount(RecordLineItem l) => l.LineTotal;
+
+        private static RemitReport BuildRemittance(List<PaymentRecord> payments, List<RevenueType> types)
+        {
+            var byType = new Dictionary<int, decimal>();
+            foreach (var p in payments)
+            {
+                foreach (var l in p.RecordLineItems ?? Enumerable.Empty<RecordLineItem>())
+                {
+                    byType[l.TypeID] = byType.GetValueOrDefault(l.TypeID) + RemitLineAmount(l);
+                }
+            }
+
+            var byNorm = new Dictionary<string, List<int>>();
+            foreach (var t in types)
+            {
+                var key = Norm(t.Name);
+                if (key.Length == 0) continue;
+                if (!byNorm.TryGetValue(key, out var ids))
+                    byNorm[key] = ids = new List<int>();
+                ids.Add(t.TypeID);
+            }
+
+            var used = new HashSet<int>();
+
+            decimal AmountFor(string[]? match)
+            {
+                if (match is null) return 0m;
+
+                decimal sum = 0m;
+                var matchedAny = false;
+                foreach (var name in match)
+                {
+                    if (!byNorm.TryGetValue(Norm(name), out var ids)) continue;
+                    matchedAny = true;
+                    foreach (var id in ids)
+                        if (used.Add(id))
+                            sum += byType.GetValueOrDefault(id);
+                }
+
+                if (matchedAny) return sum;
+
+                // Fallback: a single unused type whose name contains one of the
+                // match keys (e.g. "Garbage Collection Fee" for GARBAGE).
+                var keys = match.Select(Norm).Where(k => k.Length >= 5).ToList();
+                var candidates = types
+                    .Where(t => !used.Contains(t.TypeID) &&
+                                keys.Any(k => Norm(t.Name).Contains(k)))
+                    .ToList();
+                if (candidates.Count == 1)
+                {
+                    used.Add(candidates[0].TypeID);
+                    return byType.GetValueOrDefault(candidates[0].TypeID);
+                }
+
+                return 0m;
+            }
+
+            var report = new RemitReport();
+            var i = 0;
+            while (i < RemitLayout.Length)
+            {
+                var (label, kind, match) = RemitLayout[i];
+
+                if (kind is RemitKind.GroupBlue or RemitKind.GroupNormal)
+                {
+                    var span = 0;
+                    while (i + 1 + span < RemitLayout.Length && IsRemitSub(RemitLayout[i + 1 + span].Kind))
+                        span++;
+
+                    report.Items.Add(new RemitItem { Label = label, Kind = kind, GroupSpan = span });
+                    for (var s = 1; s <= span; s++)
+                    {
+                        var sub = RemitLayout[i + s];
+                        report.Items.Add(new RemitItem
+                        {
+                            Label = sub.Label,
+                            Kind = sub.Kind,
+                            Amount = AmountFor(sub.Match)
+                        });
+                    }
+
+                    i += span + 1;
+                    continue;
+                }
+
+                report.Items.Add(new RemitItem
+                {
+                    Label = label,
+                    Kind = kind,
+                    Amount = kind == RemitKind.MiscHeading ? 0m : AmountFor(match)
+                });
+                i++;
+            }
+
+            report.Total = payments
+                .SelectMany(p => p.RecordLineItems ?? Enumerable.Empty<RecordLineItem>())
+                .Sum(RemitLineAmount);
+
+            return report;
         }
 
         // ── MATRIX (rows = revenue types, columns = dates, last column = TOTAL) ──
@@ -276,8 +511,12 @@ namespace LGUTreasury.Controllers
         private static readonly string[] MonthAbbr =
             { "JAN.", "FEB.", "MAR.", "APR.", "MAY", "JUNE", "JULY", "AUG.", "SEPT.", "OCT.", "NOV.", "DEC." };
 
-        private static string DayLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Day:00}, {d.Year}";
+        private static string DayLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Day:00}";
         private static string MonthLabel(DateTime d) => $"{MonthAbbr[d.Month - 1]} {d.Year}";
+
+        // One clear year marker for the whole sheet instead of repeating it on every date.
+        private static string YearLabel(DateTime from, DateTime to) =>
+            from.Year == to.Year ? from.Year.ToString() : $"{from.Year}-{to.Year}";
 
         // Top-left cell of the sheet ("Sep-26")
         private static string PeriodLabel(DateTime from, DateTime to)
@@ -289,7 +528,7 @@ namespace LGUTreasury.Controllers
 
         private static Matrix BuildMatrix(
             List<PaymentRecord> payments, List<RevenueType> types,
-            DateTime from, DateTime to, int? revenueTypeId)
+            DateTime from, DateTime to, int? revenueTypeId, bool dataDatesOnly = false)
         {
             // Up to ~31 days: one column per day (like the paper sheet).
             // Longer ranges: one column per month.
@@ -323,7 +562,8 @@ namespace LGUTreasury.Controllers
                 for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
                 {
                     var weekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
-                    if (!weekend || dataDates.Contains(d))
+                    var include = dataDatesOnly ? dataDates.Contains(d) : (!weekend || dataDates.Contains(d));
+                    if (include)
                         m.Columns.Add((d, DayLabel(d)));
                 }
             }
@@ -383,10 +623,10 @@ namespace LGUTreasury.Controllers
         {
             var sb = new StringBuilder();
             sb.AppendLine(CsvField("LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM"));
-            sb.AppendLine(CsvField($"Report Type: {reportType}"));
+            sb.AppendLine(CsvField(reportType));
+            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
             if (!string.IsNullOrEmpty(revenueTypeName))
                 sb.AppendLine(CsvField($"Revenue Type: {revenueTypeName}"));
-            sb.AppendLine(CsvField($"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}"));
             sb.AppendLine(CsvField($"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}"));
             sb.AppendLine();
 
@@ -456,12 +696,13 @@ namespace LGUTreasury.Controllers
             Title(1, "LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM", true, 14);
             Title(2, reportType, true, 12);
             Title(3, $"Period: {from:MMMM dd, yyyy} to {to:MMMM dd, yyyy}", false, 10);
+            Title(4, $"Generated: {DateTime.Now:MMMM dd, yyyy hh:mm tt}", false, 9);
 
-            var h1 = 5;
+            var h1 = 6;
             if (!string.IsNullOrEmpty(revenueTypeName))
             {
-                Title(4, $"Revenue Type: {revenueTypeName}", false, 10);
-                h1 = 6;
+                Title(5, $"Revenue Type: {revenueTypeName}", false, 10);
+                h1 = 7;
             }
             var h2 = h1 + 1;
 
@@ -594,7 +835,7 @@ namespace LGUTreasury.Controllers
                                 .Text(PeriodLabel(from, to)).Bold().FontSize(fontSize);
                             if (n > 0)
                                 h.Cell().ColumnSpan((uint)n).Element(c => Box(c, "#F2F2F2").AlignCenter())
-                                    .Text("GENERAL COLLECTIONS").Bold().FontSize(fontSize);
+                                    .Text($"GENERAL COLLECTIONS — YEAR {YearLabel(from, to)}").Bold().FontSize(fontSize);
                             h.Cell().RowSpan(2).Element(c => Box(c, "#F2F2F2").AlignCenter().AlignMiddle())
                                 .Text("TOTAL").Bold().FontSize(fontSize).FontColor(red);
 
@@ -645,6 +886,7 @@ namespace LGUTreasury.Controllers
             return File(pdfBytes, "application/pdf", fileName + ".pdf");
         }
 
+<<<<<<< HEAD
         // ── DETAILED COLLECTION LIST ───────────────────────────────
         // The summary reports above are matrices (revenue type x date). This one
         // lists the individual transactions behind those totals, so the OR
@@ -1454,6 +1696,8 @@ namespace LGUTreasury.Controllers
             return File(pdfBytes, "application/pdf", fileName + ".pdf");
         }
 
+=======
+>>>>>>> origin/alleksu
         private string GetInitials(string? fullName)
         {
             if (string.IsNullOrEmpty(fullName)) return "?";
@@ -1462,5 +1706,43 @@ namespace LGUTreasury.Controllers
                 return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
             return fullName[0].ToString().ToUpper();
         }
+    }
+
+    // ── View model for the General Collections screen ──
+    public class GeneralCollectionsVm
+    {
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public bool AllDays { get; set; }
+        public string Title { get; set; } = "";
+        public string PeriodText { get; set; } = "";
+        public List<string> DateLabels { get; set; } = new();
+        public List<GcRow> Rows { get; set; } = new();
+        public List<decimal> ColumnTotals { get; set; } = new();
+        public decimal GrandTotal { get; set; }
+        public decimal RawTotal { get; set; }   // straight sum of the line items, for the reconciliation check
+
+        // Remittance summary layout (Views/Report/remit.html)
+        public List<RemitLine> RemitLines { get; set; } = new();
+        public decimal RemitTotal { get; set; }
+    }
+
+    public class RemitLine
+    {
+        public string Label { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Kind { get; set; } = "Normal";
+        public int GroupSpan { get; set; }
+    }
+
+    public class GcRow
+    {
+        public string Label { get; set; } = "";
+        public string? Color { get; set; }
+        public bool IsHeading { get; set; }
+        public bool IsSub { get; set; }
+        public bool FullRowColor { get; set; }
+        public List<decimal> Cells { get; set; } = new();
+        public decimal Total { get; set; }
     }
 }

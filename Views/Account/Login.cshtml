@@ -11,6 +11,7 @@
     <title>Sign In — LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/auth.css" />
+    <link rel="stylesheet" href="~/css/ui-feedback.css" asp-append-version="true" />
 </head>
 <body>
     <div class="auth-left">
@@ -27,15 +28,7 @@
                 <div class="auth-card-title">Welcome Back!</div>
             </div>
 
-            @if (TempData["Success"] != null)
-            {
-                <div class="alert alert-success">@TempData["Success"]</div>
-            }
-            @if (TempData["Error"] != null)
-            {
-                <div class="alert alert-error">@TempData["Error"]</div>
-            }
-            else if (!ViewData.ModelState.IsValid)
+            @if (!ViewData.ModelState.IsValid)
             {
                 var messages = new List<string>();
                 foreach (var state in ViewData.ModelState.Values)
@@ -48,11 +41,16 @@
                 }
                 if (messages.Count > 0)
                 {
-                    <div class="alert alert-error">
-                        @foreach (var msg in messages)
-                        {
-                            <div>@msg</div>
-                        }
+                    <div class="ui-alert ui-alert--error" role="alert">
+                        <span class="ui-alert__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </span>
+                        <div class="ui-alert__content">
+                            @foreach (var msg in messages)
+                            {
+                                <div>@msg</div>
+                            }
+                        </div>
                     </div>
                 }
             }
@@ -94,7 +92,7 @@
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
     <script src="~/js/auth.js"></script>
+    <partial name="_UiFeedback" />
 </body>
 </html>

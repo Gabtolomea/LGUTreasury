@@ -320,8 +320,8 @@ public async Task<IActionResult> CreateBulk(
             var filterTo   = DateTime.TryParse(toStr,   out var pTo)   ? pTo.Date   : (DateTime?)null;
             var filterCollectorId = int.TryParse(collectorStr, out var pCol) && pCol > 0 ? pCol : (int?)null;
 
-            ViewBag.FilterFrom        = filterFrom?.ToString("yyyy-MM-dd") ?? "";
-            ViewBag.FilterTo          = filterTo?.ToString("yyyy-MM-dd") ?? "";
+            ViewBag.FilterFrom        = (filterFrom ?? DateTime.Today).ToString("yyyy-MM-dd");
+            ViewBag.FilterTo          = (filterTo ?? DateTime.Today).ToString("yyyy-MM-dd");
             ViewBag.FilterCollectorId = filterCollectorId ?? 0;
 
             var query = _context.PaymentRecords
@@ -434,7 +434,11 @@ public async Task<IActionResult> CreateBulk(
             var deleted = new DeletedRecord
             {
                 PaymentID        = payment.PaymentID,
-                PayeeName        = payment.Payee != null ? $"{payment.Payee.Lastname}, {payment.Payee.Firstname}" : "—",
+                PayeeName        = payment.Payee == null
+                                   ? "—"
+                                   : string.IsNullOrWhiteSpace(payment.Payee.Lastname)
+                                       ? payment.Payee.Firstname ?? "—"
+                                       : $"{payment.Payee.Lastname}, {payment.Payee.Firstname}",
                 CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
                 DeletedBy_UserID = userID.Value,

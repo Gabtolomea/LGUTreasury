@@ -7,15 +7,6 @@
 
 <link rel="stylesheet" href="~/css/record-payment.css" />
 
-@if (TempData["Error"] != null)
-{
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            showToast('@TempData["Error"]', true);
-        });
-    </script>
-}
-
 <div class="content-page">
     <div class="page-header-row">
         <partial name="_BackBtn" />
@@ -45,7 +36,7 @@
                     <label class="form-label" id="name-label">Full Name *</label>
                     <div class="payor-combo" id="payor-combo">
                         <input type="text" class="form-input" name="FullName" id="pay-fullname"
-                               placeholder="e.g. Juan Dela Cruz  or  Dela Cruz, Juan" required autocomplete="off"
+                               placeholder="e.g. Juan Dela Cruz" required autocomplete="off"
                                oninput="updateTransactionId(this.value)" />
                         <button type="button" class="payor-combo-toggle" id="payor-combo-toggle"
                                 tabindex="-1" aria-label="Show existing payors">
@@ -54,13 +45,13 @@
                         <div class="payor-combo-list" id="payor-combo-list" hidden></div>
                     </div>
                     <div id="name-hint" style="margin-top:6px;font-size:12px;opacity:.65">
-                        Search existing payors with the arrow, or type a new name. For two-word last names, write it as Last, First (e.g. Dela Cruz, Juan).
+                        Search existing payors with the arrow, or type a new name.
                     </div>
                 </div>
                 <div class="form-group" id="or-single-group">
                     <label class="form-label">OR Number *</label>
                     <input type="text" class="form-input" name="OfficialReceipt" id="or-single"
-                           placeholder="e.g. 00001  or a range like 60-578" required autocomplete="off" />
+                           placeholder="e.g. 00001  or a bulk range like 60-70" required autocomplete="off" />
                     <div id="bulk-count" style="margin-top:6px;font-size:13px;opacity:.75"></div>
                 </div>
                 <div class="form-group">
@@ -331,16 +322,24 @@
         document.addEventListener('input', () => setTimeout(refresh, 0));
         document.addEventListener('click', () => setTimeout(refresh, 50));
 
-        form.addEventListener('submit', function (e) {
+        let bulkConfirmed = false;
+        form.addEventListener('submit', async function (e) {
             const r = parseRange();
             form.action = r ? '/Record/CreateBulk' : '/Record/Create';
             if (!r) return;
-            if (r.count < 1)    { e.preventDefault(); showToast('OR range is invalid.', true); return; }
-            if (r.count > 2000) { e.preventDefault(); showToast('Maximum 2000 receipts per batch.', true); return; }
-            if (!document.getElementById('pay-typeid').value) { e.preventDefault(); showToast('Please select a collection type.', true); return; }
+            if (bulkConfirmed) { bulkConfirmed = false; return; }
+            if (r.count < 1)    { e.preventDefault(); UI.toast('OR range is invalid.', 'error'); return; }
+            if (r.count > 2000) { e.preventDefault(); UI.toast('Maximum 2000 receipts per batch.', 'error'); return; }
+            if (!document.getElementById('pay-typeid').value) { e.preventDefault(); UI.toast('Please select a collection type.', 'error'); return; }
             const total = parseFloat(document.getElementById('pay-total').value) || 0;
-            if (!confirm('Create ' + r.count + ' receipts (OR ' + r.from + ' to ' + r.to + ') for "' + nameIn.value.trim() +
-                         '" with a batch total of ' + money(total) + '?')) e.preventDefault();
+            if (total <= 0) { e.preventDefault(); UI.toast('Total amount must be greater than zero.', 'error'); return; }
+            e.preventDefault();
+            const ok = await UI.confirm(
+                'Create ' + r.count + ' receipts (OR ' + r.from + ' to ' + r.to + ') for "' + nameIn.value.trim() +
+                '" with a batch total of ' + money(total) + '?',
+                { title: 'Create Bulk Receipts', type: 'info', confirmText: 'Create Receipts', cancelText: 'Cancel' }
+            );
+            if (ok) { bulkConfirmed = true; form.requestSubmit(); }
         });
     })();
     </script>

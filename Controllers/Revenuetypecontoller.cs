@@ -40,7 +40,7 @@ namespace LGUTreasury.Controllers
  
         // POST: /RevenueType/Add
         [HttpPost]
-        public async Task<IActionResult> Add(string Name, string CategoryID, decimal BaseRate, decimal SurchargeRate, decimal InterestRate)
+        public async Task<IActionResult> Add(string Name, string CategoryID, decimal BaseRate)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
@@ -59,12 +59,7 @@ namespace LGUTreasury.Controllers
             _context.RevenueTypes.Add(type);
             await _context.SaveChangesAsync();
  
-            var policy = new RevenuePolicy
-            {
-                TypeID = type.TypeID,
-                SurchargeRate = SurchargeRate,
-                InterestRate = InterestRate
-            };
+            var policy = new RevenuePolicy { TypeID = type.TypeID };
             _context.RevenuePolicies.Add(policy);
             await _context.SaveChangesAsync();
  
@@ -73,15 +68,13 @@ namespace LGUTreasury.Controllers
                 typeID = type.TypeID,
                 name = type.Name,
                 categoryID = type.CategoryID,
-                baseRate = type.BaseRate,
-                surchargeRate = policy.SurchargeRate,
-                interestRate = policy.InterestRate
+                baseRate = type.BaseRate
             });
         }
  
         // POST: /RevenueType/Edit
         [HttpPost]
-        public async Task<IActionResult> Edit(int TypeID, string Name, string CategoryID, decimal BaseRate, decimal SurchargeRate, decimal InterestRate)
+        public async Task<IActionResult> Edit(int TypeID, string Name, string CategoryID, decimal? BaseRate = null)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
@@ -91,16 +84,7 @@ namespace LGUTreasury.Controllers
  
             type.Name = Name;
             type.CategoryID = CategoryID;
-            type.BaseRate = BaseRate;
- 
-            var policy = await _context.RevenuePolicies.FirstOrDefaultAsync(p => p.TypeID == TypeID);
-            if (policy == null)
-            {
-                policy = new RevenuePolicy { TypeID = TypeID };
-                _context.RevenuePolicies.Add(policy);
-            }
-            policy.SurchargeRate = SurchargeRate;
-            policy.InterestRate = InterestRate;
+            if (BaseRate.HasValue) type.BaseRate = BaseRate.Value;
  
             await _context.SaveChangesAsync();
  

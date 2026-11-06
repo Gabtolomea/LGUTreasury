@@ -11,6 +11,7 @@
     <title>Register — LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/auth.css" />
+    <link rel="stylesheet" href="~/css/ui-feedback.css" asp-append-version="true" />
 </head>
 <body>
     <div class="auth-left">
@@ -27,17 +28,14 @@
                 <div class="auth-card-title">Create Account</div>
             </div>
 
-            @if (TempData["Success"] != null)
-            {
-                <div class="alert alert-success">@TempData["Success"]</div>
-            }
-            @if (TempData["Error"] != null)
-            {
-                <div class="alert alert-error">@TempData["Error"]</div>
-            }
             @if (!ViewData.ModelState.IsValid)
             {
-                <div class="alert alert-error">Please correct the highlighted fields below.</div>
+                <div class="ui-alert ui-alert--error" role="alert">
+                    <span class="ui-alert__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                    </span>
+                    <div class="ui-alert__content">Please correct the highlighted fields below.</div>
+                </div>
             }
 
             <form asp-action="Register" asp-controller="Account" method="post">
@@ -143,8 +141,11 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info" style="margin-top:16px">
-                    Your account role will be assigned by the administrator after registration.
+                <div class="ui-alert ui-alert--info" style="margin-top:16px">
+                    <span class="ui-alert__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+                    </span>
+                    <div class="ui-alert__content">Your account role will be assigned by the administrator after registration.</div>
                 </div>
 
                 <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
@@ -156,8 +157,8 @@
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
     <script src="~/js/contact-number.js"></script>
     <script src="~/js/auth.js"></script>
+    <partial name="_UiFeedback" />
 </body>
 </html>

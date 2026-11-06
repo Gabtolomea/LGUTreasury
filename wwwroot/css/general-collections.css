@@ -1,0 +1,133 @@
+/* General Collections — remittance summary (Views/Report/remit.html) */
+
+.report-page-wrap { padding: 20px 24px; }
+
+.page-header-row { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.page-title { font-size: 22px; font-weight: 700; color: #1b5e20; line-height: 1.2; }
+.page-sub { font-size: 13px; color: var(--text-3, #6b7280); margin-top: 2px; }
+
+/* filter */
+.gc-filter {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+    margin-bottom: 18px;
+}
+.gc-filter label {
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: #374151;
+}
+.gc-filter .form-select,
+.gc-filter .form-input { min-width: 150px; }
+
+.btn-generate {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 11px 22px; border: 0; border-radius: 10px; cursor: pointer;
+    background: #2e7d32; color: #fff; font-size: 13px; font-weight: 700;
+    letter-spacing: .04em; text-decoration: none;
+    transition: background .15s ease, transform .05s ease;
+}
+.btn-generate:hover { background: #256b29; color: #fff; }
+.btn-generate:active { transform: translateY(1px); }
+
+.gc-warn {
+    background: #fff7e6; border: 1px solid #f0c36d; color: #8a5a00;
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px;
+}
+
+/* sheet */
+.gc-sheet {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 18px; box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+.gc-report-header {
+    text-align: center; margin-bottom: 16px; padding-bottom: 8px;
+    color: #1d2340; line-height: 1.35; border-bottom: 1px solid #1d2340;
+}
+.gc-org { font-size: 16px; font-weight: 700; text-transform: uppercase; }
+.gc-report-type { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.gc-report-period { font-size: 12px; margin-top: 2px; }
+.gc-generated {
+    text-align: right; font-size: 11px; color: #6b7280; margin-top: 10px;
+}
+.gc-scroll { overflow-x: auto; }
+
+/* remittance table — colours and borders mirror remit.html */
+.remit-table {
+    width: 100%; max-width: 640px; margin: 0 auto;
+    border-collapse: collapse; font-size: 15px; color: #1d2340;
+    font-family: Calibri, Arial, sans-serif;
+}
+.remit-table td { border: 2px solid #2b3050; padding: 6px 8px; }
+.remit-table td.amt {
+    text-align: right; width: 140px;
+    font-variant-numeric: tabular-nums;
+}
+.remit-table td.center { text-align: center; }
+
+.remit-table tr.misc td { background: #dfe9d3; }
+.remit-table tr.misc .lbl { color: #d9455f; font-weight: bold; }
+
+.remit-table .blue { color: #2f4b9a; font-weight: bold; }
+.remit-table .inamb { background: #f1e1d3; }
+.remit-table .kab { background: #ead9ee; }
+.remit-table .remit-group { text-align: center; font-weight: bold; }
+
+.remit-table tr.total td {
+    background: #9bd05a; font-weight: bold; text-align: center;
+}
+.remit-table tr.total td.amt {
+    background: #ead9ee; text-align: right;
+}
+
+@media print {
+    @page { size: A4 portrait; margin: 10mm; }
+
+    /* Undo the app shell's fixed-height scroll containers so the whole
+       sheet prints instead of only the visible viewport. */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+    body { display: block !important; }
+
+    /* Hide the app chrome and on-screen controls. */
+    .topnav,
+    .sidebar,
+    .no-print { display: none !important; }
+
+    .app-body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .main-content {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    .report-page-wrap { padding: 0 !important; }
+    .gc-sheet {
+        border: 0; box-shadow: none; padding: 0;
+        border-radius: 0; background: #fff;
+    }
+    .gc-scroll { overflow: visible !important; }
+
+    /* Compact sizing so the full ledger fits on a single A4 page. */
+    .gc-report-header { margin-bottom: 8px; padding-bottom: 5px; }
+    .gc-org { font-size: 14px; }
+    .gc-report-type { font-size: 12px; }
+    .gc-report-period { font-size: 11px; }
+    .gc-generated { font-size: 9px; margin-top: 5px; }
+
+    .remit-table {
+        max-width: none;
+        width: 100%;
+        font-size: 11px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .remit-table td { border: 1px solid #000; padding: 3px 6px; }
+    .remit-table tr { page-break-inside: avoid; break-inside: avoid; }
+}

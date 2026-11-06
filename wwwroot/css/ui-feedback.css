@@ -1,0 +1,608 @@
+/* ============================================================
+   Shared feedback UI: toasts, alerts, dialogs and error pages
+   ============================================================ */
+
+:root {
+    --ui-brand: #388E3C;
+    --ui-brand-dark: #2E7D32;
+    --ui-brand-light: #C8E6C9;
+    --ui-brand-mid: #A5D6A7;
+    --ui-brand-soft: #F0FDF4;
+
+    --ui-success: #2E7D32;
+    --ui-success-bg: #E8F5E9;
+    --ui-success-border: #A5D6A7;
+
+    --ui-error: #C0392B;
+    --ui-error-bg: #FDECEA;
+    --ui-error-border: #F5C6C2;
+
+    --ui-warning: #B26A00;
+    --ui-warning-bg: #FFF4E5;
+    --ui-warning-border: #FFD8A8;
+
+    --ui-info: #388E3C;
+    --ui-info-bg: #F0FDF4;
+    --ui-info-border: #C8E6C9;
+
+    --ui-neutral: #5B6B5D;
+    --ui-line: #E3EAE3;
+    --ui-ink: #1A1A1A;
+    --ui-ease: cubic-bezier(.2, .9, .3, 1.08);
+}
+
+/* ── Toast stack ──────────────────────────────────────────── */
+.ui-toast-root {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 3100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+body.has-app-nav .ui-toast-root {
+    top: 96px;
+}
+
+.ui-toast {
+    --ui-accent: var(--ui-info);
+    --ui-soft: var(--ui-info-bg);
+    --ui-fg: var(--ui-info);
+
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 38px 14px 14px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--ui-line);
+    border-left: 4px solid var(--ui-accent);
+    border-radius: 13px;
+    box-shadow: 0 14px 34px rgba(27, 94, 32, .16);
+    color: var(--ui-ink);
+    pointer-events: auto;
+    animation: uiToastIn .28s var(--ui-ease);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.ui-toast.is-hiding {
+    animation: uiToastOut .2s ease forwards;
+}
+
+.ui-toast--success { --ui-accent: var(--ui-success); --ui-soft: var(--ui-success-bg); --ui-fg: var(--ui-success); }
+.ui-toast--error   { --ui-accent: var(--ui-error);   --ui-soft: var(--ui-error-bg);   --ui-fg: var(--ui-error); }
+.ui-toast--warning { --ui-accent: var(--ui-warning); --ui-soft: var(--ui-warning-bg); --ui-fg: var(--ui-warning); }
+.ui-toast--info    { --ui-accent: var(--ui-info);    --ui-soft: var(--ui-info-bg);    --ui-fg: var(--ui-info); }
+
+.ui-toast__icon {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--ui-soft);
+    color: var(--ui-fg);
+}
+
+.ui-toast__icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.ui-toast__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.ui-toast__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--ui-ink);
+}
+
+.ui-toast__message {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ui-neutral);
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.ui-toast__close {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #8A968B;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+
+.ui-toast__close:hover {
+    background: #F0F5F0;
+    color: var(--ui-brand-dark);
+}
+
+.ui-toast__close svg {
+    width: 13px;
+    height: 13px;
+}
+
+.ui-toast__timer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--ui-accent);
+    opacity: .35;
+    transform-origin: left center;
+    animation: uiToastTimer var(--ui-duration, 4000ms) linear forwards;
+}
+
+/* ── Inline alerts ────────────────────────────────────────── */
+.ui-alert {
+    --ui-accent: var(--ui-info);
+    --ui-soft: var(--ui-info-bg);
+    --ui-border: var(--ui-info-border);
+    --ui-fg: var(--ui-info);
+
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 13px 15px;
+    margin-bottom: 16px;
+    background: var(--ui-soft);
+    border: 1px solid var(--ui-border);
+    border-left: 4px solid var(--ui-accent);
+    border-radius: 11px;
+    color: #1F2A21;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ui-alert--success { --ui-accent: var(--ui-success); --ui-soft: var(--ui-success-bg); --ui-border: var(--ui-success-border); --ui-fg: var(--ui-success); }
+.ui-alert--error   { --ui-accent: var(--ui-error);   --ui-soft: var(--ui-error-bg);   --ui-border: var(--ui-error-border);   --ui-fg: var(--ui-error); }
+.ui-alert--warning { --ui-accent: var(--ui-warning); --ui-soft: var(--ui-warning-bg); --ui-border: var(--ui-warning-border); --ui-fg: var(--ui-warning); }
+.ui-alert--info    { --ui-accent: var(--ui-info);    --ui-soft: var(--ui-info-bg);    --ui-border: var(--ui-info-border);    --ui-fg: var(--ui-info); }
+
+.ui-alert__icon {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--ui-fg);
+}
+
+.ui-alert__icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.ui-alert__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.ui-alert__title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 1px;
+}
+
+.ui-alert__message {
+    font-size: 13px;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+/* ── Dialog / modal ───────────────────────────────────────── */
+.ui-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(12, 35, 18, .58);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .18s ease, visibility .18s ease;
+}
+
+.ui-dialog-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ui-dialog {
+    --ui-accent: var(--ui-success);
+    --ui-soft: var(--ui-success-bg);
+    --ui-fg: var(--ui-success);
+
+    width: 100%;
+    max-width: 460px;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(17, 48, 23, .3);
+    transform: translateY(14px) scale(.97);
+    opacity: 0;
+    transition: transform .24s var(--ui-ease), opacity .18s ease;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.ui-dialog-overlay.is-open .ui-dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.ui-dialog--success { --ui-accent: var(--ui-success); --ui-soft: var(--ui-success-bg); --ui-fg: var(--ui-success); }
+.ui-dialog--error   { --ui-accent: var(--ui-error);   --ui-soft: var(--ui-error-bg);   --ui-fg: var(--ui-error); }
+.ui-dialog--warning { --ui-accent: var(--ui-warning); --ui-soft: var(--ui-warning-bg); --ui-fg: var(--ui-warning); }
+.ui-dialog--info    { --ui-accent: var(--ui-info);    --ui-soft: var(--ui-info-bg);    --ui-fg: var(--ui-info); }
+
+.ui-dialog__accent {
+    height: 5px;
+    background: var(--ui-accent);
+}
+
+.ui-dialog__body {
+    padding: 28px 28px 6px;
+}
+
+.ui-dialog__icon {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 16px;
+    border-radius: 16px;
+    background: var(--ui-soft);
+    color: var(--ui-fg);
+}
+
+.ui-dialog__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.ui-dialog__title {
+    margin: 0;
+    color: var(--ui-ink);
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -.01em;
+}
+
+.ui-dialog__message {
+    margin-top: 8px;
+    color: var(--ui-neutral);
+    font-size: 13.5px;
+    line-height: 1.6;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.ui-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 22px 28px 26px;
+}
+
+.ui-dialog__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 104px;
+    padding: 11px 20px;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+}
+
+.ui-dialog__btn:active {
+    transform: translateY(1px);
+}
+
+.ui-dialog__btn:focus-visible {
+    outline: 3px solid rgba(56, 142, 60, .28);
+    outline-offset: 2px;
+}
+
+.ui-dialog__btn--ghost {
+    background: #fff;
+    border-color: var(--ui-line);
+    color: #3F4A40;
+}
+
+.ui-dialog__btn--ghost:hover {
+    background: #F4F8F4;
+    border-color: #D6E4D8;
+}
+
+.ui-dialog__btn--primary {
+    background: var(--ui-brand);
+    color: #fff;
+}
+
+.ui-dialog__btn--primary:hover {
+    background: var(--ui-brand-dark);
+}
+
+.ui-dialog__btn--danger {
+    background: var(--ui-error);
+    color: #fff;
+}
+
+.ui-dialog__btn--danger:hover {
+    background: #A93226;
+}
+
+.ui-dialog__btn--danger:focus-visible {
+    outline-color: rgba(192, 57, 43, .3);
+}
+
+/* ── Legacy modal polish (keeps existing markup working) ──── */
+body .modal-overlay {
+    background: rgba(12, 35, 18, .58);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+body .modal {
+    border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(17, 48, 23, .3);
+    animation: uiDialogIn .24s var(--ui-ease);
+}
+
+/* ── Error page ───────────────────────────────────────────── */
+.ui-error-page {
+    min-height: calc(100vh - 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.ui-error-card {
+    width: 100%;
+    max-width: 600px;
+    padding: 40px 40px 34px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid var(--ui-line);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(27, 94, 32, .12);
+}
+
+.ui-error-icon {
+    width: 76px;
+    height: 76px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 20px;
+    border-radius: 22px;
+    background: var(--ui-error-bg);
+    color: var(--ui-error);
+}
+
+.ui-error-icon svg {
+    width: 38px;
+    height: 38px;
+}
+
+.ui-error-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: var(--ui-error-bg);
+    color: var(--ui-error);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.ui-error-title {
+    margin: 0;
+    color: var(--ui-ink);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+.ui-error-message {
+    margin: 10px auto 0;
+    max-width: 440px;
+    color: var(--ui-neutral);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.ui-error-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 8px 12px;
+    margin-top: 18px;
+    border: 1px solid var(--ui-line);
+    border-radius: 9px;
+    background: #F6FAF6;
+    color: #4B5E4E;
+    font-size: 12px;
+}
+
+.ui-error-code code {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.ui-error-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 26px;
+}
+
+.ui-error-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 12px 20px;
+    border: 1.5px solid var(--ui-line);
+    border-radius: 10px;
+    background: #fff;
+    color: #3F4A40;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+.ui-error-btn:hover {
+    background: #F4F8F4;
+    border-color: #D6E4D8;
+}
+
+.ui-error-btn--primary {
+    background: var(--ui-brand);
+    border-color: var(--ui-brand);
+    color: #fff;
+}
+
+.ui-error-btn--primary:hover {
+    background: var(--ui-brand-dark);
+    border-color: var(--ui-brand-dark);
+}
+
+.ui-error-details {
+    margin-top: 24px;
+    text-align: left;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ui-neutral);
+}
+
+.ui-error-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #3F4A40;
+}
+
+.ui-error-details p {
+    margin-top: 8px;
+}
+
+/* ── Motion ───────────────────────────────────────────────── */
+@keyframes uiToastIn {
+    from { opacity: 0; transform: translateX(42px) scale(.98); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes uiToastOut {
+    to { opacity: 0; transform: translateX(42px) scale(.98); }
+}
+
+@keyframes uiToastTimer {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
+@keyframes uiDialogIn {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-toast,
+    .ui-toast.is-hiding,
+    .ui-dialog,
+    .ui-dialog-overlay,
+    body .modal {
+        animation: none !important;
+        transition: none !important;
+    }
+    .ui-toast__timer { animation: none; opacity: 0; }
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .ui-toast-root,
+    body.has-app-nav .ui-toast-root {
+        top: auto;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
+        width: auto;
+    }
+
+    .ui-dialog-overlay {
+        padding: 16px;
+        align-items: flex-end;
+    }
+
+    .ui-dialog {
+        max-width: none;
+        border-radius: 18px;
+    }
+
+    .ui-dialog__body {
+        padding: 24px 20px 4px;
+    }
+
+    .ui-dialog__actions {
+        flex-direction: column-reverse;
+        padding: 18px 20px 22px;
+    }
+
+    .ui-dialog__btn {
+        width: 100%;
+    }
+
+    .ui-error-page {
+        min-height: calc(100vh - 80px);
+        padding: 24px 14px;
+    }
+
+    .ui-error-card {
+        padding: 32px 22px 28px;
+    }
+
+    .ui-error-title {
+        font-size: 22px;
+    }
+}
