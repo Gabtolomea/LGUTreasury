@@ -1,0 +1,114 @@
+@model LGUTreasury.Controllers.GeneralCollectionsVm
+@using System.Globalization
+@{
+    ViewData["Title"] = "General Collections";
+    ViewData["ActiveNav"] = "report";
+
+    string Amt(decimal v) => v == 0 ? "" : v.ToString("N2", CultureInfo.InvariantCulture);
+    string Money(decimal v) => v.ToString("N2", CultureInfo.InvariantCulture);
+
+    var lines = Model.RemitLines;
+    var monthNames = CultureInfo.InvariantCulture.DateTimeFormat.MonthNames;
+
+    var periodFrom = new DateTime(Model.Year, Model.Month, 1);
+    var periodTo = periodFrom.AddMonths(1).AddDays(-1);
+    var periodText = $"{periodFrom:MMMM dd, yyyy} to {periodTo:MMMM dd, yyyy}";
+}
+
+<link rel="stylesheet" href="~/css/general-collections.css" />
+
+<div class="report-page-wrap">
+    <div class="page-header-row no-print">
+        <partial name="_BackBtn" />
+        <div>
+            <div class="page-title">General Collections</div>
+            <div class="page-sub">Remittance summary for the selected period</div>
+        </div>
+    </div>
+
+    <form method="get" class="gc-filter no-print">
+        <label>Month
+            <select name="month" class="form-select">
+                @for (var i = 1; i <= 12; i++)
+                {
+                    <option value="@i" selected="@(i == Model.Month)">@monthNames[i - 1]</option>
+                }
+            </select>
+        </label>
+        <label>Year
+            <input type="number" name="year" class="form-input" min="2000" max="2100" value="@Model.Year" />
+        </label>
+        <button type="submit" class="btn-generate">VIEW</button>
+        <button type="button" class="btn-generate" onclick="window.print()">PRINT</button>
+    </form>
+
+    @if (lines.Count == 0)
+    {
+        <div class="gc-warn no-print">No collections were recorded for this period.</div>
+    }
+
+    <div class="gc-sheet">
+        <div class="gc-report-header">
+            <div class="gc-org">LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM</div>
+            <div class="gc-report-type">Daily Collection Report</div>
+            <div class="gc-report-period">Period: @periodText</div>
+        </div>
+
+        <div class="gc-scroll">
+            <table class="remit-table">
+                <tbody>
+                @for (var i = 0; i < lines.Count; i++)
+                {
+                    var line = lines[i];
+
+                    if (line.Kind is "GroupBlue" or "GroupNormal")
+                    {
+                        var span = line.GroupSpan;
+                        for (var s = 0; s < span; s++)
+                        {
+                            var sub = lines[i + 1 + s];
+                            var subClass = sub.Kind switch
+                            {
+                                "SubInambakan" => "inamb",
+                                "SubKabutungan" => "kab",
+                                _ => ""
+                            };
+
+                            <tr>
+                                @if (s == 0)
+                                {
+                                    <td rowspan="@span" class="remit-group @(line.Kind == "GroupBlue" ? "blue" : "")">@line.Label</td>
+                                }
+                                <td class="center @subClass">@sub.Label</td>
+                                <td class="amt">@Amt(sub.Amount)</td>
+                            </tr>
+                        }
+                        i += span;
+                        continue;
+                    }
+
+                    var rowClass = line.Kind == "MiscHeading" ? "misc" : "";
+                    var labelClass = line.Kind switch
+                    {
+                        "MiscHeading" => "lbl",
+                        "Blue" => "blue",
+                        _ => ""
+                    };
+
+                    <tr class="@rowClass">
+                        <td colspan="2" class="@labelClass">@line.Label</td>
+                        <td class="amt">@(line.Kind == "MiscHeading" ? "" : Amt(line.Amount))</td>
+                    </tr>
+                }
+
+                <tr class="total">
+                    <td colspan="2">TOTAL</td>
+                    <td class="amt">@Money(Model.RemitTotal)</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="gc-generated">Generated: @DateTime.Now.ToString("MMMM dd, yyyy hh:mm tt")</div>
+    </div>
+</div>

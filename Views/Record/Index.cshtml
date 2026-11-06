@@ -1,3 +1,5 @@
+<!--change line 235 for OR no. for the modal-->
+
 @using LGUTreasury.Models
 @model IEnumerable<PaymentRecord>
 @{
@@ -6,6 +8,21 @@
     var role = ViewData["Role"]?.ToString();
     var isOfficerOrAdmin = role == "Officer" || role == "Admin";
     var isCollector = role == "Collector";
+}
+
+@functions {
+    string JsEscape(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("'", "\\'")
+            .Replace("\"", "\\u0022")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+            .Replace("\u2028", "\\u2028")
+            .Replace("\u2029", "\\u2029");
+    }
 }
 
 <link rel="stylesheet" href="~/css/records.css" />
@@ -49,11 +66,14 @@
     text-decoration: none; display: inline-flex; align-items: center;
 }
 .filter-clear-btn:hover { border-color: var(--text-2); }
-.records-stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-.records-stat-card { background: white; border: 1px solid var(--gray-border); border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow); }
-.records-stat-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
-.records-stat-value { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
-.records-stat-sub { font-size: 11.5px; color: var(--green); font-weight: 500; margin-top: 3px; }
+.records-stats-inline { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; margin-right: 10%; }
+.records-stat-card { background: white; border: 1px solid var(--gray-border); border-radius: 9px; padding: 10px 16px; box-shadow: var(--shadow); min-width: 150px; }
+.records-stat-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.records-stat-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
+.records-stat-sub { font-size: 11px; color: var(--green); font-weight: 500; margin-top: 3px; }
+@@media (max-width: 640px) {
+    .records-stats-inline { width: 100%; justify-content: flex-start; }
+}
 /* Delete button */
 .action-delete-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -83,11 +103,11 @@
 
 @if (TempData["Toast"] != null)
 {
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            showToast('@TempData["Toast"]');
-        });
-    </script>
+   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast('@Html.Raw(JsEscape(TempData["Toast"]?.ToString() ?? ""))');
+    });
+</script>
 }
 
 @if (isCollector)
@@ -96,7 +116,7 @@
         const allCollectorRecords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.Select(r => new {
                 paymentID    = r.PaymentID,
-                txnID        = "TXN-" + r.PaymentID.ToString("D6"),
+                txnID        = "TXN-" + r.PaymentID.ToString("D6"), //change to OR
                 payee        = r.Payee != null ? r.Payee.Lastname + ", " + r.Payee.Firstname : "—",
                 type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
                 amount       = r.TotalAmount,
@@ -182,24 +202,38 @@
                 <button type="submit" class="filter-apply-btn">Apply</button>
                 <a href="/Record/Index" class="filter-clear-btn">Clear</a>
             </div>
-        </form>
-
-        <div class="records-stats-row">
-            <div class="records-stat-card">
-                <div class="records-stat-label">Total Amount</div>
-                <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
-                <div class="records-stat-sub">
-                    @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
-                    { <span>Filtered results</span> }
-                    else
-                    { <span>All records</span> }
+            <div class="records-stats-inline">
+                <div class="records-stat-card">
+                    <div class="records-stat-label">Total Amount</div>
+                    <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div> <!-- apply this to workspace-->
+                    <div class="records-stat-sub">
+                        @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
+                        { <span>Filtered results</span> }
+                        else
+                        { <span>All records</span> }
+                    </div>
+                </div>
+                <div class="records-stat-card">
+                    <div class="records-stat-label">Transactions</div>
+                    <div class="records-stat-value">@ViewBag.FilteredCount</div>
+                    <div class="records-stat-sub">payment records</div>
                 </div>
             </div>
-            <div class="records-stat-card">
-                <div class="records-stat-label">Transactions</div>
-                <div class="records-stat-value">@ViewBag.FilteredCount</div>
-                <div class="records-stat-sub">payment records</div>
+        </form>
+
+        <div class="or-sort-container">
+            <div class="or-sort-label">
+                <span class="or-sort-icon">⇅</span>
+                <div>
+                    <label for="orSort">Sort Records</label>
+                    <small>Arrange by Official Receipt Number</small>
+                </div>
             </div>
+
+            <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()">
+                <option value="desc">Highest OR Number First ↓</option>
+                <option value="asc">Lowest OR Number First ↑</option>
+            </select>
         </div>
 
         <div class="records-toolbar">
@@ -213,8 +247,8 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Transaction ID</th>
-                        <th>Payor</th>
+                        <th>OR No.</th>
+                        <th>Payor</th>  
                         <th>Collection Type</th>
                         <th>Total Amount Paid</th>
                         <th>Date Issued</th>
@@ -232,7 +266,8 @@
                     {
                         @foreach (var record in Model)
                         {
-                            var txnID     = "TXN-" + record.PaymentID.ToString("D6");
+                            <!--var txnID     = "OR-" + record.PaymentID.ToString("D6");-->
+                            var txnID     = "OR-" + record.OfficialReceipt ?? "-";
                             var payee     = record.Payee != null ? $"{record.Payee.Lastname}, {record.Payee.Firstname}" : "—";
                             var type      = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
                             var amount    = record.TotalAmount.ToString("N2");
@@ -254,25 +289,29 @@
                                 <td style="color:var(--text-3)">@collector</td>
                                 <td><span class="status-text-@statusClass">@status</span></td>
                                 <td style="white-space:nowrap">
-                                    <button class="action-view-btn"
-                                            onclick="viewRecord('@txnID','@payee','@type','@amount','@date','@orNumber','@status','@method','@remarks','@collector')"
-                                            title="View">
-                                        <span class="btn-icon">
-                                            <svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg>
-                                        </span>
-                                    </button>
+                                   <button class="action-view-btn"
+        onclick="viewRecord('@Html.Raw(JsEscape(txnID))', '@Html.Raw(JsEscape(payee))', '@Html.Raw(JsEscape(type))', '@Html.Raw(JsEscape(amount))', '@Html.Raw(JsEscape(date))', '@Html.Raw(JsEscape(orNumber))', '@Html.Raw(JsEscape(status))', '@Html.Raw(JsEscape(method))', '@Html.Raw(JsEscape(remarks))', '@Html.Raw(JsEscape(collector))')"
+        title="View">
+    <span class="btn-icon">
+        <svg width="10" height="10" fill="none" viewBox="0 0 10 10">
+            <circle cx="5" cy="5" r="2" fill="white"/>
+            <path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z"
+                  stroke="white" stroke-width="1"/>
+        </svg>
+    </span>
+</button>
                                     @if (isCollector && !record.HasPendingRequest)
                                     {
-                                        <button class="action-modify-btn" onclick="openSendMessage(@record.PaymentID, '@txnID')" title="Send Message">
+                                        <button class="action-modify-btn" onclick="openSendMessage(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Send Message">
                                             <span class="btn-icon">✎</span>
                                         </button>
                                     }
                                     @if (isOfficerOrAdmin)
                                     {
-                                        <button class="action-modify-btn" onclick="openEditRecord(@record.PaymentID, '@txnID')" title="Edit Record">
+                                        <button class="action-modify-btn" onclick="openEditRecord(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Edit Record">
                                             <span class="btn-icon">✎</span>
                                         </button>
-                                        <button class="action-delete-btn" onclick="confirmDelete(@record.PaymentID, '@txnID')" title="Delete">
+                                        <button class="action-delete-btn" onclick="confirmDelete(@record.PaymentID, '@Html.Raw(JsEscape(txnID))')" title="Delete">
                                             <span class="btn-icon">🗑</span>
                                         </button>
                                     }
@@ -309,7 +348,7 @@
             </div>
             <div class="data-table-wrap">
                 <table class="data-table">
-                    <thead><tr><th>Transaction ID</th><th>Payor</th><th>Collection Type</th><th>Total Amount</th><th>Date Issued</th><th>OR Number</th><th>Method</th></tr></thead>
+                    <thead><tr><th>Official Receipt</th><th>Payor</th><th>Collection Type</th><th>Total Amount</th><th>Date Issued</th><th>OR Number</th><th>Method</th></tr></thead>
                     <tbody id="mycollections-tbody">
                         <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No records found for this period.</td></tr>
                     </tbody>
@@ -331,7 +370,7 @@
             <div class="data-table-wrap">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Message ID</th><th>Transaction ID</th><th>Payor</th><th>Message</th><th>Date</th><th>Sent By</th><th>Status</th><th>Actions</th></tr>
+                        <tr><th>Message ID</th><th>Official Receipt</th><th>Payor</th><th>Message</th><th>Date</th><th>Sent By</th><th>Status</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="approve-tbody">
                         @if (ViewBag.EditRequests == null || ((IEnumerable<EditRequest>)ViewBag.EditRequests).Count() == 0)
@@ -342,7 +381,9 @@
                         {
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
-                                var txnID     = "TXN-" + req.PaymentID.ToString("D6");
+                                var txnID = !string.IsNullOrEmpty(req.OfficialReceipt)
+    ? "OR-" + req.OfficialReceipt
+    : "-";
                                 var payee     = req.PaymentRecord?.Payee != null ? $"{req.PaymentRecord.Payee.Lastname}, {req.PaymentRecord.Payee.Firstname}" : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
                                 var isPending = req.Status == "Pending";
@@ -357,9 +398,9 @@
                                     <td style="white-space:nowrap">
                                         @if (isPending)
                                         {
-                                            <button class="action-approve-btn" onclick="openResolve(@req.RequestID, '@txnID')" title="Mark Resolved"><span class="btn-icon">✓</span></button>
+                                            <button class="action-approve-btn" onclick="openResolve(@req.RequestID, '@Html.Raw(JsEscape(txnID))')" title="Mark Resolved"><span class="btn-icon">✓</span></button>
                                         }
-                                        <button class="action-view-btn" onclick="viewMessage(@req.RequestID, '@txnID', '@payee', '@(req.Reason ?? "")', '@req.CreatedAt.ToString("MMM dd, yyyy")', '@reqBy', '@req.Status', '@(req.ReviewNote ?? "")')" title="View">
+                                        <button class="action-view-btn" onclick="viewMessage(@req.RequestID, '@Html.Raw(JsEscape(txnID))', '@Html.Raw(JsEscape(payee))', '@Html.Raw(JsEscape(req.Reason ?? ""))', '@Html.Raw(JsEscape(req.CreatedAt.ToString("MMM dd, yyyy")))', '@Html.Raw(JsEscape(reqBy))', '@Html.Raw(JsEscape(req.Status))', '@Html.Raw(JsEscape(req.ReviewNote ?? ""))')" title="View">
                                             <span class="btn-icon"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"/><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"/></svg></span>
                                         </button>
                                     </td>
@@ -377,7 +418,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Transaction ID</th>
+                            <th>Official Receipt</th>
                             <th>Payor</th>
                             <th>Collection Type</th>
                             <th>Collector</th>
@@ -398,7 +439,9 @@
                         {
                             @foreach (var d in deletedList)
                             {
-                                var dtxnID = "TXN-" + d.PaymentID.ToString("D6");
+                               var dtxnID = !string.IsNullOrEmpty(d.OfficialReceipt)
+    ? "OR-" + d.OfficialReceipt
+    : "-";
                                 <tr id="deleted-row-@d.DeletedRecordID">
                                     <td style="font-weight:700;color:var(--text-2)">@dtxnID</td>
                                     <td>@d.PayeeName</td>
@@ -407,10 +450,10 @@
                                     <td style="color:var(--text-3)">@d.DeletedByName</td>
                                     <td style="color:var(--text-3)">@d.DeletedAt.ToString("MMM dd, yyyy hh:mm tt")</td>
                                     <td style="white-space:nowrap">
-                                        <button class="action-restore-btn" onclick="restoreRecord(@d.DeletedRecordID, '@dtxnID')" title="Restore">
+                                        <button class="action-restore-btn" onclick="restoreRecord(@d.DeletedRecordID, '@Html.Raw(JsEscape(dtxnID))')" title="Restore">
                                             <span class="btn-icon" style="color:white;font-size:13px">↩</span>
                                         </button>
-                                        <button class="action-perm-btn" onclick="permanentDelete(@d.DeletedRecordID, '@dtxnID')" title="Permanently Delete">
+                                        <button class="action-perm-btn" onclick="permanentDelete(@d.DeletedRecordID, '@Html.Raw(JsEscape(dtxnID))')" title="Permanently Delete">
                                             <span class="btn-icon" style="color:white;font-size:11px">✕</span>
                                         </button>
                                     </td>
@@ -626,5 +669,35 @@
         if (data.success) { showToast('Record permanently deleted.'); document.getElementById('deleted-row-' + id)?.remove(); }
         else showToast(data.message, true);
     }
+function sortRecordsByOR() {
+    const tbody = document.getElementById('records-tbody');
+    const sortOrder = document.getElementById('orSort').value;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Ignore the "No records found" row.
+    const dataRows = rows.filter(row => row.querySelectorAll('td').length > 1);
+
+    dataRows.sort((a, b) => {
+        // The first column contains the displayed OR number.
+        const orA = a.cells[0].textContent.trim();
+        const orB = b.cells[0].textContent.trim();
+
+        // Remove the OR- prefix and compare the numeric portions.
+        const numA = parseInt(orA.replace(/^OR-/i, ''), 10);
+        const numB = parseInt(orB.replace(/^OR-/i, ''), 10);
+
+        const valueA = Number.isNaN(numA) ? -1 : numA;
+        const valueB = Number.isNaN(numB) ? -1 : numB;
+
+        return sortOrder === 'asc'
+            ? valueA - valueB
+            : valueB - valueA;
+    });
+
+    dataRows.forEach(row => tbody.appendChild(row));
+}
+
+
     </script>
 }
