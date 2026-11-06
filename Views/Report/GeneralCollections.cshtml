@@ -19,6 +19,7 @@
 
 <div class="report-page-wrap">
     <div class="page-header-row no-print">
+        @{ ViewData["BackController"] = "Report"; ViewData["BackAction"] = "Index"; }
         <partial name="_BackBtn" />
         <div>
             <div class="page-title">General Collections</div>
