@@ -1,0 +1,62 @@
+@{
+    var successMessage = TempData["Success"] as string;
+    var errorMessage = TempData["Error"] as string;
+    var warningMessage = TempData["Warning"] as string;
+    var infoMessage = TempData["Info"] as string;
+    var toastMessage = TempData["Toast"] as string;
+    var toastType = (TempData["ToastType"] as string) ?? "success";
+
+    var hasFlash = !string.IsNullOrWhiteSpace(successMessage)
+                || !string.IsNullOrWhiteSpace(errorMessage)
+                || !string.IsNullOrWhiteSpace(warningMessage)
+                || !string.IsNullOrWhiteSpace(infoMessage)
+                || !string.IsNullOrWhiteSpace(toastMessage);
+}
+
+<script src="~/js/ui-feedback.js" asp-append-version="true"></script>
+
+<div id="ui-toast-root" class="ui-toast-root" role="region" aria-live="polite" aria-label="Notifications"></div>
+
+@if (hasFlash)
+{
+    <script>
+        (function () {
+            var flash = {
+                success: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(successMessage)),
+                error: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(errorMessage)),
+                warning: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(warningMessage)),
+                info: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(infoMessage)),
+                toast: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(toastMessage)),
+                toastType: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(toastType))
+            };
+
+            function showFlash() {
+                if (!window.UI) return;
+
+                if (flash.error) {
+                    UI.alert(flash.error, {
+                        type: 'error',
+                        title: 'Something went wrong',
+                        confirmText: 'Got it'
+                    });
+                } else if (flash.warning) {
+                    UI.alert(flash.warning, {
+                        type: 'warning',
+                        title: 'Warning',
+                        confirmText: 'OK'
+                    });
+                }
+
+                if (flash.success) UI.toast(flash.success, 'success');
+                if (flash.info) UI.toast(flash.info, 'info');
+                if (flash.toast) UI.toast(flash.toast, flash.toastType || 'success');
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', showFlash);
+            } else {
+                showFlash();
+            }
+        })();
+    </script>
+}
