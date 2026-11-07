@@ -214,7 +214,7 @@
                     <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
                     <div class="records-stat-sub">
                         @if (!string.IsNullOrEmpty(ViewBag.FilterFrom?.ToString()) || !string.IsNullOrEmpty(ViewBag.FilterTo?.ToString()) || (int)ViewBag.FilterCollectorId > 0)
-                        { <span>Filtered results</span> }
+                        { <span>Filtered Results</span> }
                         else
                         { <span>All records</span> }
                     </div>
@@ -222,7 +222,7 @@
                 <div class="records-stat-card">
                     <div class="records-stat-label">Transactions</div>
                     <div class="records-stat-value">@ViewBag.FilteredCount</div>
-                    <div class="records-stat-sub">payment records</div>
+                    <div class="records-stat-sub">Payment Records</div>
                 </div>
             </div>
         </form>
