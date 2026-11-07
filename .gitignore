@@ -64,7 +64,13 @@ secrets.json
 *.key
 .aspnet/
 .deployment-tmp/
+/certificates/
 
 # ── OS cruft ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# Google Drive OAuth credentials
+credentials.json
+client_secret_*.json
+token.json
