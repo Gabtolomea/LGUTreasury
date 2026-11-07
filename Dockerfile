@@ -7,7 +7,7 @@ USER $APP_UID
 WORKDIR /app
 EXPOSE 8080 8443
 ENV ENABLE_HTTPS=false
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent --location --insecure http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl --fail --silent --show-error --max-time 4 http://localhost:8080/health/ready || exit 1
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release

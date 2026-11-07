@@ -43,7 +43,9 @@ namespace LGUTreasury.Controllers
             var today = DateTime.Today;
 
             // ── Recent records (for RecentRecords widget) ────────────────
-            IQueryable<PaymentRecord> query = _context.PaymentRecords.Include(p => p.Payee);
+            IQueryable<PaymentRecord> query = _context.PaymentRecords
+                .Where(p => !p.IsDeleted)
+                .Include(p => p.Payee);
             query = filter == "month"
                 ? query.Where(p => p.DateIssued.Month == today.Month && p.DateIssued.Year == today.Year)
                 : query.Where(p => p.DateIssued.Date >= today.AddDays(-6));
@@ -81,14 +83,14 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
             // ── MTD ──────────────────────────────────────────────────────
             var monthStart = new DateTime(today.Year, today.Month, 1);
             ViewBag.MtdTotal      = (await _context.PaymentRecords
-                .Where(p => p.DateIssued >= monthStart && p.DateIssued <= today)
+                .Where(p => !p.IsDeleted && p.DateIssued >= monthStart && p.DateIssued <= today)
                 .SumAsync(p => p.TotalAmount)).ToString("N2");
             ViewBag.DaysThisMonth = today.Day;
 
             // ── Top Revenue Today ─────────────────────────────────────────
             var topRevenue = await _context.RecordLineItems
                 .Include(l => l.RevenueType)
-                .Where(l => l.PaymentRecord != null && l.PaymentRecord.DateIssued.Date == today)
+                .Where(l => l.PaymentRecord != null && !l.PaymentRecord.IsDeleted && l.PaymentRecord.DateIssued.Date == today)
                 .GroupBy(l => l.RevenueType != null ? l.RevenueType.Name : "Unknown")
                 .Select(g => new { Name = g.Key, Total = g.Sum(l => l.LineTotal), Count = g.Count() })
                 .OrderByDescending(g => g.Total)
@@ -100,7 +102,7 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
             // ── Bar chart (always last 7 days) ────────────────────────────
             var weekStart   = today.AddDays(-6);
             var allPayments = await _context.PaymentRecords
-                .Where(p => p.DateIssued.Date >= weekStart && p.DateIssued.Date <= today)
+                .Where(p => !p.IsDeleted && p.DateIssued.Date >= weekStart && p.DateIssued.Date <= today)
                 .ToListAsync();
             var dailyTotals = Enumerable.Range(0, 7)
                 .Select(i => allPayments
@@ -128,7 +130,7 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
 
             var leaderboard = await _context.PaymentRecords
                 .Include(p => p.CollectedBy)
-                .Where(p => p.DateIssued.Date >= leaderboardFrom && p.DateIssued.Date <= leaderboardTo)
+                .Where(p => !p.IsDeleted && p.DateIssued.Date >= leaderboardFrom && p.DateIssued.Date <= leaderboardTo)
                 .GroupBy(p => new {
                     p.CollectedBy_UserID,
                     EmployeeID = p.CollectedBy != null ? p.CollectedBy.EmployeeID : "—",
@@ -145,11 +147,10 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
 
             ViewBag.Leaderboard = leaderboard;
 
-            // Widgets match the collector summary range exactly
-            var collectedTotal = leaderboard.Sum(c => (decimal)c.Total);
-            var paymentsCount  = await _context.PaymentRecords
-                .Where(p => p.DateIssued.Date >= leaderboardFrom && p.DateIssued.Date <= leaderboardTo)
-                .CountAsync();
+            // Overview widgets match the records page total: all non-deleted records.
+            var activeRecords  = _context.PaymentRecords.Where(p => !p.IsDeleted);
+            var collectedTotal = await activeRecords.SumAsync(p => p.TotalAmount);
+            var paymentsCount  = await activeRecords.CountAsync();
 
             ViewBag.CollectedTotal = collectedTotal.ToString("N2");
             ViewBag.PaymentsCount  = paymentsCount;

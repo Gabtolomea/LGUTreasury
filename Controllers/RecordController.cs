@@ -444,8 +444,11 @@ public async Task<IActionResult> CreateBulk(
             var deleted = new DeletedRecord
             {
                 PaymentID        = payment.PaymentID,
-                OfficialReceipt  = payment.OfficialReceipt,
-                PayeeName        = payment.Payee != null ? $"{payment.Payee.Lastname}, {payment.Payee.Firstname}" : "—",
+                PayeeName        = payment.Payee == null
+                                   ? "—"
+                                   : string.IsNullOrWhiteSpace(payment.Payee.Lastname)
+                                       ? payment.Payee.Firstname ?? "—"
+                                       : $"{payment.Payee.Lastname}, {payment.Payee.Firstname}",
                 CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
                 DeletedBy_UserID = userID.Value,

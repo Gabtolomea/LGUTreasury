@@ -63,6 +63,7 @@ secrets.json
 *.pfx
 *.key
 .aspnet/
+.deployment-tmp/
 
 # ── OS cruft ─────────────────────────────────────────────────
 .DS_Store

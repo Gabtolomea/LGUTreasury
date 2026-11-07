@@ -2,15 +2,6 @@
 (function () {
     'use strict';
 
-    function showToast(msg, isError) {
-        var t = document.getElementById('toast');
-        if (!t) return;
-        t.textContent = msg;
-        t.className = 'toast' + (isError ? ' error' : '');
-        t.classList.add('show');
-        setTimeout(function () { t.classList.remove('show'); }, 2800);
-    }
-
     function initPasswordToggles() {
         var buttons = document.querySelectorAll('.password-toggle');
         Array.prototype.forEach.call(buttons, function (btn) {
@@ -59,6 +50,4 @@
         initPasswordToggles();
         initPasswordMatch();
     });
-
-    window.showToast = showToast;
 })();

@@ -10,6 +10,7 @@
     <title>Contact Admin — LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/auth.css" />
+    <link rel="stylesheet" href="~/css/ui-feedback.css" asp-append-version="true" />
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; font-family: 'Inter', sans-serif; }
@@ -39,19 +40,23 @@
                 <div class="auth-card-title">No Email Found</div>
             </div>
 
-            <div style="background:#fff3e0;border:1px solid #FFE0B2;border-radius:10px;padding:16px;margin-bottom:20px">
-                <div style="font-size:28px;margin-bottom:8px">📋</div>
-                <div style="font-size:14px;font-weight:700;color:#E65100;margin-bottom:6px">No email address registered</div>
-                <div style="font-size:13px;color:#BF360C">
-                    @if (TempData["UserName"] != null)
-                    {
-                        <span>Hi <strong>@TempData["UserName"]</strong>, your</span>
-                    }
-                    else
-                    {
-                        <span>Your</span>
-                    }
-                    account does not have an email address on file. You cannot use the OTP reset flow.
+            <div class="ui-alert ui-alert--warning" role="alert">
+                <span class="ui-alert__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                </span>
+                <div class="ui-alert__content">
+                    <div class="ui-alert__title">No email address registered</div>
+                    <div class="ui-alert__message">
+                        @if (TempData["UserName"] != null)
+                        {
+                            <span>Hi <strong>@TempData["UserName"]</strong>, your</span>
+                        }
+                        else
+                        {
+                            <span>Your</span>
+                        }
+                        account does not have an email address on file. You cannot use the OTP reset flow.
+                    </div>
                 </div>
             </div>
 
@@ -64,5 +69,6 @@
             </div>
         </div>
     </div>
+    <partial name="_UiFeedback" />
 </body>
 </html>

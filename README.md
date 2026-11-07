@@ -94,10 +94,10 @@ dotnet run --launch-profile https
 ```
 
 On native startup the app applies the checked-in EF Core migrations and seeds starter data:
-revenue categories/types/policies and a default admin account.
-
-> **Default admin (development):** employee ID `ADMIN001`, password `Admin@1234`.
-> Change it immediately in any shared environment.
+revenue categories/types/policies. If the database has no administrator, set
+`INITIAL_ADMIN_EMPLOYEE_ID` and `INITIAL_ADMIN_PASSWORD` in `.env` first. The initial
+password must be at least 12 characters. These values are used only to create the first
+administrator; remove them from `.env` after the account is created.
 
 Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` redirect to HTTPS.
 
@@ -184,15 +184,19 @@ docker compose restart app
 # Open a shell inside the app container
 docker compose exec app sh
 
-# Check the app health page
-# Open http://localhost:8080/health in a browser
+# Check process liveness
+# Open http://localhost:8080/health/live
+# Check application and MySQL readiness
+# Open http://localhost:8080/health/ready
 ```
 
 `docker compose down` preserves the database volume. To intentionally reset all local
 Docker data, run `docker compose down -v`.
 
-The development admin account is employee ID `ADMIN001` with password `Admin@1234`.
-Change it when using data outside a private development environment.
+For a fresh database, configure `INITIAL_ADMIN_EMPLOYEE_ID` and
+`INITIAL_ADMIN_PASSWORD` in `.env` before starting the app. Use a unique password of at
+least 12 characters. Once the first administrator is created, remove both bootstrap
+values from `.env`; existing administrator accounts are not recreated or reset.
 
 ### Safe Docker deployment
 
@@ -204,7 +208,7 @@ python deploy.py
 
 The runner checks Docker and the environment, waits for MySQL readiness, saves a
 timestamped database dump and recovery image under `backups/`, validates Compose, deploys
-the app, and checks both the container health and `/health` endpoint. It rolls back the
+the app, and checks both Docker container health and the database-aware `/health/ready` endpoint. It rolls back the
 previous app image when deployment or health checks fail. It never removes the MySQL
 volume or database backups.
 

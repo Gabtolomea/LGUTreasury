@@ -287,8 +287,9 @@
             cursor: pointer; font-family: inherit;
         }
     </style>
+    <link rel="stylesheet" href="~/css/ui-feedback.css" asp-append-version="true" />
 </head>
-<body>
+<body class="has-app-nav">
 
     <!-- TOP NAV -->
     <div class="topnav">
@@ -386,15 +387,15 @@
                 </a>
             }
 
-            <div style="flex: 1;"></div>
-
-            <a asp-controller="Account"
-              asp-action="Logout"
-              class="logout-btn">
-              <img src="~/images/Logout-static.png"
-               alt="Logout"
-               class="Logout-animation" />
-               <span>Logout</span>
+            <div style="flex:1"></div>
+            <a asp-controller="Account" asp-action="Logout" class="logout-btn"
+               data-ui-confirm="Are you sure you want to log out?"
+               data-ui-confirm-title="Log Out"
+               data-ui-confirm-type="error"
+               data-ui-confirm-text="Log Out"
+               data-ui-confirm-danger="true">
+                <svg width="18" height="18" fill="none" viewBox="0 0 18 18"><path d="M7 3H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4M12 13l4-4-4-4M16 9H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Logout
             </a>
         </div>
 
@@ -403,41 +404,8 @@
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
+    <partial name="_UiFeedback" />
 
-    <script>
-
-        let toastTimer;
-        function showToast(msg, isError = false) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = 'toast' + (isError ? ' error' : '');
-            t.classList.add('show');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
-        }
-        function openModal(id) { document.getElementById(id).classList.add('open'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-
- 
-/*document.querySelectorAll('a[href]:not([target="_blank"])').forEach(link => {
-    link.addEventListener('click', function(e) {
-        const href = this.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript') || href === '') return;
-        e.preventDefault();
-        const mc = document.querySelector('.main-content');
-        mc.style.transition = 'opacity .2s ease, transform .2s ease';
-        mc.style.opacity = '0';
-        mc.style.transform = 'translateY(-20px)';
-        setTimeout(() => { window.location.href = href; }, 220);
-    });
-});*/
-
-
-
-
-    </script>
     @RenderSection("Scripts", required: false)
 
 </body>

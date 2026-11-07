@@ -268,8 +268,19 @@ namespace LGUTreasury.Controllers
             var bill = await _context.MonthlyBills.FindAsync(BillID);
             if (bill == null) return Json(new { success = false, message = "Bill not found." });
 
+            var orNumber = ORNumber.Trim();
+
+            // An OR number may only be attached to one bill.
+            var alreadyUsed = await _context.MonthlyBills.AnyAsync(b =>
+                b.MonthlyBillID != BillID &&
+                b.ORNumber != null &&
+                b.ORNumber.Trim().ToLower() == orNumber.ToLower());
+
+            if (alreadyUsed)
+                return Json(new { success = false, message = $"OR number \"{orNumber}\" is already used by another bill." });
+
             bill.Status   = "Paid";
-            bill.ORNumber = ORNumber;
+            bill.ORNumber = orNumber;
             bill.PaidAt   = DateTime.Now;
             await _context.SaveChangesAsync();
             return Json(new { success = true });
