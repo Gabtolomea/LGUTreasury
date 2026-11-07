@@ -49,6 +49,12 @@ public IActionResult Login()
              return View(model);
             }
 
+            if (user.Status == "Inactive")
+            {
+             TempData["Error"] = "Your account has been deactivated. Please contact the admin.";
+             return View(model);
+            }
+
             // Store session
             HttpContext.Session.SetInt32("UserID", user.UserID);
             HttpContext.Session.SetString("Role", user.Role!);
