@@ -105,14 +105,21 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 
 ### 4. Run with Docker Compose
 
-The Docker workflow runs the ASP.NET Core app and MySQL together. It is intended for
-local development, uses a persistent MySQL volume, and uses HTTP by default. Native
-development continues to use HTTPS.
+The Docker workflow runs only the ASP.NET Core app. MySQL runs natively on the host
+or on another reachable server. The app connects to it through
+`NATIVE_MYSQL_CONNECTION` and uses HTTP by default.
 
-Copy the example environment file and set your local database passwords:
+Copy the example environment file and set the native MySQL connection:
 
 ```powershell
 Copy-Item .env.example .env
+```
+
+When MySQL is installed on the host machine, use `host.docker.internal` as the
+MySQL host:
+
+```env
+NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 ```
 
 Docker uses `http://localhost:8080` by default. No HTTPS certificate is needed. To
@@ -140,10 +147,10 @@ docker compose up --build
 
 Open `http://localhost:8080` after the containers start. Docker Compose applies the
 checked-in EF Core migrations and seeds the starter data. The Docker app connects to
-MySQL through the Compose service name `db`; native development continues to use the
-`localhost` connection string. When HTTPS is enabled, use `https://localhost:8443` and
-HTTP redirects to HTTPS. The development certificate is trusted for `localhost`; LAN
-access needs a certificate that includes the LAN hostname or IP address.
+the native MySQL server configured by `NATIVE_MYSQL_CONNECTION`. When HTTPS is
+enabled, use `https://localhost:8443` and HTTP redirects to HTTPS. The development
+certificate is trusted for `localhost`; LAN access needs a certificate that includes
+the LAN hostname or IP address.
 
 Useful commands:
 
@@ -153,31 +160,9 @@ docker compose logs -f app
 docker compose down
 ```
 
-### Docker development commands
-
-Open the MySQL console:
-
-```bash
-docker compose exec db mysql -u root -p
-```
-
-Enter the `MYSQL_ROOT_PASSWORD` from your `.env` file when asked. Then use:
-
-```sql
-SHOW DATABASES;
-USE LGUTreasury;
-SHOW TABLES;
-EXIT;
-```
-
-If you changed `MYSQL_DATABASE` in `.env`, use that database name instead.
-
 Other useful commands:
 
 ```bash
-# View database logs
-docker compose logs -f db
-
 # Restart only the app
 docker compose restart app
 
@@ -190,54 +175,36 @@ docker compose exec app sh
 # Open http://localhost:8080/health/ready
 ```
 
-`docker compose down` preserves the database volume. To intentionally reset all local
-Docker data, run `docker compose down -v`.
+`docker compose down` stops and removes the app container. It does not affect the
+native MySQL server or its data.
 
 For a fresh database, configure `INITIAL_ADMIN_EMPLOYEE_ID` and
 `INITIAL_ADMIN_PASSWORD` in `.env` before starting the app. Use a unique password of at
 least 12 characters. Once the first administrator is created, remove both bootstrap
 values from `.env`; existing administrator accounts are not recreated or reset.
 
+The native MySQL server must accept TCP connections from Docker Desktop on port 3306,
+and the configured user must have access to the database. Keep `SslMode=Required` when
+the server has TLS enabled; use the setting supported by the local development server.
+
 ### Safe Docker deployment
 
-For the bundled-MySQL Compose workflow, run the deployment runner from the project root:
+For the native-MySQL Docker workflow, run the deployment runner from the project root:
 
 ```powershell
 python deploy.py
 ```
 
-The runner checks Docker and the environment, waits for MySQL readiness, saves a
-timestamped database dump and recovery image under `backups/`, validates Compose, deploys
-the app, and checks both Docker container health and the database-aware `/health/ready` endpoint. It rolls back the
-previous app image when deployment or health checks fail. It never removes the MySQL
-volume or database backups.
+The runner checks Docker and the environment, saves a timestamped native-MySQL dump
+and recovery image under `backups/`, validates Compose, deploys the app, and checks
+both Docker container health and the database-aware `/health/ready` endpoint. It rolls
+back the previous app image when deployment or health checks fail. It does not manage
+or remove the native MySQL server or its data.
 
 Deployment logs are appended to `logs/deployment.log`. The runner requires
-`MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env` or the host environment. When
-`ENABLE_HTTPS=true`, it also requires `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`. Native
-MySQL deployments using `compose.native-mysql.yaml` are not handled by this runner.
+`NATIVE_MYSQL_CONNECTION` in `.env` or the host environment. When
+`ENABLE_HTTPS=true`, it also requires `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`.
 After a successful deployment, it prints URLs matching the selected HTTP or HTTPS mode.
-
----
-
-### 5. Run the Docker app with native MySQL
-
-To run only the app container while using MySQL installed on the host machine, set
-`NATIVE_MYSQL_CONNECTION` in `.env`. Use `host.docker.internal` as the MySQL host:
-
-```env
-NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
-```
-
-Start the app without starting the bundled MySQL container:
-
-```bash
-docker compose -f compose.yaml -f compose.native-mysql.yaml up --build --no-deps app
-```
-
-The native MySQL server must accept TCP connections from Docker Desktop on port 3306,
-and the configured user must have access to the database. Keep `SslMode=Required` when
-the server has TLS enabled; use the setting supported by the local development server.
 
 ---
 

@@ -129,8 +129,6 @@ class DeploymentRunner:
 
         secret_values = [
             database_config.get("password", ""),
-            values.get("MYSQL_PASSWORD", ""),
-            values.get("MYSQL_ROOT_PASSWORD", ""),
             values.get("HTTPS_CERT_PASSWORD", ""),
             values.get("INITIAL_ADMIN_PASSWORD", ""),
         ]
