@@ -100,7 +100,7 @@ namespace LGUTreasury.Controllers
             ViewData["Initials"]  = GetInitials(ViewData["FullName"]?.ToString());
 
             var users = await _context.UserAccounts
-                .Where(u => u.Status == "Active")
+                .Where(u => u.Status == "Active" || u.Status == "Inactive")
                 .OrderBy(u => u.LastName)
                 .ToListAsync();
 
@@ -132,6 +132,80 @@ namespace LGUTreasury.Controllers
             await _context.SaveChangesAsync();
 
             return Json(new { success = true });
+        }
+
+        // POST: /Admin/ToggleUserStatus
+        [HttpPost]
+        public async Task<IActionResult> ToggleUserStatus(int userID)
+        {
+            var adminID = HttpContext.Session.GetInt32("UserID");
+            if (adminID == null)
+                return Json(new { success = false, message = "Not logged in." });
+
+            var adminRole = HttpContext.Session.GetString("Role");
+            if (adminRole != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            if (adminID.Value == userID)
+                return Json(new { success = false, message = "You cannot deactivate your own account." });
+
+            var user = await _context.UserAccounts.FindAsync(userID);
+            if (user == null)
+                return Json(new { success = false, message = "User not found." });
+
+            if (user.Status == "Active")
+            {
+                user.Status   = "Inactive";
+                user.IsActive = false;
+            }
+            else
+            {
+                user.Status   = "Active";
+                user.IsActive = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, status = user.Status });
+        }
+
+        // POST: /Admin/UpdateUserContact
+        [HttpPost]
+        public async Task<IActionResult> UpdateUserContact(int userID, string? email, string? contactNumber)
+        {
+            var adminID = HttpContext.Session.GetInt32("UserID");
+            if (adminID == null)
+                return Json(new { success = false, message = "Not logged in." });
+
+            var adminRole = HttpContext.Session.GetString("Role");
+            if (adminRole != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var user = await _context.UserAccounts.FindAsync(userID);
+            if (user == null)
+                return Json(new { success = false, message = "User not found." });
+
+            email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+            if (email != null &&
+                (!System.Net.Mail.MailAddress.TryCreate(email, out var parsed) ||
+                 !string.Equals(parsed.Address, email, StringComparison.OrdinalIgnoreCase)))
+                return Json(new { success = false, message = "Please enter a valid email address." });
+
+            if (ContactNumberRules.HasLetters(contactNumber))
+                return Json(new { success = false, message = ContactNumberRules.LettersErrorMessage });
+            if (!ContactNumberRules.IsValid(contactNumber))
+                return Json(new { success = false, message = ContactNumberRules.LengthErrorMessage });
+
+            user.Email         = email;
+            user.ContactNumber = ContactNumberRules.Normalize(contactNumber);
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                success       = true,
+                email         = user.Email,
+                contactNumber = ContactNumberRules.Format(user.ContactNumber)
+            });
         }
 
         private string GetInitials(string? fullName)
