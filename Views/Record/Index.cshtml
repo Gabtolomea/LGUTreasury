@@ -72,7 +72,8 @@
     padding: 7px 12px; background: white; color: var(--text-2);
     border: 1.5px solid var(--gray-border); border-radius: 7px;
     font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer;
-    text-decoration: none; display: inline-flex; align-items: center;
+    text-decoration: none; display: inline-flex; align-items: flex-start; 
+    margin-top: 18px;
 }
 .filter-clear-btn:hover { border-color: var(--text-2); }
 .records-stats-inline { display: flex; flex: 1 1 320px; min-width: 0; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: stretch; margin-left: auto; }
@@ -235,8 +236,8 @@
                 <span class="or-sort-icon" title="Sort by Official Receipt Number">⇅</span>
                 <label for="orSort" class="or-sort-label">Sort</label>
                 <select id="orSort" class="or-sort-select" onchange="sortRecordsByOR()" title="Arrange by Official Receipt Number">
-                    <option value="desc">OR No. ↓</option>
-                    <option value="asc">OR No. ↑</option>
+                    <option value="desc">OR No. ⬇</option>
+                    <option value="asc">OR No. ⬆</option>
                 </select>
             </div>
         </div>
