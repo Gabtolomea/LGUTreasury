@@ -36,5 +36,6 @@ namespace LGUTreasury.Models
  
         [ForeignKey("ReviewedBy_UserID")]
         public UserAccount? ReviewedBy { get; set; }
+        public string? OfficialReceipt { get; set; }
     }
 }

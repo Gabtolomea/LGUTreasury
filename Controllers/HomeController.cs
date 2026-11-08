@@ -75,7 +75,7 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
 
             ViewBag.RecentRequests = await _context.Editrequests
                 .Include(r => r.PaymentRecord)
-                .Where(r => r.RequestedBy_UserID == userID)
+                //.Where(r => r.RequestedBy_UserID == userID)
                 .OrderByDescending(r => r.CreatedAt)
                 .Take(4)
                 .ToListAsync();
