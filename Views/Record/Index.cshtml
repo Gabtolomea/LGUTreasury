@@ -379,7 +379,7 @@
                         {
                             @foreach (var req in (IEnumerable<EditRequest>)ViewBag.EditRequests)
                             {
-                                var txnID     = "TXN-" + req.PaymentID.ToString("D6");
+                               var txnID = !string.IsNullOrEmpty(req.OfficialReceipt) ? "OR-" + req.OfficialReceipt : "-";
     
                                 var payee     = req.PaymentRecord?.Payee != null ? FormatPayee(req.PaymentRecord.Payee.Firstname, req.PaymentRecord.Payee.Lastname) : "—";
                                 var reqBy     = req.RequestedBy != null ? $"{req.RequestedBy.FirstName} {req.RequestedBy.LastName}" : "—";
