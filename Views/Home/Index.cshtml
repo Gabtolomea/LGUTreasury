@@ -32,6 +32,13 @@
   height: calc(100vh - 80px);
 }
 
+img.profile-avatar {
+    object-fit: cover; border-radius: 50%; display: block;
+    box-sizing: border-box; padding: 3px;
+    background: #e5e7eb;            /* the grey behind the avatar */
+    border: 2px solid #d0d7de;      /* same grey ring as the topnav */
+}
+
 /* ── Section Header ── */
 .dash-section-head {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -487,7 +494,7 @@
     <div class="officer-badge">● On Duty</div>
 
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 14px;border-bottom:1px solid var(--gray-border)">
-      <div class="profile-avatar">@ViewData["Initials"]</div>
+      <img class="profile-avatar js-profile-photo" src="~/images/Default Avatar.webp" alt="Profile">
       <div class="profile-name">@ViewData["FullName"]</div>
       <div class="profile-eid">Employee ID: @ViewData["EmployeeID"]</div>
       <div class="profile-details" style="width:100%;text-align:left">

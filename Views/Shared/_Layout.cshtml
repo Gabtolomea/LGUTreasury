@@ -16,6 +16,9 @@
     <title>LGU Revenue Record System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="preload" as="image" href="~/images/Logout.webp" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/profile-photo.css" asp-append-version="true" />
+
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -103,10 +106,26 @@
             padding: 5px 12px; border-radius: 20px;
         }
         .topnav-avatar {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255,255,255,.3);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: 700; color: white; cursor: pointer;
+         width: 40px; height: 40px;  
+         flex: 0 0 auto;
+         box-sizing: border-box;
+         padding: 3px;                
+         margin: 0;
+         line-height: 0;
+         background: #fff;
+         border: 2px solid #d0d7de;   
+         border-radius: 50%;
+         display: inline-flex; align-items: center; justify-content: center;
+         overflow: hidden;
+         cursor: pointer;
+         font: inherit;
+        }
+        .topnav-avatar:hover { border-color: #8c959f; }
+        .topnav-avatar img {
+         display: block;
+         width: 100%; height: 100%; max-width: none;
+         object-fit: cover;           
+         border-radius: 50%;
         }
         .topnav-role-badge {
             background: rgba(255,255,255,.15); color: white;
@@ -114,6 +133,24 @@
             text-transform: uppercase; padding: 3px 10px; border-radius: 12px;
             border: 1px solid rgba(255,255,255,.3);
         }
+
+        /* ===== Profile photo modal ===== */
+        .pm-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .pm-backdrop.open { display: flex; }
+        .pm-modal { background: #fff; width: min(400px, 92vw); border-radius: 12px; padding: 24px; text-align: left; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+        .pm-modal h3 { margin: 0 0 4px; font-size: 18px; }
+        .pm-sub { margin: 0 0 20px; font-size: 13px; color: #57606a; }
+        .pm-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+        .pm-photo-row { display: flex; align-items: center; gap: 16px; }
+        .pm-preview { width: 88px; height: 88px; flex: 0 0 auto; border-radius: 50%; object-fit: cover; border: 3px solid #d0d7de; background: #e6eaef; }
+        .pm-photo-btns { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+        .pm-btn { padding: 8px 14px; border-radius: 6px; border: 1px solid #d0d7de; background: #f6f8fa; cursor: pointer; font-size: 14px; }
+        .pm-btn.small { padding: 6px 12px; font-size: 13px; }
+        .pm-btn.primary { background: #1a7f37; border-color: #1a7f37; color: #fff; }
+        .pm-btn.danger { color: #cf222e; }
+        .pm-btn:disabled { opacity: .5; cursor: default; }
+        .pm-error { color: #cf222e; font-size: 13px; margin-top: 10px; min-height: 1em; }
+        .pm-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #eaeef2; }
 
         /* APP BODY — takes remaining height */
         .app-body {
@@ -300,7 +337,10 @@
         <div class="topnav-right">
             <!--<div class="topnav-role-badge">@ViewData["Role"]</div>-->
             <div class="topnav-user-pill">@ViewData["Role"]</div>
-            <div class="topnav-avatar">@ViewData["Initials"]</div>
+            <!--<div class="topnav-avatar">@ViewData["Initials"]</div> -->
+            <button type="button" class="topnav-avatar" id="profileBtn" aria-label="Change profile photo">
+    <img id="avatarImg" src="~/images/Default Avatar.webp" alt="Profile">
+</button>
         </div>
     </div>
 
@@ -407,6 +447,92 @@
     </div>
 
     <partial name="_UiFeedback" />
+
+     <div class="pm-backdrop" id="pmBackdrop" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+        <div class="pm-modal">
+            <h3 id="pmTitle">Change Profile</h3>
+            <p class="pm-sub">Choose a new profile photo. It is saved only on this device.</p>
+
+            <span class="pm-label">Profile Photo</span>
+            <div class="pm-photo-row">
+                <img class="pm-preview" id="pmPreview" alt="Preview">
+                <div class="pm-photo-btns">
+                    <button type="button" class="pm-btn small" id="pmChoose">Choose photo</button>
+                    <button type="button" class="pm-btn small danger" id="pmRemove">Remove</button>
+                </div>
+            </div>
+            <input type="file" id="pmFile" accept="image/*" hidden>
+            <div class="pm-error" id="pmError"></div>
+
+            <div class="pm-footer">
+                <button type="button" class="pm-btn" id="pmCancel">Cancel</button>
+                <button type="button" class="pm-btn primary" id="pmSave" disabled>Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+        <script>
+    (() => {
+      const KEY = 'lgu_profile_photo';
+      const $ = id => document.getElementById(id);
+      const btn = $('profileBtn'), avatarImg = $('avatarImg'),
+            backdrop = $('pmBackdrop'), preview = $('pmPreview'), file = $('pmFile'),
+            saveBtn = $('pmSave'), err = $('pmError');
+      if (!btn || !avatarImg || !backdrop) return;
+
+      const DEFAULT = avatarImg.getAttribute('src'); // the default image your layout rendered
+      let pending; // undefined = untouched, null = remove, string = new photo
+
+      const get = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+      const apply = () => {
+     const src = get() || DEFAULT;
+    document.querySelectorAll('#avatarImg, .js-profile-photo').forEach(i => i.src = src);
+    };
+
+      function open() {
+        pending = undefined; err.textContent = ''; file.value = '';
+        preview.src = get() || DEFAULT; saveBtn.disabled = true;
+        backdrop.classList.add('open');
+      }
+      const close = () => backdrop.classList.remove('open');
+
+      function toSquareDataURL(f) {
+        return new Promise((res, rej) => {
+          const img = new Image(), url = URL.createObjectURL(f);
+          img.onload = () => {
+            const s = Math.min(img.width, img.height), c = document.createElement('canvas');
+            c.width = c.height = 256;
+            c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256);
+            URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.9));
+          };
+          img.onerror = () => { URL.revokeObjectURL(url); rej(); };
+          img.src = url;
+        });
+      }
+
+      btn.addEventListener('click', open);
+      $('pmChoose').addEventListener('click', () => file.click());
+      file.addEventListener('change', async () => {
+        const f = file.files[0]; if (!f) return;
+        try { pending = await toSquareDataURL(f); preview.src = pending; saveBtn.disabled = false; err.textContent = ''; }
+        catch { err.textContent = 'Could not read that image.'; }
+      });
+      $('pmRemove').addEventListener('click', () => { pending = null; preview.src = DEFAULT; saveBtn.disabled = false; });
+      $('pmCancel').addEventListener('click', close);
+      saveBtn.addEventListener('click', () => {
+        try {
+          if (pending === null) localStorage.removeItem(KEY);
+          else if (pending) localStorage.setItem(KEY, pending);
+        } catch { err.textContent = 'Could not save (storage full or blocked).'; return; }
+        apply(); close();
+      });
+      backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+      window.addEventListener('storage', apply);
+      apply();
+    })();
+    </script>
+
     @RenderSection("Scripts", required: false)
 
 </body>
