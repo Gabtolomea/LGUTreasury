@@ -15,7 +15,7 @@
     .page-sub { font-size:13px; color:var(--green); }
 
     /* Widgets */
-    .widgets-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .widgets-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
     .widget-card { background:white; border-radius:14px; border:1px solid var(--gray-border); box-shadow:var(--shadow); padding:18px 22px; }
     .widget-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); margin-bottom:8px; }
     .widget-amount { font-size:24px; font-weight:800; color:var(--text); }
@@ -24,6 +24,21 @@
     .widget-card.expected-month .widget-amount  { color:var(--blue); }
     .widget-card.total-expected .widget-amount  { color:#7b2d8b; }
     .widget-card.total-collected .widget-amount { color:var(--green-dark); }
+    .widget-card {--accent:#388E3C; --accent-soft:#E8F5E9; position:relative; overflow:hidden; border-left:4px solid var(--accent); padding:14px 18px 12px; transition:transform .2s, box-shadow .2s; }
+    .widget-card:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,.10); }
+
+    .widget-card { position:relative; overflow:hidden; }
+    .widget-card::after {
+    content:"";
+    position:absolute; top:-26px; right:-22px;
+    width:90px; height:90px; border-radius:50%;
+    background:var(--accent-soft, #E8F5E9);
+    pointer-events:none; }
+
+    .widget-card > * { position:relative; z-index:1; }
+    .widget-card.total-expected  { --accent:#7B2D8B; --accent-soft:rgba(123,45,139,.12); }  /* purple */
+    .widget-card.total-collected { --accent:#2E7D32; --accent-soft:rgba(46,125,50,.12); }  
+    .widget-card.total-collected { --accent:#2E7D32; --accent-soft:rgba(46,125,50,.12); } 
 
     /* Toolbar */
     .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }

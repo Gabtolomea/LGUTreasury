@@ -89,6 +89,34 @@
     .records-stats-inline { width: 100%; justify-content: flex-start; }
     .records-stat-card { flex: 1 1 100%; }
 }
+.records-stat-card {
+    --accent: #2E7D32;                     
+    --accent-soft: rgba(46,125,50,.12);    
+    position: relative;                     
+    overflow: hidden;                       
+    border-left: 4px solid var(--accent);  
+}
+.records-stat-card::after {
+    content: "";
+    position: absolute; top: -22px; right: -20px;
+    width: 70px; height: 70px; border-radius: 50%;
+    background: var(--accent-soft);
+    pointer-events: none;
+}
+.records-stat-card > * { position: relative; z-index: 1; }
+.records-stat-value,
+.records-stat-value { color: var(--accent); }
+.records-stat-card.accent-orange { --accent:#EF6C00; --accent-soft:rgba(239,108,0,.12); }
+.records-stat-card.accent-blue   { --accent:#1976D2; --accent-soft:rgba(25,118,210,.12); }
+.records-stat-sub,
+.stat-widget-sub { color: var(--text-3); }
+
+.records-stat-card { transition: transform .2s, box-shadow .2s; }
+.records-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,.10);
+}
+
 /* Delete button */
 .action-delete-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -209,7 +237,7 @@
                 <a href="/Record/Index" class="filter-clear-btn">Clear</a>
             </div>
             <div class="records-stats-inline">
-                <div class="records-stat-card">
+                <div class="records-stat-card accent-orange">
                     <div class="records-stat-label">Total Amount</div>
                     <div class="records-stat-value">₱ @ViewBag.FilteredTotal</div>
                     <div class="records-stat-sub">
@@ -219,7 +247,7 @@
                         { <span>All records</span> }
                     </div>
                 </div>
-                <div class="records-stat-card">
+                <div class="records-stat-card accent-blue">
                     <div class="records-stat-label">Transactions</div>
                     <div class="records-stat-value">@ViewBag.FilteredCount</div>
                     <div class="records-stat-sub">Payment Records</div>
