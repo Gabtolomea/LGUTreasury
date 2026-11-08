@@ -1,0 +1,243 @@
+@model LGUTreasury.Models.ProfileViewModel
+@{
+    ViewData["Title"] = "My Profile";
+    var fullName = $"{Model.FirstName} {Model.LastName}".Trim();
+    var initials = ViewData["Initials"]?.ToString() ?? "?";
+    var hasPhoto = !string.IsNullOrWhiteSpace(Model.ProfilePicture);
+}
+
+<link rel="stylesheet" href="~/css/records.css" />
+
+<style>
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+    }
+    @@media (max-width: 900px) {
+        .profile-grid { grid-template-columns: 1fr; }
+    }
+
+    .profile-card { padding: 28px 24px; text-align: center; }
+    .profile-avatar-wrap {
+        position: relative;
+        width: 132px; height: 132px;
+        margin: 0 auto 18px;
+    }
+    .profile-avatar {
+        width: 132px; height: 132px; border-radius: 50%;
+        background: var(--green-light);
+        color: var(--green-dark);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 42px; font-weight: 800; letter-spacing: 1px;
+        overflow: hidden;
+        border: 3px solid white;
+        box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    }
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .photo-actions { display: flex; justify-content: center; gap: 8px; margin-bottom: 18px; }
+    .photo-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 14px; border-radius: 8px;
+        font-size: 12.5px; font-weight: 700; cursor: pointer;
+        font-family: inherit; transition: background .15s, border-color .15s;
+    }
+    .photo-btn.upload { background: var(--green); color: white; border: none; }
+    .photo-btn.upload:hover { background: var(--green-dark); }
+    .photo-btn.remove {
+        background: white; color: var(--red);
+        border: 1.5px solid var(--gray-border);
+    }
+    .photo-btn.remove:hover { background: #fdecea; border-color: #f5c6c2; }
+
+    .profile-name { font-size: 20px; font-weight: 800; color: var(--text); }
+    .profile-role {
+        display: inline-block; margin-top: 8px;
+        padding: 4px 12px; border-radius: 12px;
+        font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+        background: var(--green-light); color: var(--green-dark);
+    }
+    .profile-meta { margin-top: 22px; text-align: left; }
+    .profile-meta-row {
+        display: flex; justify-content: space-between; gap: 12px;
+        padding: 11px 0; border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+    }
+    .profile-meta-row:last-child { border-bottom: none; }
+    .profile-meta-row span:first-child { color: var(--text-3); font-weight: 600; }
+    .profile-meta-row span:last-child { color: var(--text); font-weight: 600; text-align: right; }
+    .profile-status-active { color: var(--green); }
+    .profile-status-inactive { color: var(--red); }
+
+    .profile-form-card .panel-header { padding: 16px 22px; }
+    .profile-form { padding: 22px; }
+    .profile-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+    @@media (max-width: 640px) {
+        .profile-form-grid { grid-template-columns: 1fr; }
+    }
+    .profile-field-full { grid-column: 1 / -1; }
+    .profile-field label { display: block; }
+    .field-error { display: block; color: var(--red); font-size: 11.5px; margin-top: 4px; font-weight: 600; }
+    .profile-form-footer {
+        display: flex; justify-content: flex-end; gap: 10px;
+        margin-top: 22px; padding-top: 18px; border-top: 1px solid #f0f0f0;
+    }
+    .profile-save-btn {
+        padding: 12px 28px; background: var(--green); color: white;
+        border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
+        cursor: pointer; font-family: inherit; transition: background .15s;
+    }
+    .profile-save-btn:hover { background: var(--green-dark); }
+    .profile-readonly-note {
+        font-size: 11.5px; color: var(--text-3); margin-top: 6px;
+    }
+</style>
+
+<div class="records-page-wrap">
+    <div class="page-header-row">
+        <partial name="_BackBtn" />
+        <div style="flex:1">
+            <div class="page-title">My Profile</div>
+            <div class="page-sub">View and update your account information</div>
+        </div>
+    </div>
+
+    <div class="profile-grid">
+        <!-- Identity card -->
+        <div class="panel profile-card">
+            <div class="profile-avatar-wrap">
+                <div class="profile-avatar">
+                    @if (hasPhoto)
+                    {
+                        <img src="@Model.ProfilePicture" alt="@fullName profile picture" />
+                    }
+                    else
+                    {
+                        @initials
+                    }
+                </div>
+            </div>
+
+            <form asp-controller="Profile" asp-action="UploadPhoto" method="post"
+                  enctype="multipart/form-data" id="photo-form">
+                @Html.AntiForgeryToken()
+                <div class="photo-actions">
+                    <label class="photo-btn upload" for="profile-photo-input">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 11V3M8 3L5 6M8 3l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 11v1.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                        Change Photo
+                    </label>
+                    <input type="file" id="profile-photo-input" name="photo" accept="image/png,image/jpeg,image/gif,image/webp"
+                           hidden onchange="document.getElementById('photo-form').submit()" />
+                </div>
+            </form>
+
+            @if (hasPhoto)
+            {
+                <form asp-controller="Profile" asp-action="RemovePhoto" method="post" style="margin-bottom:18px">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="photo-btn remove">Remove Photo</button>
+                </form>
+            }
+
+            <div class="profile-name">@fullName</div>
+            <div class="profile-role">@Model.Role</div>
+
+            <div class="profile-meta">
+                <div class="profile-meta-row">
+                    <span>Employee ID</span>
+                    <span>@Model.EmployeeID</span>
+                </div>
+                <div class="profile-meta-row">
+                    <span>Status</span>
+                    <span class="@(Model.Status == "Active" ? "profile-status-active" : "profile-status-inactive")">@Model.Status</span>
+                </div>
+                <div class="profile-meta-row">
+                    <span>Member Since</span>
+                    <span>@Model.CreatedAt.ToString("MMMM yyyy")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editable information -->
+        <div class="panel profile-form-card">
+            <div class="panel-header">
+                <div class="panel-title">Personal Information</div>
+            </div>
+
+            <form asp-controller="Profile" asp-action="Update" method="post" class="profile-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="UserID" />
+
+                <div asp-validation-summary="ModelOnly" class="field-error" style="margin-bottom:14px"></div>
+
+                <div class="profile-form-grid">
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="FirstName">First Name</label>
+                        <input asp-for="FirstName" class="form-input" placeholder="e.g. Juan" autocomplete="given-name" />
+                        <span asp-validation-for="FirstName" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="MiddleName">Middle Name</label>
+                        <input asp-for="MiddleName" class="form-input" placeholder="Optional" autocomplete="additional-name" />
+                        <span asp-validation-for="MiddleName" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="LastName">Last Name</label>
+                        <input asp-for="LastName" class="form-input" placeholder="e.g. Cruz" autocomplete="family-name" />
+                        <span asp-validation-for="LastName" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="Suffix">Suffix</label>
+                        <input asp-for="Suffix" class="form-input" placeholder="Sr., Jr., III…" />
+                        <span asp-validation-for="Suffix" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="Email">Email Address</label>
+                        <input asp-for="Email" type="email" class="form-input" placeholder="name@example.com" autocomplete="email" />
+                        <span asp-validation-for="Email" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" asp-for="ContactNumber">Contact No.</label>
+                        <input asp-for="ContactNumber" type="tel" inputmode="numeric" class="form-input"
+                               placeholder="09XX-XXX-XXXX" autocomplete="tel" maxlength="20" data-contact-number />
+                        <span asp-validation-for="ContactNumber" class="field-error"></span>
+                    </div>
+
+                    <div class="profile-field profile-field-full">
+                        <label class="form-label" asp-for="Address">Address</label>
+                        <input asp-for="Address" class="form-input" placeholder="Complete address" autocomplete="street-address" />
+                        <span asp-validation-for="Address" class="field-error"></span>
+                    </div>
+                </div>
+
+                <div class="profile-readonly-note">
+                    Employee ID, role and account status can only be changed by an administrator.
+                </div>
+
+                <div class="profile-form-footer">
+                    <a asp-controller="Home" asp-action="Index" class="btn-secondary"
+                       style="text-decoration:none;display:inline-flex;align-items:center">Cancel</a>
+                    <button type="submit" class="profile-save-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/contact-number.js"></script>
+}
