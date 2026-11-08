@@ -82,3 +82,12 @@ body {
 .pm-error { color: #cf222e; font-size: 13px; margin-top: 12px; min-height: 1em; }
 
 .pm-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+
+.topnav-user-pill {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 2px 10px;
+
+}
