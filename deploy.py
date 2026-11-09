@@ -22,12 +22,12 @@ PROJECT_DIRECTORY = Path(__file__).resolve().parent
 
 CONFIG = {
     "project_dir": str(PROJECT_DIRECTORY),
-    "compose_files": ["compose.yaml"],
+    "compose_files": ["compose.native-mysql.yml"],
     "env_file": ".env",
     "required_env": [
         "NATIVE_MYSQL_CONNECTION",
     ],
-    "backup_paths": ["compose.yaml", "Dockerfile", "docker-entrypoint.sh", ".env.example"],
+    "backup_paths": ["compose.native-mysql.yml", "Dockerfile", "docker-entrypoint.sh", ".env.example"],
     "backup_dir": "backups",
     "log_file": "logs/deployment.log",
     "temporary_paths": [".deployment-tmp"],

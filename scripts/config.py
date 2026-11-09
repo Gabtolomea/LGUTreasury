@@ -183,7 +183,7 @@ def valid_database_name(name):
 def compose_command(config, compose_executable, arguments):
     command = list(compose_executable)
 
-    for compose_file in config.get("compose_files", ["compose.yaml"]):
+    for compose_file in config.get("compose_files", ["compose.native-mysql.yml"]):
         command.extend(["-f", str(project_path(config, compose_file))])
 
     env_file = config.get("env_file")

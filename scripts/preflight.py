@@ -16,7 +16,7 @@ def run_preflight(config, command_runner, logger):
         errors.append("The project directory was not found.")
         logger.fail("The project directory was not found.")
 
-    for compose_file in config.get("compose_files", ["compose.yaml"]):
+    for compose_file in config.get("compose_files", ["compose.native-mysql.yml"]):
         path = project_path(config, compose_file)
         if path.is_file():
             logger.ok("The Compose file was found.")

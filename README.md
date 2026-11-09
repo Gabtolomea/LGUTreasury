@@ -105,11 +105,11 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 
 ### 4. Run with Docker Compose
 
-The Docker workflow runs only the ASP.NET Core app. MySQL runs natively on the host
-or on another reachable server. The app connects to it through
-`NATIVE_MYSQL_CONNECTION` and uses HTTP by default.
+The Docker workflow runs only the ASP.NET Core app using `compose.native-mysql.yml`.
+MySQL runs natively on the host or on another reachable server. The app connects to it
+through `NATIVE_MYSQL_CONNECTION` and uses HTTP by default.
 
-Copy the example environment file and set the native MySQL connection:
+Copy the example environment file and set the native MySQL connection (this also configures `COMPOSE_FILE=compose.native-mysql.yml`):
 
 ```powershell
 Copy-Item .env.example .env

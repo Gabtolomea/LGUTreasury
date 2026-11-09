@@ -116,10 +116,10 @@ class FakeCommandRunner:
 def make_config(project_directory):
     return {
         "project_dir": str(project_directory),
-        "compose_files": ["compose.yaml"],
+        "compose_files": ["compose.native-mysql.yml"],
         "env_file": ".env",
         "required_env": ["NATIVE_MYSQL_CONNECTION"],
-        "backup_paths": ["compose.yaml", "Dockerfile"],
+        "backup_paths": ["compose.native-mysql.yml", "Dockerfile"],
         "backup_dir": "backups",
         "log_file": "logs/deployment.log",
         "temporary_paths": [".deployment-tmp"],
@@ -154,7 +154,7 @@ class DeploymentRunnerTests(unittest.TestCase):
     def create_project(self):
         temporary_directory = tempfile.TemporaryDirectory()
         project_directory = Path(temporary_directory.name)
-        (project_directory / "compose.yaml").write_text(
+        (project_directory / "compose.native-mysql.yml").write_text(
             "services:\n   app:\n    image: example\n",
             encoding="utf-8",
         )

@@ -55,7 +55,7 @@ class HealthCheckTests(unittest.TestCase):
     def make_config(self, retries=3):
         return {
             "project_dir": ".",
-            "compose_files": ["compose.yaml"],
+            "compose_files": ["compose.native-mysql.yml"],
             "health_check_timeout": 30,
             "health_checks": [
                 {
