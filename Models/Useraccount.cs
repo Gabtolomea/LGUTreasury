@@ -41,6 +41,8 @@ namespace LGUTreasury.Models
         public string? OtpCode { get; set; }
 
         public DateTime? OtpExpiry { get; set; }
+
+        public string? ProfilePicture { get; set; }
  
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

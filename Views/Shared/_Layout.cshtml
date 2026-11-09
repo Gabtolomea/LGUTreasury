@@ -5,6 +5,14 @@
     var pendingMessages = (navRoleName == "Officer" || navRoleName == "Admin")
         ? await _db.Editrequests.CountAsync(r => r.Status == "Pending")
         : 0;
+
+    var navUserID = Context.Session.GetInt32("UserID");
+    var navProfilePicture = navUserID == null
+        ? null
+        : await _db.UserAccounts
+            .Where(u => u.UserID == navUserID)
+            .Select(u => u.ProfilePicture)
+            .FirstOrDefaultAsync();
 }
 
 
@@ -97,6 +105,12 @@
             font-size: 20px; font-weight: 800; color: white;
         }
         .topnav-right { display: flex; align-items: center; gap: 10px; }
+        .topnav-profile {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: inherit; border-radius: 22px;
+            padding: 4px; transition: background .15s;
+        }
+        .topnav-profile:hover { background: rgba(255,255,255,.12); }
         .topnav-user-pill {
             background: rgba(0,0,0,.2); color: white;
             font-size: 12px; font-weight: 500;
@@ -107,7 +121,9 @@
             background: rgba(255,255,255,.3);
             display: flex; align-items: center; justify-content: center;
             font-size: 13px; font-weight: 700; color: white; cursor: pointer;
+            overflow: hidden;
         }
+        .topnav-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .topnav-role-badge {
             background: rgba(255,255,255,.15); color: white;
             font-size: 10px; font-weight: 700; letter-spacing: .08em;
@@ -299,8 +315,19 @@
         </div>
         <div class="topnav-right">
             <div class="topnav-role-badge">@ViewData["Role"]</div>
-            <div class="topnav-user-pill">@ViewData["FullName"]</div>
-            <div class="topnav-avatar">@ViewData["Initials"]</div>
+            <a asp-controller="Profile" asp-action="Index" class="topnav-profile" title="My Profile">
+                <div class="topnav-user-pill">@ViewData["FullName"]</div>
+                <div class="topnav-avatar">
+                    @if (!string.IsNullOrWhiteSpace(navProfilePicture))
+                    {
+                        <img src="@navProfilePicture" alt="Profile picture" />
+                    }
+                    else
+                    {
+                        @ViewData["Initials"]
+                    }
+                </div>
+            </a>
         </div>
     </div>
 
