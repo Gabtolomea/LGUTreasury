@@ -42,6 +42,10 @@ def environment_names(config):
     names = set(config.get("required_env", []))
     names.update([
         "NATIVE_MYSQL_CONNECTION",
+        "MYSQL_DATABASE",
+        "MYSQL_USER",
+        "MYSQL_PASSWORD",
+        "MYSQL_ROOT_PASSWORD",
         "ENABLE_HTTPS",
         "HTTPS_CERT_DIR",
         "HTTPS_CERT_PASSWORD",
@@ -173,6 +177,12 @@ def database_name(config):
 
     if native.get("database"):
         return native["database"]
+
+    values = environment_values(config)
+    configured_name = values.get("MYSQL_DATABASE")
+
+    if configured_name:
+        return configured_name
 
     return config.get("database", {}).get("name", "LGUTreasury")
 

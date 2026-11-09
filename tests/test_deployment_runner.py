@@ -119,7 +119,7 @@ def make_config(project_directory):
         "compose_files": ["compose.native-mysql.yml"],
         "env_file": ".env",
         "required_env": ["NATIVE_MYSQL_CONNECTION"],
-        "backup_paths": ["compose.native-mysql.yml", "Dockerfile"],
+        "backup_paths": ["compose.native-mysql.yml", "compose.container-mysql.yml", "Dockerfile"],
         "backup_dir": "backups",
         "log_file": "logs/deployment.log",
         "temporary_paths": [".deployment-tmp"],
@@ -156,6 +156,10 @@ class DeploymentRunnerTests(unittest.TestCase):
         project_directory = Path(temporary_directory.name)
         (project_directory / "compose.native-mysql.yml").write_text(
             "services:\n   app:\n    image: example\n",
+            encoding="utf-8",
+        )
+        (project_directory / "compose.container-mysql.yml").write_text(
+            "services:\n   db:\n    image: mysql:8.4\n   app:\n    image: example\n",
             encoding="utf-8",
         )
         (project_directory / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")

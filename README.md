@@ -105,22 +105,70 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 
 ### 4. Run with Docker Compose
 
-The Docker workflow runs only the ASP.NET Core app using `compose.native-mysql.yml`.
-MySQL runs natively on the host or on another reachable server. The app connects to it
-through `NATIVE_MYSQL_CONNECTION` and uses HTTP by default.
+Two Docker Compose configurations are available:
+- **`compose.container-mysql.yml`**: Runs both the ASP.NET Core application and a containerized MySQL 8.4 database with persistent volumes.
+- **`compose.native-mysql.yml`**: Runs only the ASP.NET Core app, connecting to an external or host MySQL server through `NATIVE_MYSQL_CONNECTION`.
 
-Copy the example environment file and set the native MySQL connection (this also configures `COMPOSE_FILE=compose.native-mysql.yml`):
+Copy the example environment file and configure your database settings:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-When MySQL is installed on the host machine, use `host.docker.internal` as the
-MySQL host:
+Set `COMPOSE_FILE` in `.env` to select your preferred configuration:
+
+```env
+# For containerized MySQL (app + database in Docker):
+COMPOSE_FILE=compose.container-mysql.yml
+
+# Or for native MySQL (app in Docker connecting to host MySQL):
+COMPOSE_FILE=compose.native-mysql.yml
+```
+
+#### Running with Containerized MySQL
+
+When using `compose.container-mysql.yml`, set the MySQL passwords in `.env`:
+
+```env
+MYSQL_DATABASE=LGUTreasury
+MYSQL_USER=lgu_user
+MYSQL_PASSWORD=YOUR_DB_PASSWORD
+MYSQL_ROOT_PASSWORD=YOUR_ROOT_PASSWORD
+```
+
+Start both the application and the MySQL container:
+
+```bash
+docker compose -f compose.container-mysql.yml up --build
+```
+
+Access the MySQL console inside the database container:
+
+```bash
+docker compose -f compose.container-mysql.yml exec db mysql -u root -p
+```
+
+The database data is persisted in the Docker volume `lgu-treasury-container-mysql-data`. `docker compose down` preserves this volume; to remove it and start fresh, run `docker compose down -v`.
+
+#### Running with Native MySQL
+
+When using `compose.native-mysql.yml`, MySQL runs natively on the host machine or on another reachable server. Set `NATIVE_MYSQL_CONNECTION` in `.env` (use `host.docker.internal` as the host when MySQL is installed on the local machine):
 
 ```env
 NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 ```
+
+Start the application:
+
+```bash
+docker compose -f compose.native-mysql.yml up --build
+```
+
+`docker compose down` stops and removes the app container. It does not affect the native MySQL server or its data.
+
+---
+
+#### Common Docker Settings
 
 Docker uses `http://localhost:8080` by default. No HTTPS certificate is needed. To
 enable HTTPS later, set these values in `.env`:
@@ -139,20 +187,13 @@ HTTPS_CERT_DIR=./.aspnet/https
 HTTPS_CERT_PASSWORD=YOUR_CERT_PASSWORD
 ```
 
-Start the application:
-
-```bash
-docker compose up --build
-```
-
 Open `http://localhost:8080` after the containers start. Docker Compose applies the
-checked-in EF Core migrations and seeds the starter data. The Docker app connects to
-the native MySQL server configured by `NATIVE_MYSQL_CONNECTION`. When HTTPS is
+checked-in EF Core migrations and seeds the starter data. When HTTPS is
 enabled, use `https://localhost:8443` and HTTP redirects to HTTPS. The development
 certificate is trusted for `localhost`; LAN access needs a certificate that includes
 the LAN hostname or IP address.
 
-Useful commands:
+Useful commands (if `COMPOSE_FILE` is set in `.env`, omit `-f <filename>`):
 
 ```bash
 docker compose ps
@@ -175,15 +216,12 @@ docker compose exec app sh
 # Open http://localhost:8080/health/ready
 ```
 
-`docker compose down` stops and removes the app container. It does not affect the
-native MySQL server or its data.
-
 For a fresh database, configure `INITIAL_ADMIN_EMPLOYEE_ID` and
 `INITIAL_ADMIN_PASSWORD` in `.env` before starting the app. Use a unique password of at
 least 12 characters. Once the first administrator is created, remove both bootstrap
 values from `.env`; existing administrator accounts are not recreated or reset.
 
-The native MySQL server must accept TCP connections from Docker Desktop on port 3306,
+When connecting to native MySQL, the server must accept TCP connections from Docker Desktop on port 3306,
 and the configured user must have access to the database. Keep `SslMode=Required` when
 the server has TLS enabled; use the setting supported by the local development server.
 

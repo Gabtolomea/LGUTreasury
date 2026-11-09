@@ -27,7 +27,13 @@ CONFIG = {
     "required_env": [
         "NATIVE_MYSQL_CONNECTION",
     ],
-    "backup_paths": ["compose.native-mysql.yml", "Dockerfile", "docker-entrypoint.sh", ".env.example"],
+    "backup_paths": [
+        "compose.native-mysql.yml",
+        "compose.container-mysql.yml",
+        "Dockerfile",
+        "docker-entrypoint.sh",
+        ".env.example",
+    ],
     "backup_dir": "backups",
     "log_file": "logs/deployment.log",
     "temporary_paths": [".deployment-tmp"],
@@ -129,6 +135,8 @@ class DeploymentRunner:
 
         secret_values = [
             database_config.get("password", ""),
+            values.get("MYSQL_PASSWORD", ""),
+            values.get("MYSQL_ROOT_PASSWORD", ""),
             values.get("HTTPS_CERT_PASSWORD", ""),
             values.get("INITIAL_ADMIN_PASSWORD", ""),
         ]
