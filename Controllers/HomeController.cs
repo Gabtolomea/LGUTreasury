@@ -32,8 +32,9 @@ namespace LGUTreasury.Controllers
             var user = await _context.UserAccounts.FindAsync(userID);
             if (user != null)
             {
-                ViewData["EmployeeID"]  = user.EmployeeID;
-                ViewData["MemberSince"] = user.CreatedAt.ToString("MMMM yyyy");
+                ViewData["EmployeeID"]     = user.EmployeeID;
+                ViewData["MemberSince"]    = user.CreatedAt.ToString("MMMM yyyy");
+                ViewData["ProfilePicture"] = user.ProfilePicture;
             }
 
             var filter = Request.Query["filter"].ToString();

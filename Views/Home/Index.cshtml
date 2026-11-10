@@ -208,6 +208,10 @@
   font-size: 17px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 8px;
+  overflow: hidden;
+}
+.profile-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .profile-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .profile-eid  { font-size: 11.5px; color: var(--text-3); margin-bottom: 14px; }
@@ -487,7 +491,16 @@
     <div class="officer-badge">● On Duty</div>
 
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 14px;border-bottom:1px solid var(--gray-border)">
-      <div class="profile-avatar">@ViewData["Initials"]</div>
+      <div class="profile-avatar">
+        @if (!string.IsNullOrWhiteSpace(ViewData["ProfilePicture"] as string))
+        {
+            <img src="@ViewData["ProfilePicture"]" alt="Profile picture" />
+        }
+        else
+        {
+            @ViewData["Initials"]
+        }
+      </div>
       <div class="profile-name">@ViewData["FullName"]</div>
       <div class="profile-eid">Employee ID: @ViewData["EmployeeID"]</div>
       <div class="profile-details" style="width:100%;text-align:left">
