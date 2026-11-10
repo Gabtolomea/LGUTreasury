@@ -221,28 +221,56 @@ For a fresh database, configure `INITIAL_ADMIN_EMPLOYEE_ID` and
 least 12 characters. Once the first administrator is created, remove both bootstrap
 values from `.env`; existing administrator accounts are not recreated or reset.
 
-When connecting to native MySQL, the server must accept TCP connections from Docker Desktop on port 3306,
-and the configured user must have access to the database. Keep `SslMode=Required` when
-the server has TLS enabled; use the setting supported by the local development server.
+When connecting to native MySQL on an Ubuntu host or Windows:
+- Ensure MySQL accepts TCP connections on port 3306 (e.g. set `bind-address = 0.0.0.0` or allow the Docker bridge network `172.17.0.0/16` in `/etc/mysql/mysql.conf.d/mysqld.cnf`).
+- `compose.native-mysql.yml` includes `extra_hosts: ["host.docker.internal:host-gateway"]` to route `host.docker.internal` to the host on Linux.
+- The configured MySQL user must have access to the database from the Docker network.
+- Keep `SslMode=Required` when the server has TLS enabled.
 
 ### Safe Docker deployment
 
-For the native-MySQL Docker workflow, run the deployment runner from the project root:
+The deployment runner supports both setups and automatically selects the configuration specified by `COMPOSE_FILE` in `.env` (or environment):
 
 ```powershell
 python deploy.py
 ```
 
-The runner checks Docker and the environment, saves a timestamped native-MySQL dump
-and recovery image under `backups/`, validates Compose, deploys the app, and checks
-both Docker container health and the database-aware `/health/ready` endpoint. It rolls
-back the previous app image when deployment or health checks fail. It does not manage
-or remove the native MySQL server or its data.
+- **Containerized MySQL (`COMPOSE_FILE=compose.container-mysql.yml`)**:
+  - Requires `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env`.
+  - Performs preflight checks on Docker and Compose.
+  - Automatically dumps the containerized database via `docker compose exec` into a timestamped directory in `backups/`.
+  - Backs up the active application image.
+  - Validates Compose services (`db` and `app`).
+  - Builds and deploys the containers with `--wait`.
+  - Verifies container health for `db`, container health for `app`, and tests the live database connection via `/health/ready`.
+  - Automatically rolls back the application image if deployment or health checks fail.
 
-Deployment logs are appended to `logs/deployment.log`. The runner requires
-`NATIVE_MYSQL_CONNECTION` in `.env` or the host environment. When
-`ENABLE_HTTPS=true`, it also requires `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`.
-After a successful deployment, it prints URLs matching the selected HTTP or HTTPS mode.
+- **Native MySQL (`COMPOSE_FILE=compose.native-mysql.yml`)**:
+  - Requires `NATIVE_MYSQL_CONNECTION` in `.env`.
+  - Runs cross-platform `mysqldump` (supporting Ubuntu host with POSIX permissions and Windows with ACLs) into `backups/`.
+  - Backs up the active application image.
+  - Validates and deploys the application container.
+  - Checks container health and the database-aware `/health/ready` endpoint.
+  - Automatically rolls back the application image on failure.
+
+Deployment logs are appended to `logs/deployment.log`. When `ENABLE_HTTPS=true`, both setups require `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`. After a successful deployment, the runner prints local and LAN URLs for the active HTTP or HTTPS mode.
+
+### Database Restoration
+
+To restore a MySQL database from a previous backup:
+
+```bash
+# Restore latest backup automatically
+python -m scripts.restore
+
+# Or restore a specific backup directory or SQL file
+python -m scripts.restore backups/backup_20261110_120000_123456
+python -m scripts.restore backups/backup_20261110_120000_123456/database.sql
+```
+
+The restore script automatically determines whether containerized or native MySQL is active:
+- For containerized MySQL, it ensures the `db` container is running and healthy, and streams the SQL dump into the container.
+- For native MySQL, it uses the host `mysql` client with secure temporary credentials.
 
 ---
 

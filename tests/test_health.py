@@ -97,6 +97,41 @@ class HealthCheckTests(unittest.TestCase):
         self.assertIn("Failed to connect", result["errors"][0])
         self.assertEqual(result["checks"][0]["attempts"], 1)
 
+    def test_database_container_health_check(self):
+        logger = RecordingLogger()
+        commands_run = []
+
+        def db_health_runner(command, cwd=None, timeout=None):
+            commands_run.append(list(command))
+            if "ps" in command and "db" in command:
+                return CommandResult(0, "db-container-456\n", "")
+            if command[:2] == ["docker", "inspect"]:
+                state = {"Status": "running", "Health": {"Status": "healthy", "Log": []}}
+                return CommandResult(0, json.dumps(state), "")
+            return CommandResult(0, "", "")
+
+        config = {
+            "project_dir": ".",
+            "health_checks": [
+                {
+                    "name": "Database container health",
+                    "type": "container",
+                    "service": "db",
+                    "retries": 1,
+                    "interval": 0,
+                    "timeout": 4,
+                }
+            ],
+        }
+
+        result = run_health_checks(
+            config, ["docker", "compose"], db_health_runner, logger
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["checks"][0]["status"], "passed")
+        self.assertTrue(any("db" in cmd for cmd in commands_run if "ps" in cmd))
+
     def test_running_container_without_healthcheck_is_not_healthy(self):
         logger = RecordingLogger()
         command_runner = ContainerHealthRunner(None)

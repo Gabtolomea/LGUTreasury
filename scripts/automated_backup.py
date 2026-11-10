@@ -12,6 +12,7 @@ from scripts.google_drive import get_drive_service, upload_backup
 from scripts.commands import run_command
 from scripts.config import (
     environment_values,
+    is_container_mysql,
     native_database_config,
     project_directory,
 )
@@ -42,6 +43,20 @@ def run_automated_backup(config=None, command_runner=None):
 
     try:
         values = environment_values(backup_config)
+        compose_env = values.get("COMPOSE_FILE")
+        if (
+            compose_env
+            and backup_config.get("compose_files") == ["compose.native-mysql.yml"]
+        ):
+            backup_config["compose_files"] = [compose_env]
+
+        if is_container_mysql(backup_config):
+            if backup_config.get("required_env") == ["NATIVE_MYSQL_CONNECTION"]:
+                backup_config["required_env"] = [
+                    "MYSQL_PASSWORD",
+                    "MYSQL_ROOT_PASSWORD",
+                ]
+
         database = native_database_config(backup_config)
 
         secret_values = [

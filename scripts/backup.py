@@ -1,6 +1,7 @@
 
 import csv
 import io
+import os
 import re
 import shutil
 import tempfile
@@ -10,6 +11,9 @@ from pathlib import Path
 from .commands import run_logged_command
 from .config import (
     compose_command,
+    container_database_config,
+    database_name,
+    is_container_mysql,
     native_database_config,
     project_directory,
     project_path,
@@ -85,41 +89,26 @@ def _current_windows_sid(command_runner, project_dir, logger):
     return sid
 
 
+def _is_windows():
+    return os.name == "nt"
+
+
 def _create_private_credentials(config, command_runner, logger, database):
     project_dir = str(project_directory(config))
     temp_dir = Path(tempfile.mkdtemp(prefix="lgu-mysqldump-"))
 
     try:
-        sid = _current_windows_sid(command_runner, project_dir, logger)
-
-        if not sid:
-            raise RuntimeError("Could not identify the Windows account for backup protection.")
-
-        acl_command = [
-            "icacls",
-            str(temp_dir),
-            "/inheritance:r",
-            "/grant:r",
-            "*{0}:(OI)(CI)F".format(sid),
-        ]
-
-        acl_result = run_logged_command(
-            command_runner,
-            acl_command,
-            project_dir,
-            30,
-            logger,
-            "Temporary backup credentials protection",
-        )
-
-        if not acl_result.ok():
-            raise RuntimeError("Could not restrict access to the temporary backup credentials.")
-
         credentials_file = temp_dir / "client.cnf"
+        server = database.get("server", "")
+        host_address = (
+            "127.0.0.1"
+            if server in ("host.docker.internal", "localhost", "")
+            else server
+        )
 
         contents = "\n".join([
             "[client]",
-            "host={0}".format(_option_value("127.0.0.1")),
+            "host={0}".format(_option_value(host_address)),
             "port={0}".format(database["port"]),
             "user={0}".format(_option_value(database["user"])),
             "password={0}".format(_option_value(database["password"])),
@@ -127,7 +116,42 @@ def _create_private_credentials(config, command_runner, logger, database):
             "",
         ])
 
-        credentials_file.write_text(contents, encoding="utf-8")
+        if _is_windows():
+            sid = _current_windows_sid(command_runner, project_dir, logger)
+
+            if not sid:
+                raise RuntimeError("Could not identify the Windows account for backup protection.")
+
+            acl_command = [
+                "icacls",
+                str(temp_dir),
+                "/inheritance:r",
+                "/grant:r",
+                "*{0}:(OI)(CI)F".format(sid),
+            ]
+
+            acl_result = run_logged_command(
+                command_runner,
+                acl_command,
+                project_dir,
+                30,
+                logger,
+                "Temporary backup credentials protection",
+            )
+
+            if not acl_result.ok():
+                raise RuntimeError("Could not restrict access to the temporary backup credentials.")
+
+            credentials_file.write_text(contents, encoding="utf-8")
+        else:
+            credentials_file.write_text(contents, encoding="utf-8")
+            try:
+                os.chmod(str(temp_dir), 0o700)
+                os.chmod(str(credentials_file), 0o600)
+            except OSError as error:
+                raise RuntimeError(
+                    "Could not restrict access to the temporary backup credentials: {0}.".format(error)
+                )
 
         return temp_dir, credentials_file
 
@@ -149,17 +173,121 @@ def _mysqldump_executable(config):
     if located:
         return located
 
-    default_path = Path(
-        r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
-    )
-
-    if default_path.is_file():
-        return str(default_path)
+    if _is_windows():
+        default_path = Path(
+            r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+        )
+        if default_path.is_file():
+            return str(default_path)
+    else:
+        for candidate in ("/usr/bin/mysqldump", "/usr/local/bin/mysqldump"):
+            if Path(candidate).is_file():
+                return candidate
 
     return ""
 
 
-def _backup_database(config, compose_executable, command_runner, logger, backup_dir):
+def _backup_container_database(config, compose_executable, command_runner, logger, backup_dir):
+    service = config.get("db_service", "db")
+    project_dir = str(project_directory(config))
+
+    lookup_command = compose_command(
+        config, compose_executable, ["ps", "-q", service]
+    )
+
+    lookup_result = run_logged_command(
+        command_runner,
+        lookup_command,
+        project_dir,
+        60,
+        logger,
+        "Database container lookup",
+    )
+
+    if not lookup_result.ok():
+        return "The database container could not be located."
+
+    output = lookup_result.stdout.strip()
+    container_id = output.splitlines()[0] if output else ""
+
+    if not container_id:
+        logger.info(
+            "No previous database container was found; "
+            "a database backup is not required."
+        )
+        return ""
+
+    db_config = container_database_config(config)
+    db_name = database_name(config)
+
+    if not valid_database_name(db_name):
+        return "The container MySQL database name is invalid."
+
+    password = db_config.get("root_password") or db_config.get("password")
+    if not password:
+        return "Container MySQL password is required for database backup."
+
+    user = "root" if db_config.get("root_password") else (db_config.get("user") or "root")
+
+    backup_file = backup_dir / config.get("database", {}).get(
+        "backup_file", "database.sql"
+    )
+
+    if not _inside(backup_file, backup_dir):
+        return "The database backup file must stay inside the backup directory."
+
+    dump_args = [
+        "exec",
+        "-T",
+        "-e",
+        "MYSQL_PWD={0}".format(password),
+        service,
+        "mysqldump",
+        "-u",
+        user,
+        "--single-transaction",
+        "--routines",
+        "--events",
+        "--triggers",
+        "--no-tablespaces",
+        "--set-gtid-purged=OFF",
+        "--databases",
+        db_name,
+    ]
+
+    command = compose_command(config, compose_executable, dump_args)
+
+    result = run_logged_command(
+        command_runner,
+        command,
+        project_dir,
+        600,
+        logger,
+        "Containerized MySQL database backup",
+    )
+
+    if not result.ok():
+        return "The containerized MySQL database backup failed. Check the deployment log for details."
+
+    if not result.stdout.strip():
+        return "The MySQL backup returned an empty result."
+
+    backup_file.write_text(result.stdout, encoding="utf-8")
+
+    if not backup_file.exists() or backup_file.stat().st_size == 0:
+        return "The database backup could not be verified."
+
+    with backup_file.open("r", encoding="utf-8") as file:
+        beginning = file.read(4096)
+
+    if "MySQL dump" not in beginning and "MariaDB dump" not in beginning:
+        return "The database backup does not contain a recognizable SQL dump header."
+
+    logger.ok("The containerized MySQL database backup was saved and verified.")
+    return ""
+
+
+def _backup_native_database(config, compose_executable, command_runner, logger, backup_dir):
     try:
         database = native_database_config(config)
     except (ValueError, OSError) as error:
@@ -180,7 +308,7 @@ def _backup_database(config, compose_executable, command_runner, logger, backup_
     executable = _mysqldump_executable(config)
 
     if not executable:
-        return "Windows mysqldump.exe could not be located."
+        return "mysqldump executable could not be located."
 
     backup_file = backup_dir / config.get("database", {}).get(
         "backup_file", "database.sql"
@@ -218,7 +346,7 @@ def _backup_database(config, compose_executable, command_runner, logger, backup_
             str(project_directory(config)),
             600,
             logger,
-            "Native Windows MySQL database backup",
+            "Native MySQL database backup",
         )
 
         if not result.ok():
@@ -238,7 +366,7 @@ def _backup_database(config, compose_executable, command_runner, logger, backup_
         if "MySQL dump" not in beginning and "MariaDB dump" not in beginning:
             return "The database backup does not contain a recognizable SQL dump header."
 
-        logger.ok("The existing Windows MySQL database backup was saved and verified.")
+        logger.ok("The existing native MySQL database backup was saved and verified.")
         return ""
 
     except (OSError, RuntimeError, ValueError) as error:
@@ -247,6 +375,16 @@ def _backup_database(config, compose_executable, command_runner, logger, backup_
     finally:
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _backup_database(config, compose_executable, command_runner, logger, backup_dir):
+    if is_container_mysql(config):
+        return _backup_container_database(
+            config, compose_executable, command_runner, logger, backup_dir
+        )
+    return _backup_native_database(
+        config, compose_executable, command_runner, logger, backup_dir
+    )
 
 
 def _backup_app_image(config, compose_executable, command_runner, logger, backup_dir):

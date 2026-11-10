@@ -10,83 +10,58 @@ namespace LGUTreasury.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.AddColumn<string>(
                 name: "GeneratedByName",
                 table: "ReportLog",
                 type: "longtext",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "varchar(150)",
-                oldNullable: true);
+                nullable: true);
 
-            migrationBuilder.AlterColumn<DateTime>(
+            migrationBuilder.AddColumn<DateTime>(
                 name: "FromDate",
                 table: "ReportLog",
                 type: "datetime(6)",
-                nullable: true,
-                oldClrType: typeof(DateTime),
-                oldType: "date",
-                oldNullable: true);
+                nullable: true);
 
-            // RevenueTypeID is already int and nullable.
-            // No change is required.
+            migrationBuilder.AddColumn<int>(
+                name: "RevenueTypeID",
+                table: "ReportLog",
+                type: "int",
+                nullable: true);
 
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.AddColumn<string>(
                 name: "ReportKind",
                 table: "ReportLog",
                 type: "longtext",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "varchar(20)",
-                oldNullable: true);
+                nullable: true);
 
-            migrationBuilder.AlterColumn<DateTime>(
+            migrationBuilder.AddColumn<DateTime>(
                 name: "ToDate",
                 table: "ReportLog",
                 type: "datetime(6)",
-                nullable: true,
-                oldClrType: typeof(DateTime),
-                oldType: "date",
-                oldNullable: true);
+                nullable: true);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.DropColumn(
                 name: "GeneratedByName",
-                table: "ReportLog",
-                type: "varchar(150)",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "longtext",
-                oldNullable: true);
+                table: "ReportLog");
 
-            migrationBuilder.AlterColumn<DateTime>(
+            migrationBuilder.DropColumn(
                 name: "FromDate",
-                table: "ReportLog",
-                type: "date",
-                nullable: true,
-                oldClrType: typeof(DateTime),
-                oldType: "datetime(6)",
-                oldNullable: true);
+                table: "ReportLog");
 
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.DropColumn(
+                name: "RevenueTypeID",
+                table: "ReportLog");
+
+            migrationBuilder.DropColumn(
                 name: "ReportKind",
-                table: "ReportLog",
-                type: "varchar(20)",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "longtext",
-                oldNullable: true);
+                table: "ReportLog");
 
-            migrationBuilder.AlterColumn<DateTime>(
+            migrationBuilder.DropColumn(
                 name: "ToDate",
-                table: "ReportLog",
-                type: "date",
-                nullable: true,
-                oldClrType: typeof(DateTime),
-                oldType: "datetime(6)",
-                oldNullable: true);
+                table: "ReportLog");
         }
     }
 }

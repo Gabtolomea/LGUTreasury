@@ -40,17 +40,17 @@ class FakeCommandRunner:
             return CommandResult(0, "Docker Compose version", "")
         if command == ["docker", "info", "--format", "{{.ServerVersion}}"]:
             return CommandResult(0, "28.0", "")
-        #if "up" in command and "db" in command:
-        #    return CommandResult(0, "", "")
-        #if "ps" in command and ("-q" in command or "-aq" in command) and "db" in command:
-        #    return CommandResult(0, "db-container\n", "")
+        if "ps" in command and ("-q" in command or "-aq" in command) and "db" in command:
+            return CommandResult(0, "db-container\n", "")
         if "ps" in command and ("-q" in command or "-aq" in command) and "app" in command:
             if self.existing_app:
                 return CommandResult(0, "app-container\n", "")
             return CommandResult(0, "", "")
         if command[:2] == ["docker", "inspect"]:
-            #if "db-container" in command:
-            #    return CommandResult(0, "healthy\n", "")
+            if any("db-container" in str(part) for part in command):
+                import json
+                state = {"Status": "running", "Health": {"Status": "healthy", "Log": []}}
+                return CommandResult(0, json.dumps(state), "")
             if "{{.Config.Image}}" in command:
                 return CommandResult(0, "lgu-treasury-app:local\n", "")
             return CommandResult(0, "sha256:old-image\n", "")
@@ -84,9 +84,9 @@ class FakeCommandRunner:
         if "config" in command:
             if self.fail_compose:
                 return CommandResult(1, "", "Compose validation failed")
-            #if "--services" in command:
-            #    return CommandResult(0, "db\napp\n", "")
             if "--services" in command:
+                if any("compose.container-mysql.yml" in str(part) for part in command):
+                    return CommandResult(0, "db\napp\n", "")
                 return CommandResult(0, "app\n", "")
             return CommandResult(0, "", "")
         if "up" in command and "--build" in command and self.fail_deployment:
@@ -455,6 +455,87 @@ class DeploymentRunnerTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(backup_path.exists())
         self.assertTrue(log_path.exists())
+
+    @patch(
+        "deploy.environment_values",
+        return_value={
+            "COMPOSE_FILE": "compose.container-mysql.yml",
+            "MYSQL_PASSWORD": "test-password",
+            "MYSQL_ROOT_PASSWORD": "test-root-password",
+        },
+    )
+    def test_container_mysql_configuration_detection(self, unused_values):
+        runner = DeploymentRunner()
+
+        self.assertEqual(runner.config["compose_files"], ["compose.container-mysql.yml"])
+        self.assertIn("MYSQL_PASSWORD", runner.config["required_env"])
+        self.assertIn("MYSQL_ROOT_PASSWORD", runner.config["required_env"])
+        self.assertEqual(runner.config["services"], ["db", "app"])
+        self.assertEqual(
+            runner.config["compose"]["deploy_args"],
+            ["up", "-d", "--build", "--wait", "--wait-timeout", "180"],
+        )
+        self.assertEqual(runner.config["health_checks"][0]["service"], "db")
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_container_mysql_deployment_flow(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+
+        (project_directory / ".env").write_text(
+            "COMPOSE_FILE=compose.container-mysql.yml\n"
+            "MYSQL_PASSWORD=test-password\n"
+            "MYSQL_ROOT_PASSWORD=test-root-password\n",
+            encoding="utf-8",
+        )
+
+        config = {
+            "project_dir": str(project_directory),
+            "compose_files": ["compose.container-mysql.yml"],
+            "env_file": ".env",
+            "required_env": ["MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD"],
+            "backup_paths": ["compose.container-mysql.yml", "Dockerfile"],
+            "backup_dir": "backups",
+            "log_file": "logs/deployment.log",
+            "temporary_paths": [".deployment-tmp"],
+            "minimum_free_space_mb": 1,
+            "app_image": "lgu-treasury-app:local",
+            "app_scheme": "http",
+            "app_port": 8080,
+            "database": {
+                "name": "LGUTreasury",
+                "backup_file": "database.sql",
+            },
+            "services": ["db", "app"],
+            "compose": {
+                "deploy_args": ["up", "-d", "--build", "--wait", "--wait-timeout", "180"],
+            },
+            "health_checks": [
+                {
+                    "name": "Application health",
+                    "type": "command",
+                    "command": ["health-check"],
+                    "retries": 1,
+                    "interval": 0,
+                }
+            ],
+        }
+
+        command_runner = FakeCommandRunner()
+        exit_code = run(config, command_runner)
+
+        self.assertEqual(exit_code, 0)
+        validation_command = next(
+            cmd for cmd in command_runner.commands
+            if "config" in cmd and "--services" in cmd
+        )
+        self.assertIn(str(project_directory / "compose.container-mysql.yml"), validation_command)
+
+        deploy_command = next(
+            cmd for cmd in command_runner.commands
+            if "--build" in cmd
+        )
+        self.assertIn("--wait", deploy_command)
 
 
 if __name__ == "__main__":

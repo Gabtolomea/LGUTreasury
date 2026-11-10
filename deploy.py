@@ -6,6 +6,7 @@ from scripts.cleanup import clean
 from scripts.commands import run_command
 from scripts.config import (
     environment_values,
+    is_container_mysql,
     native_database_config,
     project_directory,
 )
@@ -86,6 +87,7 @@ CONFIG = {
 class DeploymentRunner:
     def __init__(self, config=None, command_runner=None):
         self.config = deepcopy(CONFIG if config is None else config)
+        self._configure_setup()
         if config is None:
             self._configure_transport()
         self.command_runner = command_runner or run_command
@@ -100,6 +102,52 @@ class DeploymentRunner:
         self.failed_stage = ""
         self.deployment_started = False
         self.status = "failed"
+
+    def _configure_setup(self):
+        values = environment_values(self.config)
+        compose_env = values.get("COMPOSE_FILE")
+        if (
+            compose_env
+            and self.config.get("compose_files") == ["compose.native-mysql.yml"]
+        ):
+            self.config["compose_files"] = [compose_env]
+
+        if is_container_mysql(self.config):
+            if self.config.get("required_env") == ["NATIVE_MYSQL_CONNECTION"]:
+                self.config["required_env"] = [
+                    "MYSQL_PASSWORD",
+                    "MYSQL_ROOT_PASSWORD",
+                ]
+            if self.config.get("services") == ["app"]:
+                self.config["services"] = ["db", "app"]
+            if self.config.get("compose", {}).get("deploy_args") == [
+                "up",
+                "-d",
+                "--build",
+                "--wait",
+                "--wait-timeout",
+                "180",
+                "app",
+            ]:
+                self.config["compose"]["deploy_args"] = [
+                    "up",
+                    "-d",
+                    "--build",
+                    "--wait",
+                    "--wait-timeout",
+                    "180",
+                ]
+            checks = self.config.get("health_checks", [])
+            has_db_check = any(c.get("service") == "db" for c in checks)
+            if not has_db_check and checks and checks[0].get("type") == "container":
+                db_check = {
+                    "name": "Database container health",
+                    "type": "container",
+                    "service": "db",
+                    "retries": 20,
+                    "interval": 3,
+                }
+                self.config["health_checks"] = [db_check] + checks
 
     def _configure_transport(self):
         values = environment_values(self.config)
