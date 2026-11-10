@@ -74,3 +74,6 @@ Thumbs.db
 credentials.json
 client_secret_*.json
 token.json
+
+# Runtime user uploads (profile pictures)
+wwwroot/uploads/
