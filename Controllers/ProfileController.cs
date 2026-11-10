@@ -8,11 +8,18 @@ namespace LGUTreasury.Controllers
 {
     public class ProfileController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private const long MaxPhotoBytes = 2 * 1024 * 1024;
 
-        public ProfileController(ApplicationDbContext context)
+        private static readonly string[] AllowedPhotoExtensions =
+            { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+
+        private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
+
+        public ProfileController(ApplicationDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
         }
 
         // GET: /Profile
@@ -58,6 +65,136 @@ namespace LGUTreasury.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // POST: /Profile/UploadPhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadPhoto(IFormFile? photo)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+                return RedirectToAction("Login", "Account");
+
+            if (photo == null || photo.Length == 0)
+            {
+                TempData["Error"] = "Please choose an image to upload.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (photo.Length > MaxPhotoBytes)
+            {
+                TempData["Error"] = "The photo is too large. Please choose an image under 2 MB.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
+            if (!AllowedPhotoExtensions.Contains(extension))
+            {
+                TempData["Error"] = "Unsupported file type. Please upload a PNG, JPG, GIF or WEBP image.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                var uploadsRoot = GetProfilePicturesRoot();
+                Directory.CreateDirectory(uploadsRoot);
+
+                var fileName = $"{user.UserID}_{Guid.NewGuid():N}{extension}";
+                var filePath = Path.Combine(uploadsRoot, fileName);
+
+                await using (var stream = System.IO.File.Create(filePath))
+                {
+                    await photo.CopyToAsync(stream);
+                }
+
+                var previousPicture = user.ProfilePicture;
+
+                user.ProfilePicture = $"/uploads/profile-pictures/{fileName}";
+                await _context.SaveChangesAsync();
+
+                DeletePhotoFile(previousPicture);
+
+                TempData["Success"] = "Your profile picture has been updated.";
+            }
+            catch (IOException)
+            {
+                TempData["Error"] = "We could not save your profile picture. Please try again.";
+            }
+            catch (UnauthorizedAccessException)
+            {
+                TempData["Error"] = "We could not save your profile picture. Please try again.";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // POST: /Profile/RemovePhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemovePhoto()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+                return RedirectToAction("Login", "Account");
+
+            if (string.IsNullOrWhiteSpace(user.ProfilePicture))
+            {
+                TempData["Info"] = "You do not have a profile picture to remove.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var previousPicture = user.ProfilePicture;
+
+            user.ProfilePicture = null;
+            await _context.SaveChangesAsync();
+
+            DeletePhotoFile(previousPicture);
+
+            TempData["Success"] = "Your profile picture has been removed.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        private string GetWebRootPath()
+        {
+            return string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+                : _environment.WebRootPath;
+        }
+
+        private string GetProfilePicturesRoot()
+        {
+            return Path.Combine(GetWebRootPath(), "uploads", "profile-pictures");
+        }
+
+        private void DeletePhotoFile(string? picturePath)
+        {
+            if (string.IsNullOrWhiteSpace(picturePath))
+                return;
+
+            var webRoot = GetWebRootPath();
+            var uploadsRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
+            var relativePath = picturePath.TrimStart('/', '\\')
+                .Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+
+            // Only ever delete files that live inside the uploads folder.
+            if (!fullPath.StartsWith(uploadsRoot, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            try
+            {
+                if (System.IO.File.Exists(fullPath))
+                    System.IO.File.Delete(fullPath);
+            }
+            catch (IOException)
+            {
+                // A stale file is harmless; leave it behind rather than failing the request.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Same as above.
+            }
+        }
+
         private async Task<UserAccount?> GetCurrentUserAsync()
         {
             var userID = HttpContext.Session.GetInt32("UserID");
@@ -96,7 +233,8 @@ namespace LGUTreasury.Controllers
                 Suffix = user.Suffix,
                 Email = user.Email,
                 ContactNumber = ContactNumberRules.Format(user.ContactNumber),
-                Address = user.Address
+                Address = user.Address,
+                ProfilePicture = user.ProfilePicture
             };
         }
 
