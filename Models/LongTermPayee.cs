@@ -23,7 +23,7 @@ namespace LGUTreasury.Models
         public int BillGenerationDay { get; set; } = 20;
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-
+        public bool IsBillingEnabled { get; set; } = true;
         // Navigation
         public ICollection<AccountBillingType>? AccountBillingTypes { get; set; }
         public ICollection<MonthlyBill>? MonthlyBills { get; set; }

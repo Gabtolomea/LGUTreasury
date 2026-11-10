@@ -7,12 +7,11 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
 namespace LGUTreasury.Controllers
-{  
-    
+{
     public class LongTermTenantController : Controller
     {
         private readonly ApplicationDbContext _context;
-        
+
         public LongTermTenantController(ApplicationDbContext context)
         {
             _context = context;
@@ -26,7 +25,9 @@ namespace LGUTreasury.Controllers
             if (userID == null) return RedirectToAction("Login", "Account");
 
             var role = HttpContext.Session.GetString("Role");
-            //if (role != "Officer" || role != "Admin") return RedirectToAction("Index", "Home");
+            // NOTE: the original condition (role != "Officer" || role != "Admin") is always true.
+            // If you re-enable it, use &&:
+            // if (role != "Officer" && role != "Admin") return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "longterm";
             ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
@@ -70,25 +71,15 @@ namespace LGUTreasury.Controllers
             return View(tenants);
         }
 
-        // POST: /LongTermTenant/Create
-        [HttpPost]
-        public async Task<IActionResult> Create(
-            string FirstName, string? MiddleName, string LastName,
-            string? Suffix, string? ContactNumber, string? Address,
-            string StartMonth, int BillGenerationDay,
-            [FromBody] CreateTenantRequest? req)
-        {
-            var userID = HttpContext.Session.GetInt32("UserID");
-            if (userID == null) return Json(new { success = false, message = "Not logged in." });
-            return Json(new { success = false, message = "Use JSON endpoint." });
-        }
-
         // POST: /LongTermTenant/CreateTenant
         [HttpPost]
         public async Task<IActionResult> CreateTenant([FromBody] CreateTenantRequest req)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            if (req == null)
+                return Json(new { success = false, message = "Invalid request." });
 
             if (string.IsNullOrWhiteSpace(req.FirstName) || string.IsNullOrWhiteSpace(req.LastName))
                 return Json(new { success = false, message = "First and last name are required." });
@@ -146,7 +137,6 @@ namespace LGUTreasury.Controllers
             if (userID == null) return RedirectToAction("Login", "Account");
 
             var role = HttpContext.Session.GetString("Role");
-            //if (role != "Officer") return RedirectToAction("Index", "Home");
 
             ViewData["ActiveNav"] = "longterm";
             ViewData["FullName"]  = HttpContext.Session.GetString("FullName");
@@ -180,7 +170,7 @@ namespace LGUTreasury.Controllers
             var accountNo = "LTA-" + tenant.LongTermPayeeID.ToString("D6");
             var billNo    = "BILL-" + bill.MonthlyBillID.ToString("D6");
             var monthDisplay = DateTime.TryParse(bill.BillingMonth + "-01", out var d)
-                               ? d.ToString("MMMM yyyy") : bill.BillingMonth ?? "";
+                            ? d.ToString("MMMM yyyy") : bill.BillingMonth ?? "";
 
             var document = Document.Create(container =>
             {
@@ -329,6 +319,26 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
+        // POST: /LongTermTenant/ToggleBilling
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleBilling(int tenantID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return RedirectToAction("Login", "Account");
+
+            var tenant = await _context.LongTermPayees
+                .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+
+            if (tenant == null)
+                return NotFound();
+
+            tenant.IsBillingEnabled = !tenant.IsBillingEnabled;
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Ledger", new { id = tenantID });
+        }
+
         // GET: /LongTermTenant/GetBillingTypeOptions
         [HttpGet]
         public async Task<IActionResult> GetBillingTypeOptions(string? query)
@@ -373,73 +383,73 @@ namespace LGUTreasury.Controllers
         }
 
         // ── Private: Generate bills ──────────────────
-      private async Task GenerateBillsForTenant(int tenantID)
-{
-    var tenant = await _context.LongTermPayees
-        .Include(t => t.AccountBillingTypes)
-        .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
-
-    // Stop if tenant doesn't exist or is disabled
-    if (tenant == null || !tenant.IsActive)
-        return;
-
-    var activeBillingTypes = tenant.AccountBillingTypes?
-        .Where(bt => bt.IsActive).ToList();
-
-    if (activeBillingTypes == null || !activeBillingTypes.Any())
-        return;
-
-    if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate))
-        return;
-
-    var billDay = tenant.BillGenerationDay > 0
-        ? tenant.BillGenerationDay : 20;
-
-    var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-    var cursor = new DateTime(startDate.Year, startDate.Month, 1);
-
-    while (cursor <= currentMonth)
-    {
-        var day = Math.Min(billDay,
-            DateTime.DaysInMonth(cursor.Year, cursor.Month));
-
-        if (new DateTime(cursor.Year, cursor.Month, day) > DateTime.Today)
-            break;
-
-        var monthStr = cursor.ToString("yyyy-MM");
-
-        foreach (var bt in activeBillingTypes)
+        private async Task GenerateBillsForTenant(int tenantID)
         {
-            var exists = await _context.MonthlyBills.AnyAsync(b =>
-                b.LongTermPayeeID == tenantID &&
-                b.AccountBillingTypeID == bt.AccountBillingTypeID &&
-                b.BillingMonth == monthStr);
+            var tenant = await _context.LongTermPayees
+                .Include(t => t.AccountBillingTypes)
+                .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
 
-            if (!exists)
+            // Stop if tenant doesn't exist or is disabled
+            if (tenant == null || !tenant.IsActive || !tenant.IsBillingEnabled)
+                return;
+
+            var activeBillingTypes = tenant.AccountBillingTypes?
+                .Where(bt => bt.IsActive).ToList();
+
+            if (activeBillingTypes == null || !activeBillingTypes.Any())
+                return;
+
+            if (!DateTime.TryParse(tenant.StartMonth + "-01", out var startDate))
+                return;
+
+            var billDay = tenant.BillGenerationDay > 0
+                ? tenant.BillGenerationDay : 20;
+
+            var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var cursor = new DateTime(startDate.Year, startDate.Month, 1);
+
+            while (cursor <= currentMonth)
             {
-                _context.MonthlyBills.Add(new MonthlyBill
+                var day = Math.Min(billDay,
+                    DateTime.DaysInMonth(cursor.Year, cursor.Month));
+
+                if (new DateTime(cursor.Year, cursor.Month, day) > DateTime.Today)
+                    break;
+
+                var monthStr = cursor.ToString("yyyy-MM");
+
+                foreach (var bt in activeBillingTypes)
                 {
-                    LongTermPayeeID = tenantID,
-                    AccountBillingTypeID = bt.AccountBillingTypeID,
-                    BillingMonth = monthStr,
-                    BillingType = bt.BillingTypeName,
-                    BilledAmount = bt.MonthlyRate,
-                    Status = "Unpaid",
-                    CreatedAt = DateTime.Now
-                });
+                    var exists = await _context.MonthlyBills.AnyAsync(b =>
+                        b.LongTermPayeeID == tenantID &&
+                        b.AccountBillingTypeID == bt.AccountBillingTypeID &&
+                        b.BillingMonth == monthStr);
+
+                    if (!exists)
+                    {
+                        _context.MonthlyBills.Add(new MonthlyBill
+                        {
+                            LongTermPayeeID = tenantID,
+                            AccountBillingTypeID = bt.AccountBillingTypeID,
+                            BillingMonth = monthStr,
+                            BillingType = bt.BillingTypeName,
+                            BilledAmount = bt.MonthlyRate,
+                            Status = "Unpaid",
+                            CreatedAt = DateTime.Now
+                        });
+                    }
+                }
+
+                cursor = cursor.AddMonths(1);
             }
+
+            await _context.SaveChangesAsync();
         }
-
-        cursor = cursor.AddMonths(1);
-    }
-
-    await _context.SaveChangesAsync();
-}
 
         private string GetInitials(string? fullName)
         {
             if (string.IsNullOrEmpty(fullName)) return "?";
-            var parts = fullName.Split(' ');
+            var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
             return fullName[0].ToString().ToUpper();
         }
@@ -465,5 +475,3 @@ namespace LGUTreasury.Controllers
         public decimal Rate { get; set; }
     }
 }
-
-
