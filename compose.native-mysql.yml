@@ -21,6 +21,6 @@ services:
         target: /https
         read_only: true
     ports:
-      - "8080:8080"
+      - "8092:8080"
       - "8443:8443"
     restart: unless-stopped
