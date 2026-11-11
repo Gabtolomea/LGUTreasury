@@ -235,6 +235,12 @@ The deployment runner supports both setups and automatically selects the configu
 python deploy.py
 ```
 
+Show the executed commands in the terminal as well:
+
+```powershell
+python deploy.py --verbose
+```
+
 - **Containerized MySQL (`COMPOSE_FILE=compose.container-mysql.yml`)**:
   - Requires `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env`.
   - Performs preflight checks on Docker and Compose.
@@ -254,6 +260,8 @@ python deploy.py
   - Automatically rolls back the application image on failure.
 
 Deployment logs are appended to `logs/deployment.log`. When `ENABLE_HTTPS=true`, both setups require `HTTPS_CERT_DIR` and `HTTPS_CERT_PASSWORD`. After a successful deployment, the runner prints local and LAN URLs for the active HTTP or HTTPS mode.
+
+Each run prints the current stage, the individual preflight and health-check results, and a final summary with the deployment duration, database and application health, rollback and cleanup outcome, recovery backup location, log location, and application URLs. Docker commands are not printed by default; every executed command and its result is recorded in `logs/deployment.log`. Use `--verbose` to show the executed commands in the terminal too.
 
 ### Database Restoration
 

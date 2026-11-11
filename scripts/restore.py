@@ -249,7 +249,7 @@ def restore_database(
             values.get("MYSQL_ROOT_PASSWORD", ""),
             values.get("HTTPS_CERT_PASSWORD", ""),
         ]
-        logger = Logger(log_path, secret_values=secret_values)
+        logger = Logger(log_path, secret_values=secret_values, verbose=True)
         close_logger = True
 
     try:
@@ -305,7 +305,7 @@ def restore_database(
             logger.fail(restore_error)
             return {"ok": False, "error": restore_error}
 
-        logger.success("Database restoration completed successfully.")
+        logger.ok("Database restoration completed successfully.")
         return {"ok": True, "error": ""}
 
     finally:
@@ -346,7 +346,7 @@ def main():
     from deploy import CONFIG
     result = restore_database(CONFIG, target_path)
     if result["ok"]:
-        print("[PASS] Database restored successfully.")
+        print("[ OK ] Database restored successfully.")
         sys.exit(0)
     else:
         print("[FAIL] {0}".format(result["error"]))

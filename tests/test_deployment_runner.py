@@ -427,6 +427,155 @@ class DeploymentRunnerTests(unittest.TestCase):
             self.assertEqual(stream.getvalue(), "\033[36m[INFO]\033[0m message\n")
             self.assertNotIn("\033[", (Path(temporary_directory) / "app.log").read_text())
 
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_default_output_hides_commands_and_log_file_keeps_them(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner()
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("Running the command", output.getvalue())
+        log_text = (project_directory / "logs" / "deployment.log").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Running the command", log_text)
+        self.assertIn("Application deployment completed successfully.", log_text)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_verbose_output_shows_executed_commands(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner()
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner, verbose=True)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Running the command", output.getvalue())
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_output_uses_standard_labels_and_stage_headers(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner()
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        text = output.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("[PASS]", text)
+        self.assertNotIn("[PASSED]", text)
+        self.assertIn("[ OK ]", text)
+        self.assertIn("[DONE] Deployment completed successfully", text)
+        for stage in range(1, 9):
+            self.assertIn("Stage {0}/8:".format(stage), text)
+        self.assertLess(text.index("Stage 1/8:"), text.index("Stage 2/8:"))
+        self.assertLess(text.index("Stage 7/8:"), text.index("Stage 8/8:"))
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_health_check_summary_is_reported_once(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner()
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        text = output.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(text.count("All health checks passed"), 1)
+        self.assertIn("Health checks: 1/1 passed.", text)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_failed_deployment_reports_stage_and_rollback(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner(existing_app=True, fail_deployment=True)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        text = output.getvalue()
+        self.assertNotEqual(exit_code, 0)
+        self.assertIn(
+            "The deployment failed during the application deployment stage.", text
+        )
+        self.assertIn("Failed stage: application deployment.", text)
+        self.assertIn("Database health: Not checked.", text)
+        self.assertIn("Health checks: Not run.", text)
+        self.assertIn("Starting automatic rollback", text)
+        self.assertIn("The recovery backup is at", text)
+        self.assertIn("The automatic rollback completed successfully.", text)
+        self.assertIn("Rollback: Completed successfully.", text)
+        self.assertIn("Recovery backup:", text)
+        self.assertIn("Deployment log:", text)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_failed_rollback_is_reported(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        command_runner = FakeCommandRunner(
+            existing_app=True,
+            fail_deployment=True,
+            fail_rollback=True,
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(make_config(project_directory), command_runner)
+
+        text = output.getvalue()
+        self.assertNotEqual(exit_code, 0)
+        self.assertIn("Rollback: Failed.", text)
+        self.assertIn("The previous application image could not be restored.", text)
+
+    @patch("scripts.preflight.shutil.which", return_value="docker")
+    def test_container_mysql_deployment_reports_database_health(self, unused_which):
+        temporary_directory, project_directory = self.create_project()
+        self.addCleanup(temporary_directory.cleanup)
+        (project_directory / ".env").write_text(
+            "MYSQL_PASSWORD=container-password\nMYSQL_ROOT_PASSWORD=root-password\n",
+            encoding="utf-8",
+        )
+        config = make_config(project_directory)
+        config["compose_files"] = ["compose.container-mysql.yml"]
+        config["services"] = ["db", "app"]
+        config["health_checks"] = [
+            {
+                "name": "Database container health",
+                "type": "container",
+                "service": "db",
+                "retries": 1,
+                "interval": 0,
+            },
+            {
+                "name": "Application health",
+                "type": "command",
+                "command": ["health-check"],
+                "retries": 1,
+                "interval": 0,
+            },
+        ]
+        command_runner = FakeCommandRunner(existing_app=True)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = run(config, command_runner)
+
+        text = output.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Database health: Healthy.", text)
+        self.assertIn("Health checks: 2/2 passed.", text)
+
     def test_cleanup_preserves_backup_and_log_paths(self):
         temporary_directory, project_directory = self.create_project()
         self.addCleanup(temporary_directory.cleanup)
@@ -446,7 +595,8 @@ class DeploymentRunnerTests(unittest.TestCase):
                 "warning": lambda self, message: None,
                 "ok": lambda self, message: None,
                 "fail": lambda self, message: None,
-                "success": lambda self, message: None,
+                "done": lambda self, message: None,
+                "detail": lambda self, message, level="INFO": None,
             },
         )()
 

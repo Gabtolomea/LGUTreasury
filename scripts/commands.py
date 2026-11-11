@@ -67,20 +67,31 @@ def describe_command(command):
     return shlex.join([str(item) for item in command])
 
 
-def run_logged_command(command_runner, command, cwd, timeout, logger, description, input=None):
-    logger.info("Running the command `{0}`.".format(describe_command(command)))
+def execute_command(command_runner, command, cwd=None, timeout=None, input=None):
     try:
-        result = command_runner(command, cwd=cwd, timeout=timeout, input=input)
+        return command_runner(command, cwd=cwd, timeout=timeout, input=input)
     except TypeError:
         try:
-            result = command_runner(command, cwd, timeout)
+            return command_runner(command, cwd, timeout)
         except TypeError:
-            result = command_runner(command)
+            return command_runner(command)
+
+
+def run_logged_command(command_runner, command, cwd, timeout, logger, description, input=None):
+    logger.detail("Running the command `{0}`.".format(describe_command(command)))
+    result = execute_command(command_runner, command, cwd, timeout, input)
     if result.ok():
-        logger.ok("{0} completed successfully.".format(description))
+        logger.detail("{0} completed successfully.".format(description), level=" OK ")
         return result
 
     details = result.stderr.strip()
+    if result.returncode == 124:
+        message = "{0} timed out after {1}s.".format(description, timeout)
+        if details:
+            message += " The command reported: {0}.".format(details)
+        logger.fail(message)
+        return result
+
     if details:
         logger.fail("{0} failed. The command reported: {1}.".format(description, details))
     else:

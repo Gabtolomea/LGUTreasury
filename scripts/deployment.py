@@ -3,7 +3,6 @@ from .config import compose_command, project_directory
 
 
 def validate_compose(config, compose_executable, command_runner, logger):
-    logger.info("Validating the Docker Compose configuration.")
     project_dir = str(project_directory(config))
     validation_command = compose_command(config, compose_executable, ["config", "--quiet"])
     validation_result = run_logged_command(
@@ -32,17 +31,15 @@ def validate_compose(config, compose_executable, command_runner, logger):
     services = services_result.stdout.split()
     for service in config.get("services", []):
         if service not in services:
-            return {
-                "ok": False,
-                "error": "The required Compose service was not found: {0}.".format(service),
-            }
+            message = "The required Compose service was not found: {0}.".format(service)
+            logger.fail(message)
+            return {"ok": False, "error": message}
 
-    logger.success("Docker Compose validation completed successfully.")
+    logger.ok("Docker Compose configuration is valid.")
     return {"ok": True, "error": ""}
 
 
 def deploy(config, compose_executable, command_runner, logger):
-    logger.info("Deploying the application.")
     arguments = config.get("compose", {}).get(
         "deploy_args",
         ["up", "-d", "--build", config.get("app_service", "app")],
@@ -59,5 +56,5 @@ def deploy(config, compose_executable, command_runner, logger):
     if not result.ok():
         return {"ok": False, "error": "The application deployment failed."}
 
-    logger.success("The application deployment completed successfully.")
+    logger.ok("The application was deployed.")
     return {"ok": True, "error": ""}

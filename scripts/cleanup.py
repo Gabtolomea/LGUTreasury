@@ -46,5 +46,4 @@ def clean(config, logger):
         for error in errors:
             logger.fail(error)
         return {"ok": False, "errors": errors}
-    logger.success("Safe cleanup completed successfully.")
     return {"ok": True, "errors": []}

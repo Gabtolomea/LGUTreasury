@@ -22,19 +22,20 @@ def redact_text(text, secret_values=None):
 
 
 class Logger:
-    def __init__(self, log_path, stream=None, secret_values=None):
+    def __init__(self, log_path, stream=None, secret_values=None, verbose=False):
         self.log_path = Path(log_path)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.file = self.log_path.open("a", encoding="utf-8")
         self.stream = stream or sys.stdout
         self.secret_values = secret_values or []
         self.use_color = self.stream.isatty() and not os.environ.get("NO_COLOR")
+        self.verbose = verbose
 
     def close(self):
         if not self.file.closed:
             self.file.close()
 
-    def _write(self, level, message):
+    def _write(self, level, message, terminal=True):
         clean_message = redact_text(message, self.secret_values)
         level_label = "[{0}]".format(level)
         line = "{0} {1}".format(level_label, clean_message)
@@ -42,12 +43,15 @@ class Logger:
         self.file.write("[{0}] {1}\n".format(timestamp, line))
         self.file.flush()
 
+        if not terminal:
+            return
+
         terminal_line = line
         if self.use_color:
             color = ""
             if level == "INFO":
                 color = "\033[36m"
-            elif level in (" OK ", "PASS"):
+            elif level in (" OK ", "DONE"):
                 color = "\033[32m"
             elif level == "WARN":
                 color = "\033[33m"
@@ -63,11 +67,15 @@ class Logger:
     def ok(self, message):
         self._write(" OK ", message)
 
-    def success(self, message):
-        self._write("PASS", message)
+    def done(self, message):
+        self._write("DONE", message)
 
     def warning(self, message):
         self._write("WARN", message)
 
     def fail(self, message):
         self._write("FAIL", message)
+
+    def detail(self, message, level="INFO"):
+        """Keep the message in the log file and show it in the terminal only when verbose."""
+        self._write(level, message, terminal=self.verbose)

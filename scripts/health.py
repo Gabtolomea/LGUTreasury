@@ -4,7 +4,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-from .commands import run_logged_command
+from .commands import describe_command, execute_command
 from .config import compose_command, project_directory
 
 
@@ -12,13 +12,12 @@ def _check_command(check, command_runner, config, logger, timeout=None):
     command = check.get("command")
     if not command:
         return False, "The health-check command is missing."
-    result = run_logged_command(
+    logger.detail("Running the command `{0}`.".format(describe_command(command)))
+    result = execute_command(
         command_runner,
         command,
         str(project_directory(config)),
         timeout or check.get("timeout", 10),
-        logger,
-        check.get("name", "Health check"),
     )
     if result.ok():
         return True, ""
@@ -133,7 +132,13 @@ def _run_check(check, compose_executable, command_runner, config, logger, timeou
     return False, "The health-check type is not supported."
 
 
-def run_health_checks(config, compose_executable, command_runner, logger):
+def run_health_checks(
+    config,
+    compose_executable,
+    command_runner,
+    logger,
+    summary_label="All health checks",
+):
     checks = config.get("health_checks", [])
     if not checks:
         message = "No health checks were configured."
@@ -143,19 +148,29 @@ def run_health_checks(config, compose_executable, command_runner, logger):
     overall_timeout = max(1, float(config.get("health_check_timeout", 120)))
     started_at = time.monotonic()
     deadline = started_at + overall_timeout
-    logger.info("Running {0} deployment health checks (deadline: {1}s).".format(len(checks), overall_timeout))
+    logger.info("Health-check deadline: {0:g}s.".format(overall_timeout))
 
     errors = []
     results = []
     for check in checks:
         name = check.get("name", "Application health")
+        service = check.get("service", "")
         retries = check.get("retries", 3)
         interval = check.get("interval", 2)
         if not isinstance(retries, int) or retries < 1 or not isinstance(interval, (int, float)) or interval < 0:
             error = "{0} has invalid retry settings.".format(name)
             logger.fail(error)
             errors.append(error)
-            results.append({"name": name, "status": "failed", "attempts": 0, "duration": 0.0, "error": error})
+            results.append(
+                {
+                    "name": name,
+                    "service": service,
+                    "status": "failed",
+                    "attempts": 0,
+                    "duration": 0.0,
+                    "error": error,
+                }
+            )
             continue
 
         check_started = time.monotonic()
@@ -180,6 +195,7 @@ def run_health_checks(config, compose_executable, command_runner, logger):
         duration = round(time.monotonic() - check_started, 2)
         result = {
             "name": name,
+            "service": service,
             "status": "passed" if passed else "failed",
             "attempts": attempts,
             "duration": duration,
@@ -187,7 +203,7 @@ def run_health_checks(config, compose_executable, command_runner, logger):
         }
         results.append(result)
         if passed:
-            logger.ok("{0} passed ({1} attempt(s), {2:.2f}s).".format(name, attempts, duration))
+            logger.ok("{0} ({1} attempt(s), {2:.2f}s)".format(name, attempts, duration))
         else:
             error = "{0} failed after {1} attempt(s): {2}".format(name, attempts, last_error)
             logger.fail(error)
@@ -195,8 +211,8 @@ def run_health_checks(config, compose_executable, command_runner, logger):
 
     total_duration = round(time.monotonic() - started_at, 2)
     if errors:
-        logger.fail("Deployment health checks failed ({0:.2f}s).".format(total_duration))
+        logger.fail("{0} failed ({1:.2f}s).".format(summary_label, total_duration))
         return {"ok": False, "errors": errors, "checks": results, "duration": total_duration}
 
-    logger.success("All deployment health checks passed ({0:.2f}s).".format(total_duration))
+    logger.ok("{0} passed ({1:.2f}s).".format(summary_label, total_duration))
     return {"ok": True, "errors": [], "checks": results, "duration": total_duration}

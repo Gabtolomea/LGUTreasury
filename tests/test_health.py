@@ -22,8 +22,11 @@ class RecordingLogger:
     def warning(self, message):
         self.messages.append(("warning", message))
 
-    def success(self, message):
-        self.messages.append(("success", message))
+    def done(self, message):
+        self.messages.append(("done", message))
+
+    def detail(self, message, level="INFO"):
+        self.messages.append(("detail", message))
 
 
 class ContainerHealthRunner:

@@ -6,7 +6,6 @@ from .config import environment_values, project_directory, project_path
 
 
 def run_preflight(config, command_runner, logger):
-    logger.info("Running preflight checks.")
     errors = []
     project_dir = project_directory(config)
 
@@ -82,10 +81,11 @@ def run_preflight(config, command_runner, logger):
         )
         if not daemon_result.ok():
             errors.append("The Docker daemon is not available.")
+            logger.fail("The Docker daemon is not available.")
+        else:
+            logger.ok("The Docker daemon is responding.")
 
     if errors:
-        logger.fail("Preflight checks failed.")
         return {"ok": False, "errors": errors, "compose_command": compose_command}
 
-    logger.success("Preflight checks completed successfully.")
     return {"ok": True, "errors": [], "compose_command": compose_command}

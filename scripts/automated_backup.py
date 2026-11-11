@@ -75,10 +75,12 @@ def run_automated_backup(config=None, command_runner=None):
         logger = Logger(
             log_path,
             secret_values=secret_values,
+            verbose=True,
         )
 
         logger.info("Starting the automated backup process.")
 
+        logger.info("Running preflight checks...")
         preflight = run_preflight(
             backup_config,
             command_runner,
@@ -92,6 +94,7 @@ def run_automated_backup(config=None, command_runner=None):
 
         compose_executable = preflight["compose_command"]
 
+        logger.info("Creating backups...")
         backup_result = create_backups(
             backup_config,
             compose_executable,
@@ -145,7 +148,7 @@ def run_automated_backup(config=None, command_runner=None):
             result["drive_upload_ok"] = True
             result["drive_file_id"] = drive_result["file_id"]
 
-            logger.success("Google Drive upload and verification completed.")
+            logger.ok("Google Drive upload and verification completed.")
             logger.ok(
                 "Google Drive file ID: {0}".format(
                     result["drive_file_id"]
@@ -162,7 +165,7 @@ def run_automated_backup(config=None, command_runner=None):
                 )
             )
 
-        logger.success("Automated backup completed successfully.")
+        logger.done("Automated backup completed successfully.")
         logger.ok(
             "Encrypted backup saved at: {0}".format(
                 result["encrypted_file"]

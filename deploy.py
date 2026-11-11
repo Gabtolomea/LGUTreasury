@@ -1,7 +1,9 @@
+import argparse
+import time
 from copy import deepcopy
 from pathlib import Path
 
-from scripts.backup import create_backups
+from scripts.backup import create_data_backups, create_recovery_backups
 from scripts.cleanup import clean
 from scripts.commands import run_command
 from scripts.config import (
@@ -85,12 +87,13 @@ CONFIG = {
 
 
 class DeploymentRunner:
-    def __init__(self, config=None, command_runner=None):
+    def __init__(self, config=None, command_runner=None, verbose=False):
         self.config = deepcopy(CONFIG if config is None else config)
         self._configure_setup()
         if config is None:
             self._configure_transport()
         self.command_runner = command_runner or run_command
+        self.verbose = verbose
         self.logger = None
         self.compose_executable = None
         self.backup_result = None
@@ -98,10 +101,10 @@ class DeploymentRunner:
         self.cleanup_result = None
         self.health_result = None
         self.errors = []
-        self.completed_stages = []
         self.failed_stage = ""
         self.deployment_started = False
         self.status = "failed"
+        self.started_at = time.monotonic()
 
     def _configure_setup(self):
         values = environment_values(self.config)
@@ -188,17 +191,26 @@ class DeploymentRunner:
             values.get("HTTPS_CERT_PASSWORD", ""),
             values.get("INITIAL_ADMIN_PASSWORD", ""),
         ]
-        self.logger = Logger(log_path, secret_values=secret_values)
+        self.logger = Logger(
+            log_path,
+            secret_values=secret_values,
+            verbose=self.verbose,
+        )
         self.logger.info("Starting the Docker deployment.")
 
-    def _record_failure(self, stage, message):
+    def _fail_stage(self, stage, errors):
         self.failed_stage = stage
-        self.errors.append(message)
-        self.logger.fail(message)
+        self.errors.extend(errors)
+        self.logger.fail("The deployment failed during the {0} stage.".format(stage))
 
     def _attempt_rollback(self):
+        backup_dir = (self.backup_result or {}).get("backup_dir", "")
+        message = "Starting automatic rollback to the previous application version."
+        if backup_dir:
+            message += " The recovery backup is at {0}.".format(backup_dir)
+        self.logger.warning(message)
         try:
-            return restore_rollback(
+            result = restore_rollback(
                 self.config,
                 self.backup_result or {},
                 self.compose_executable,
@@ -206,33 +218,55 @@ class DeploymentRunner:
                 self.logger,
             )
         except Exception as error:
-            self.logger.fail("Rollback failed unexpectedly.")
-            return {
-                "ok": False,
-                "error": "Rollback failed unexpectedly: {0}.".format(error),
-            }
+            message = "The automatic rollback failed unexpectedly: {0}.".format(error)
+            self.logger.fail(message)
+            return {"ok": False, "error": message}
+
+        if result["ok"]:
+            self.logger.ok("The automatic rollback completed successfully.")
+        else:
+            self.logger.fail(result["error"])
+        return result
 
     def _run_stages(self):
+        self.logger.info("Stage 1/8: Running preflight checks...")
         preflight_result = run_preflight(self.config, self.command_runner, self.logger)
         if not preflight_result["ok"]:
-            self.failed_stage = "preflight checks"
-            self.errors.extend(preflight_result["errors"])
+            self._fail_stage("preflight checks", preflight_result["errors"])
             return
         self.compose_executable = preflight_result["compose_command"]
-        self.completed_stages.append("preflight checks")
 
-        self.backup_result = create_backups(
+        self.logger.info("Stage 2/8: Creating recovery backups...")
+        backup_dir, recovery_errors = create_recovery_backups(self.config, self.logger)
+        if recovery_errors:
+            self.backup_result = {
+                "ok": False,
+                "errors": recovery_errors,
+                "backup_dir": str(backup_dir),
+            }
+            self._fail_stage("recovery backups", recovery_errors)
+            return
+
+        self.logger.info(
+            "Stage 3/8: Checking the database and application image backups..."
+        )
+        backup_errors = create_data_backups(
             self.config,
             self.compose_executable,
             self.command_runner,
             self.logger,
+            backup_dir,
         )
-        if not self.backup_result["ok"]:
-            self.failed_stage = "backups"
-            self.errors.extend(self.backup_result["errors"])
+        self.backup_result = {
+            "ok": not backup_errors,
+            "errors": backup_errors,
+            "backup_dir": str(backup_dir),
+        }
+        if backup_errors:
+            self._fail_stage("database and image backups", backup_errors)
             return
-        self.completed_stages.append("backups")
 
+        self.logger.info("Stage 4/8: Validating Docker Compose configuration...")
         validation_result = validate_compose(
             self.config,
             self.compose_executable,
@@ -240,12 +274,11 @@ class DeploymentRunner:
             self.logger,
         )
         if not validation_result["ok"]:
-            self.failed_stage = "Compose validation"
-            self.errors.append(validation_result["error"])
+            self._fail_stage("Docker Compose validation", [validation_result["error"]])
             return
-        self.completed_stages.append("Compose validation")
 
         self.deployment_started = True
+        self.logger.info("Stage 5/8: Deploying the application...")
         deployment_result = deploy_application(
             self.config,
             self.compose_executable,
@@ -253,12 +286,11 @@ class DeploymentRunner:
             self.logger,
         )
         if not deployment_result["ok"]:
-            self.failed_stage = "deployment"
-            self.errors.append(deployment_result["error"])
+            self._fail_stage("application deployment", [deployment_result["error"]])
             self.rollback_result = self._attempt_rollback()
             return
-        self.completed_stages.append("deployment")
 
+        self.logger.info("Stage 6/8: Running deployment health checks...")
         self.health_result = run_health_checks(
             self.config,
             self.compose_executable,
@@ -266,66 +298,86 @@ class DeploymentRunner:
             self.logger,
         )
         if not self.health_result["ok"]:
-            self.failed_stage = "health checks"
-            self.errors.extend(self.health_result["errors"])
+            self._fail_stage("deployment health checks", self.health_result["errors"])
             self.rollback_result = self._attempt_rollback()
             return
-        self.completed_stages.append("health checks")
         self.status = "successful"
 
     def report(self):
+        duration = time.monotonic() - self.started_at
+
         if self.status == "successful":
-            self.logger.success("The Docker deployment completed successfully.")
-        else:
-            self.logger.fail("The Docker deployment did not complete successfully.")
-        if self.completed_stages:
-            self.logger.info("Completed stages: {0}.".format(", ".join(self.completed_stages)))
-        if self.failed_stage:
-            self.logger.info("Failed stage: {0}.".format(self.failed_stage))
-        if self.health_result:
-            health_status = "failed"
-            if self.health_result["ok"]:
-                health_status = "passed"
-            self.logger.info("Health checks {0}.".format(health_status))
-            for check in self.health_result.get("checks", []):
-                status = check.get("status", "unknown").upper()
-                self.logger.info(
-                    "[{0}] {1}: {2} attempt(s), {3:.2f}s{4}.".format(
-                        status,
-                        check.get("name", "Health check"),
-                        check.get("attempts", 0),
-                        check.get("duration", 0.0),
-                        " - " + check.get("error", "") if check.get("error") else "",
-                    )
-                )
-            self.logger.info("Total health-check duration: {0:.2f}s.".format(self.health_result.get("duration", 0.0)))
-        else:
-            self.logger.info("Health checks did not run.")
-        if self.rollback_result:
-            rollback_status = "failed"
-            if self.rollback_result["ok"]:
-                rollback_status = "successful"
-            self.logger.info("Rollback was {0}.".format(rollback_status))
-        else:
-            self.logger.info("Rollback was not required.")
-        if self.cleanup_result:
-            cleanup_status = "failed"
-            if self.cleanup_result["ok"]:
-                cleanup_status = "successful"
-            self.logger.info("Cleanup was {0}.".format(cleanup_status))
-        if self.backup_result and self.backup_result.get("backup_dir"):
-            self.logger.info(
-                "Recovery files are preserved at {0}.".format(self.backup_result["backup_dir"])
+            self.logger.done(
+                "Deployment completed successfully in {0:.2f}s.".format(duration)
             )
+        else:
+            self.logger.fail("Deployment failed in {0:.2f}s.".format(duration))
+            if self.failed_stage:
+                self.logger.info("Failed stage: {0}.".format(self.failed_stage))
+
+        self._report_health_status()
+        self._report_recovery_status()
+
         log_path = project_directory(self.config) / self.config.get(
             "log_file",
             "logs/deployment.log",
         )
-        self.logger.info("Deployment logs are preserved at {0}.".format(log_path))
-        if self.status == "successful":
-            self._report_application_urls()
-        for error in self.errors:
-            self.logger.fail(error)
+        self.logger.info("Deployment log: {0}".format(log_path))
+        self._report_application_urls()
+
+    def _report_health_status(self):
+        if not self.health_result:
+            self.logger.info("Database health: Not checked.")
+            self.logger.info("Application health: Not checked.")
+            self.logger.info("Health checks: Not run.")
+            return
+
+        checks = self.health_result.get("checks", [])
+        passed = len([check for check in checks if check.get("status") == "passed"])
+
+        database_check = None
+        for check in checks:
+            if check.get("service") == "db":
+                database_check = check
+                break
+
+        if database_check is None:
+            self.logger.info("Database health: Not checked.")
+        elif database_check.get("status") == "passed":
+            self.logger.info("Database health: Healthy.")
+        else:
+            self.logger.info("Database health: Failed.")
+
+        if self.health_result["ok"]:
+            self.logger.info("Application health: Healthy.")
+        else:
+            self.logger.info("Application health: Failed.")
+
+        self.logger.info("Health checks: {0}/{1} passed.".format(passed, len(checks)))
+
+    def _report_recovery_status(self):
+        if self.rollback_result:
+            if self.rollback_result["ok"]:
+                self.logger.info("Rollback: Completed successfully.")
+            else:
+                self.logger.info("Rollback: Failed.")
+        else:
+            self.logger.info("Rollback: Not required.")
+
+        if self.cleanup_result:
+            if self.cleanup_result["ok"]:
+                self.logger.info("Cleanup: Succeeded.")
+            else:
+                self.logger.info("Cleanup: Failed.")
+        else:
+            self.logger.info("Cleanup: Not run.")
+
+        if self.backup_result and self.backup_result.get("backup_dir"):
+            self.logger.info(
+                "Recovery backup: {0}".format(self.backup_result["backup_dir"])
+            )
+        else:
+            self.logger.info("Recovery backup: Not created.")
 
     def _report_application_urls(self):
         scheme = self.config.get("app_scheme", "https")
@@ -355,6 +407,8 @@ class DeploymentRunner:
             )
 
     def run(self):
+        self.started_at = time.monotonic()
+
         try:
             self.initialize()
         except Exception as error:
@@ -365,23 +419,31 @@ class DeploymentRunner:
             self._run_stages()
         except Exception as error:
             self.errors.append("An unexpected error occurred: {0}.".format(error))
-            self.logger.fail("An unexpected error occurred during deployment.")
+            self.logger.fail(
+                "An unexpected error occurred during deployment: {0}".format(error)
+            )
             if self.deployment_started:
                 self.rollback_result = self._attempt_rollback()
 
         try:
+            self.logger.info("Stage 7/8: Performing safe cleanup...")
             self.cleanup_result = clean(self.config, self.logger)
             if not self.cleanup_result["ok"]:
                 self.errors.extend(self.cleanup_result["errors"])
         except Exception as error:
-            self.errors.append("Cleanup failed unexpectedly: {0}.".format(error))
-            self.logger.fail("Cleanup failed unexpectedly.")
+            self.cleanup_result = {
+                "ok": False,
+                "errors": ["Cleanup failed unexpectedly: {0}.".format(error)],
+            }
+            self.errors.extend(self.cleanup_result["errors"])
+            self.logger.fail("Cleanup failed unexpectedly: {0}".format(error))
 
         if self.rollback_result and not self.rollback_result["ok"]:
             self.errors.append(self.rollback_result["error"])
         if self.errors:
             self.status = "failed"
 
+        self.logger.info("Stage 8/8: Deployment summary")
         self.report()
         self.logger.close()
         if self.status == "successful":
@@ -389,10 +451,23 @@ class DeploymentRunner:
         return 1
 
 
-def run(config=None, command_runner=None):
-    runner = DeploymentRunner(config, command_runner)
+def run(config=None, command_runner=None, verbose=False):
+    runner = DeploymentRunner(config, command_runner, verbose=verbose)
     return runner.run()
 
 
+def main():
+    parser = argparse.ArgumentParser(
+        description="Deploy the LGU Treasury application with Docker Compose."
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show the executed commands in the terminal output.",
+    )
+    arguments = parser.parse_args()
+    return run(verbose=arguments.verbose)
+
+
 if __name__ == "__main__":
-    raise SystemExit(run())
+    raise SystemExit(main())

@@ -484,12 +484,12 @@ def _backup_app_image(config, compose_executable, command_runner, logger, backup
     return ""
 
 
-def create_backups(config, compose_executable, command_runner, logger):
-    logger.info("Creating backups.")
-
+def create_recovery_backups(config, logger):
+    """Copy the deployment configuration files into a new backup directory."""
     backup_dir = _new_backup_directory(config)
     project_dir = project_directory(config)
     errors = []
+    saved = 0
 
     for value in config.get("backup_paths", []):
         source = project_path(config, value)
@@ -506,12 +506,25 @@ def create_backups(config, compose_executable, command_runner, logger):
             destination = _copy_path(source, project_dir, backup_dir)
 
             if destination.exists():
-                logger.ok("The backup was saved for {0}.".format(value))
+                saved += 1
             else:
                 errors.append("The backup could not be verified: {0}.".format(value))
 
         except OSError as error:
             errors.append("The backup failed for {0}: {1}.".format(value, error))
+
+    if saved:
+        logger.ok("Recovery files saved: {0}.".format(saved))
+
+    for error in errors:
+        logger.fail(error)
+
+    return backup_dir, errors
+
+
+def create_data_backups(config, compose_executable, command_runner, logger, backup_dir):
+    """Back up the database and the active application image."""
+    errors = []
 
     database_error = _backup_database(
         config,
@@ -535,17 +548,33 @@ def create_backups(config, compose_executable, command_runner, logger):
     if image_error:
         errors.append(image_error)
 
-    if errors:
-        for error in errors:
-            logger.fail(error)
+    for error in errors:
+        logger.fail(error)
 
+    return errors
+
+
+def create_backups(config, compose_executable, command_runner, logger):
+    """Create every deployment backup."""
+    backup_dir, errors = create_recovery_backups(config, logger)
+    errors.extend(
+        create_data_backups(
+            config,
+            compose_executable,
+            command_runner,
+            logger,
+            backup_dir,
+        )
+    )
+
+    if errors:
         return {
             "ok": False,
             "errors": errors,
             "backup_dir": str(backup_dir),
         }
 
-    logger.success("Backups were created at {0}.".format(backup_dir))
+    logger.ok("Backups were created at {0}.".format(backup_dir))
 
     return {
         "ok": True,

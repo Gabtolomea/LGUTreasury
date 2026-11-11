@@ -6,16 +6,13 @@ from .health import run_health_checks
 
 
 def rollback(config, backup_result, compose_executable, command_runner, logger):
-    logger.info("Rolling back the application.")
     backup_dir = backup_result.get("backup_dir")
     if not backup_dir:
-        logger.fail("Rollback cannot start because no backup directory was created.")
-        return {"ok": False, "error": "No backup directory was created."}
+        return {"ok": False, "error": "Rollback cannot start because no backup directory was created."}
 
     image_file = Path(backup_dir) / "app-image.tar"
     if not image_file.is_file():
-        logger.fail("Rollback cannot start because no application image backup exists.")
-        return {"ok": False, "error": "No application image backup exists."}
+        return {"ok": False, "error": "Rollback cannot start because no application image backup exists."}
 
     project_dir = str(project_directory(config))
     load_command = ["docker", "load", "--input", str(image_file)]
@@ -28,8 +25,8 @@ def rollback(config, backup_result, compose_executable, command_runner, logger):
         "Previous application image restoration",
     )
     if not load_result.ok():
-        logger.fail("The previous application image could not be restored.")
         return {"ok": False, "error": "The previous application image could not be restored."}
+    logger.ok("The previous application image was restored.")
 
     restore_command = compose_command(
         config,
@@ -53,18 +50,18 @@ def rollback(config, backup_result, compose_executable, command_runner, logger):
         "Application rollback",
     )
     if not restore_result.ok():
-        logger.fail("The application rollback failed.")
         return {"ok": False, "error": "The application rollback failed."}
+    logger.ok("The previous application version is running.")
 
+    logger.info("Running rollback verification health checks...")
     health_result = run_health_checks(
         config,
         compose_executable,
         command_runner,
         logger,
+        summary_label="Rollback verification health checks",
     )
     if not health_result["ok"]:
-        logger.fail("Rollback verification failed.")
         return {"ok": False, "error": "Rollback verification failed."}
 
-    logger.success("Rollback completed and was verified successfully.")
     return {"ok": True, "error": ""}
