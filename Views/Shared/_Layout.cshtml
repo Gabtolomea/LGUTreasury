@@ -1,18 +1,35 @@
-﻿@using Microsoft.EntityFrameworkCore
+@using Microsoft.EntityFrameworkCore
 @inject LGUTreasury.Data.ApplicationDbContext _db
 @{
+    var skipLayoutDbQueries = ViewData["SkipLayoutDbQueries"] as bool? == true;
     var navRoleName = ViewData["Role"]?.ToString();
-    var pendingMessages = (navRoleName == "Officer" || navRoleName == "Admin")
-        ? await _db.Editrequests.CountAsync(r => r.Status == "Pending")
-        : 0;
+    var pendingMessages = 0;
+    string? navProfilePicture = null;
 
-    var navUserID = Context.Session.GetInt32("UserID");
-    var navProfilePicture = navUserID == null
-        ? null
-        : await _db.UserAccounts
-            .Where(u => u.UserID == navUserID)
-            .Select(u => u.ProfilePicture)
-            .FirstOrDefaultAsync();
+    if (!skipLayoutDbQueries)
+    {
+        try
+        {
+            if (navRoleName == "Officer" || navRoleName == "Admin")
+            {
+                pendingMessages = await _db.Editrequests.CountAsync(r => r.Status == "Pending");
+            }
+
+            var navUserID = Context.Session.GetInt32("UserID");
+            if (navUserID != null)
+            {
+                navProfilePicture = await _db.UserAccounts
+                    .Where(u => u.UserID == navUserID)
+                    .Select(u => u.ProfilePicture)
+                    .FirstOrDefaultAsync();
+            }
+        }
+        catch
+        {
+            pendingMessages = 0;
+            navProfilePicture = null;
+        }
+    }
 }
 
 

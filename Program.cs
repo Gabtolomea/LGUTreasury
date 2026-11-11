@@ -60,6 +60,8 @@ using (var scope = app.Services.CreateScope())
         context.Database.EnsureCreated();
     }
 
+    DatabaseSchemaRepair.EnsureMissingColumns(context);
+
     if (!context.UserAccounts.Any(u => u.Role == "Admin"))
     {
         var initialAdminEmployeeId = builder.Configuration["INITIAL_ADMIN_EMPLOYEE_ID"];

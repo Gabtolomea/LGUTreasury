@@ -1,9 +1,13 @@
-﻿@model ErrorViewModel
+@model ErrorViewModel
 @{
     ViewData["Title"] = "Error";
-}
+    var isAuthenticated = ViewData["IsAuthenticated"] as bool? == true;
+    if (!isAuthenticated)
+    {
+        Layout = null;
+    }
 
-<div class="ui-error-page">
+    Func<object?, Microsoft.AspNetCore.Mvc.Razor.HelperResult> renderErrorPage = @<div class="ui-error-page">
     <div class="ui-error-card">
         <div class="ui-error-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -35,7 +39,7 @@
                 Go Back
             </button>
             <a asp-controller="Home" asp-action="Index" class="ui-error-btn ui-error-btn--primary">
-                Go to Workspace
+                @(isAuthenticated ? "Go to Workspace" : "Go to Login")
             </a>
         </div>
 
@@ -52,4 +56,26 @@
             </p>
         </details>
     </div>
-</div>
+</div>;
+}
+
+@if (isAuthenticated)
+{
+    @renderErrorPage(null)
+}
+else
+{
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Error — LGU Revenue Record System</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="~/css/ui-feedback.css" asp-append-version="true" />
+    </head>
+    <body style="margin:0;background:#f0f0f0;font-family:'Inter',sans-serif;">
+        @renderErrorPage(null)
+    </body>
+    </html>
+}

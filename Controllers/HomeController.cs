@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LGUTreasury.Data;
 using LGUTreasury.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -53,10 +54,12 @@ namespace LGUTreasury.Controllers
 
             var payments   = await query.OrderByDescending(p => p.DateIssued).ToListAsync();
             var paymentIDs = payments.Select(p => p.PaymentID).ToList();
-            var lineItems  = await _context.RecordLineItems
-                .Include(l => l.RevenueType)
-                .Where(l => paymentIDs.Contains(l.PaymentID))
-                .ToListAsync();
+            var lineItems  = paymentIDs.Count == 0
+                ? new List<RecordLineItem>()
+                : await _context.RecordLineItems
+                    .Include(l => l.RevenueType)
+                    .Where(l => paymentIDs.Contains(l.PaymentID))
+                    .ToListAsync();
 
             ViewBag.PendingRequests = await _context.Editrequests
                 .Where(r => r.Status == "Pending").CountAsync();
@@ -83,9 +86,10 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
 
             // ── MTD ──────────────────────────────────────────────────────
             var monthStart = new DateTime(today.Year, today.Month, 1);
-            ViewBag.MtdTotal      = (await _context.PaymentRecords
+            var mtdTotal = await _context.PaymentRecords
                 .Where(p => !p.IsDeleted && p.DateIssued >= monthStart && p.DateIssued <= today)
-                .SumAsync(p => p.TotalAmount)).ToString("N2");
+                .SumAsync(p => (decimal?)p.TotalAmount) ?? 0m;
+            ViewBag.MtdTotal      = mtdTotal.ToString("N2");
             ViewBag.DaysThisMonth = today.Day;
 
             // ── Top Revenue Today ─────────────────────────────────────────
@@ -150,7 +154,7 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
 
             // Overview widgets match the records page total: all non-deleted records.
             var activeRecords  = _context.PaymentRecords.Where(p => !p.IsDeleted);
-            var collectedTotal = await activeRecords.SumAsync(p => p.TotalAmount);
+            var collectedTotal = await activeRecords.SumAsync(p => (decimal?)p.TotalAmount) ?? 0m;
             var paymentsCount  = await activeRecords.CountAsync();
 
             ViewBag.CollectedTotal = collectedTotal.ToString("N2");
@@ -158,6 +162,30 @@ PayeeName = string.IsNullOrWhiteSpace(p.Payee?.Lastname)
             ViewBag.AveragePayment = (paymentsCount > 0 ? collectedTotal / paymentsCount : 0m).ToString("N2");
 
             return View();
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            ViewData["SkipLayoutDbQueries"] = true;
+
+            try
+            {
+                var fullName = HttpContext.Session.GetString("FullName");
+                ViewData["IsAuthenticated"] = HttpContext.Session.GetInt32("UserID") != null;
+                ViewData["FullName"]        = fullName;
+                ViewData["Role"]            = HttpContext.Session.GetString("Role");
+                ViewData["Initials"]        = GetInitials(fullName);
+            }
+            catch
+            {
+                ViewData["IsAuthenticated"] = false;
+            }
+
+            return View(new ErrorViewModel
+            {
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            });
         }
 
       private string GetInitials(string? fullName)
