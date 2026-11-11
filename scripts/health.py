@@ -55,26 +55,27 @@ def _check_url(check, timeout=None):
         return False, "Health endpoint request failed: {0}".format(error)
 
 
-def _check_container(config, compose_executable, command_runner, timeout=10):
-    service = config.get("app_service", "app")
+def _check_container(config, compose_executable, command_runner, timeout=10, service=None):
+    service = service or config.get("app_service", "app")
+    service_name = "application" if service == config.get("app_service", "app") else service
     project_dir = str(project_directory(config))
     lookup_command = compose_command(config, compose_executable, ["ps", "-q", service])
     lookup_result = command_runner(lookup_command, project_dir, timeout)
     if not lookup_result.ok():
         if lookup_result.stderr.strip():
             return False, lookup_result.stderr.strip()
-        return False, "The application container could not be located."
+        return False, "The {0} container could not be located.".format(service_name)
 
     container_id = lookup_result.stdout.strip().splitlines()[0] if lookup_result.stdout.strip() else ""
     if not container_id:
-        return False, "The application container is not running."
+        return False, "The {0} container is not running.".format(service_name)
 
     inspect_command = ["docker", "inspect", "--format", "{{json .State}}", container_id]
     inspect_result = command_runner(inspect_command, project_dir, timeout)
     if not inspect_result.ok():
         if inspect_result.stderr.strip():
             return False, inspect_result.stderr.strip()
-        return False, "The application container could not be inspected."
+        return False, "The {0} container could not be inspected.".format(service_name)
 
     status, probe_output = _container_health_details(inspect_result.stdout)
     if status == "healthy":
@@ -82,7 +83,7 @@ def _check_container(config, compose_executable, command_runner, timeout=10):
     if status == "running":
         return False, "The container is running but has no Docker HEALTHCHECK configured."
     if status:
-        error = "The application container health status is {0}.".format(status)
+        error = "The {0} container health status is {1}.".format(service_name, status)
         if probe_output:
             error += " Last probe: {0}".format(probe_output)
         return False, error
@@ -122,7 +123,13 @@ def _run_check(check, compose_executable, command_runner, config, logger, timeou
     if check_type == "url":
         return _check_url(check, timeout)
     if check_type == "container":
-        return _check_container(config, compose_executable, command_runner, timeout)
+        return _check_container(
+            config,
+            compose_executable,
+            command_runner,
+            timeout,
+            service=check.get("service"),
+        )
     return False, "The health-check type is not supported."
 
 

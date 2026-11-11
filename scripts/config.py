@@ -41,6 +41,7 @@ def read_environment_file(path):
 def environment_names(config):
     names = set(config.get("required_env", []))
     names.update([
+        "COMPOSE_FILE",
         "NATIVE_MYSQL_CONNECTION",
         "MYSQL_DATABASE",
         "MYSQL_USER",
@@ -172,7 +173,40 @@ def native_database_config(config):
     return parse_mysql_connection_string(connection_string)
 
 
+def active_compose_file(config):
+    files = config.get("compose_files")
+    if files:
+        return files[0]
+    values = environment_values(config)
+    return values.get("COMPOSE_FILE", "compose.native-mysql.yml")
+
+
+def is_container_mysql(config):
+    compose_file = active_compose_file(config)
+    if "container-mysql" in compose_file:
+        return True
+    files = config.get("compose_files", [])
+    return any("container-mysql" in str(f) for f in files)
+
+
+def container_database_config(config):
+    values = environment_values(config)
+    return {
+        "database": values.get("MYSQL_DATABASE", "LGUTreasury"),
+        "user": values.get("MYSQL_USER", "lgu_user"),
+        "password": values.get("MYSQL_PASSWORD", ""),
+        "root_password": values.get("MYSQL_ROOT_PASSWORD", ""),
+    }
+
+
 def database_name(config):
+    if is_container_mysql(config):
+        values = environment_values(config)
+        configured_name = values.get("MYSQL_DATABASE")
+        if configured_name:
+            return configured_name
+        return config.get("database", {}).get("name", "LGUTreasury")
+
     native = native_database_config(config)
 
     if native.get("database"):

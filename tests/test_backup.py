@@ -221,6 +221,119 @@ class NativeMySQLBackupTests(unittest.TestCase):
         self.assertIn("database name is invalid", error)
         self.assertEqual(runner.commands, [])
 
+    def test_backup_container_mysql_when_container_running(self):
+        logger = RecordingLogger()
+
+        def container_runner(command, cwd=None, timeout=None):
+            if "ps" in command and "db" in command:
+                return CommandResult(0, "db-container-123\n", "")
+            if "exec" in command and "mysqldump" in command:
+                return CommandResult(
+                    0,
+                    "-- MySQL dump 10.13\nCREATE DATABASE LGUTreasury;\n",
+                    "",
+                )
+            return CommandResult(1, "", "Unexpected command")
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup_dir = Path(directory)
+            config = {
+                "project_dir": directory,
+                "compose_files": ["compose.container-mysql.yml"],
+            }
+
+            with patch(
+                "scripts.backup.container_database_config",
+                return_value={
+                    "database": "LGUTreasury",
+                    "user": "lgu_user",
+                    "password": "user-pass",
+                    "root_password": "root-pass",
+                },
+            ):
+                error = _backup_database(
+                    config,
+                    ["docker", "compose"],
+                    container_runner,
+                    logger,
+                    backup_dir,
+                )
+
+            self.assertEqual(error, "")
+            backup_file = backup_dir / "database.sql"
+            self.assertTrue(backup_file.exists())
+            self.assertIn("CREATE DATABASE LGUTreasury;", backup_file.read_text())
+
+    def test_backup_container_mysql_when_container_not_running(self):
+        logger = RecordingLogger()
+
+        def container_runner(command, cwd=None, timeout=None):
+            if "ps" in command and "db" in command:
+                return CommandResult(0, "", "")
+            return CommandResult(1, "", "Unexpected command")
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup_dir = Path(directory)
+            config = {
+                "project_dir": directory,
+                "compose_files": ["compose.container-mysql.yml"],
+            }
+
+            error = _backup_database(
+                config,
+                ["docker", "compose"],
+                container_runner,
+                logger,
+                backup_dir,
+            )
+
+            self.assertEqual(error, "")
+            self.assertTrue(
+                any("No previous database container was found" in msg for _, msg in logger.messages)
+            )
+
+    def test_backup_native_mysql_on_posix_permissions(self):
+        logger = RecordingLogger()
+        runner_commands = []
+
+        def posix_runner(command, cwd=None, timeout=None):
+            runner_commands.append(list(command))
+            if "mysqldump" in command[0]:
+                return CommandResult(
+                    0,
+                    "-- MySQL dump 10.13\nCREATE DATABASE lgutreasury;\n",
+                    "",
+                )
+            return CommandResult(1, "", "Unexpected command")
+
+        with tempfile.TemporaryDirectory() as directory:
+            backup_dir = Path(directory)
+
+            with patch(
+                "scripts.backup.native_database_config",
+                return_value=self.database,
+            ), patch(
+                "scripts.backup._mysqldump_executable",
+                return_value="mysqldump",
+            ), patch(
+                "scripts.backup._is_windows",
+                return_value=False,
+            ), patch(
+                "os.chmod"
+            ) as mock_chmod:
+                error = _backup_database(
+                    {"project_dir": directory},
+                    ["docker", "compose"],
+                    posix_runner,
+                    logger,
+                    backup_dir,
+                )
+
+            self.assertEqual(error, "")
+            self.assertTrue((backup_dir / "database.sql").exists())
+            self.assertGreaterEqual(mock_chmod.call_count, 2)
+            self.assertFalse(any("icacls" in cmd[0] for cmd in runner_commands))
+
 
 if __name__ == "__main__":
     unittest.main()

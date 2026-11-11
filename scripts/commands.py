@@ -21,11 +21,12 @@ def _text(value):
     return str(value)
 
 
-def run_command(command, cwd=None, timeout=None):
+def run_command(command, cwd=None, timeout=None, input=None):
     try:
         completed = subprocess.run(
             command,
             cwd=cwd,
+            input=input,
             capture_output=True,
             text=True,
             shell=False,
@@ -66,9 +67,15 @@ def describe_command(command):
     return shlex.join([str(item) for item in command])
 
 
-def run_logged_command(command_runner, command, cwd, timeout, logger, description):
+def run_logged_command(command_runner, command, cwd, timeout, logger, description, input=None):
     logger.info("Running the command `{0}`.".format(describe_command(command)))
-    result = command_runner(command, cwd, timeout)
+    try:
+        result = command_runner(command, cwd=cwd, timeout=timeout, input=input)
+    except TypeError:
+        try:
+            result = command_runner(command, cwd, timeout)
+        except TypeError:
+            result = command_runner(command)
     if result.ok():
         logger.ok("{0} completed successfully.".format(description))
         return result
