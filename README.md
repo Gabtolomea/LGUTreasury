@@ -160,6 +160,10 @@ When using `compose.native-mysql.yml`, MySQL runs natively on the host machine o
 NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 ```
 
+> [!IMPORTANT]
+> Before running native MySQL deployments, review the [Native MySQL Pre-Deployment Checklist](NATIVE_DEPLOYMENT_CHECKLIST.md) to ensure MySQL user permissions, bind address, and network reachability are configured properly.
+
+
 Start the application:
 
 ```bash

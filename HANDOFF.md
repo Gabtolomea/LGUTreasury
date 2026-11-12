@@ -126,3 +126,13 @@ docker compose -f compose.container-mysql.yml up -d --build
    - `INITIAL_ADMIN_PASSWORD` in `.env` **must be at least 12 characters** (e.g. `AdminPassword123!`). Startup will throw an error if shorter.
 3. **Shell Script Line Endings (`LF`)**:
    - Keep shell scripts (like `docker-entrypoint.sh`) using Unix line endings (`LF`). Windows `CRLF` will cause the Linux container to fail startup with `set: Illegal option -`. This is enforced via `.gitattributes`.
+
+---
+
+## 7. Native MySQL Pre-Deployment Checklist
+
+When deploying with `compose.native-mysql.yml` (app in Docker connecting to an external or host MySQL server), consult the [Native MySQL Pre-Deployment Checklist](NATIVE_DEPLOYMENT_CHECKLIST.md) to verify:
+- MySQL `bind-address` allows Docker network access (`0.0.0.0`).
+- User permissions are granted for `'lgu_user'@'%'` (not just `localhost`).
+- Connection string reachability via `host.docker.internal`.
+
