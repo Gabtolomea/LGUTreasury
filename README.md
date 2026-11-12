@@ -105,7 +105,8 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 ### 4. Run with Docker Compose
 
 > [!TIP]
-> For container logs, MySQL access, database backup/restore, and maintenance commands, refer to the [Operations & Handoff Guide](HANDOFF.md).
+> - For container logs, MySQL access, database backup/restore, and maintenance commands, refer to the [Operations & Handoff Guide](HANDOFF.md).
+> - For solutions to common errors (line endings, SSL modes, user permissions, upload permissions, and migrations), consult the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 Two Docker Compose configurations are available:
 - **`compose.container-mysql.yml`**: Runs both the ASP.NET Core application and a containerized MySQL 8.4 database with persistent volumes.

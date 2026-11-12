@@ -136,3 +136,9 @@ When deploying with `compose.native-mysql.yml` (app in Docker connecting to an e
 - User permissions are granted for `'lgu_user'@'%'` (not just `localhost`).
 - Connection string reachability via `host.docker.internal`.
 
+---
+
+## 8. Troubleshooting & Known Issues
+
+For solutions to common errors (entrypoint line endings, password constraints, SSL modes, user permissions, upload permissions, and missing columns), refer to the [Troubleshooting Guide](TROUBLESHOOTING.md).
+
