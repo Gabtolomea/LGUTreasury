@@ -74,7 +74,6 @@ cp .env.example .env
 
 ```env
 ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
-Database__ApplyMigrations=true
 ENABLE_HTTPS=false
 ```
 

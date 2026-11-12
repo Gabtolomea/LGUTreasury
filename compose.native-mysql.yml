@@ -11,7 +11,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ENABLE_HTTPS: ${ENABLE_HTTPS:-false}
       HTTPS_CERT_PASSWORD: ${HTTPS_CERT_PASSWORD:-}
-      Database__ApplyMigrations: "true"
+      Database__ApplyMigrations: ${Database__ApplyMigrations:-true}
       INITIAL_ADMIN_EMPLOYEE_ID: ${INITIAL_ADMIN_EMPLOYEE_ID:-}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       ConnectionStrings__DefaultConnection: ${NATIVE_MYSQL_CONNECTION:?NATIVE_MYSQL_CONNECTION is required}
