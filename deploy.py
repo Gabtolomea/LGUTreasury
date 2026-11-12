@@ -46,7 +46,7 @@ CONFIG = {
     "app_scheme": "http",
     "app_port": 8092,
     "health_path": "/health/ready",
-    "health_check_timeout": 120,
+    "health_check_timeout": 60,
     "services": ["app"],
     "compose": {
         "deploy_args": [
