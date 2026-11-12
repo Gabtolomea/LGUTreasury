@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+mkdir -p /app/wwwroot/uploads/profile-pictures 2>/dev/null || true
+
 case "${ENABLE_HTTPS:-false}" in
     true)
         : "${HTTPS_CERT_PASSWORD:?HTTPS_CERT_PASSWORD is required when ENABLE_HTTPS=true}"

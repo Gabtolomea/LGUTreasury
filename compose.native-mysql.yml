@@ -20,7 +20,12 @@ services:
         source: ${HTTPS_CERT_DIR:-./.aspnet/https}
         target: /https
         read_only: true
+      - uploads-data:/app/wwwroot/uploads
     ports:
       - "8092:8080"
       - "8443:8443"
     restart: unless-stopped
+
+volumes:
+  uploads-data:
+    name: lgu-treasury-native-uploads-data
