@@ -496,7 +496,7 @@
         {
             <img src="@ViewData["ProfilePicture"]" alt="Profile picture"
                  onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
-            <span class="fallback-initials" style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">@initials</span>
+            <span class="fallback-initials" style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">@ViewData["Initials"]</span>
         }
         else
         {
