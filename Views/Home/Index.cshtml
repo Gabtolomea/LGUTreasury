@@ -1,4 +1,4 @@
-﻿@using LGUTreasury.Models
+@using LGUTreasury.Models
 @{
     ViewData["Title"] = "Dashboard";
     ViewData["ActiveNav"] = "dashboard";
@@ -494,7 +494,9 @@
       <div class="profile-avatar">
         @if (!string.IsNullOrWhiteSpace(ViewData["ProfilePicture"] as string))
         {
-            <img src="@ViewData["ProfilePicture"]" alt="Profile picture" />
+            <img src="@ViewData["ProfilePicture"]" alt="Profile picture"
+                 onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+            <span class="fallback-initials" style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">@initials</span>
         }
         else
         {
