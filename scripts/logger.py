@@ -182,3 +182,14 @@ class Logger:
     def detail(self, message, level="INFO"):
         """Keep the message in the log file and show it in the terminal only when verbose."""
         self._write(level, message, terminal=self.verbose)
+
+    def raw(self, message=""):
+        """Write an unprefixed line to both the log file and terminal."""
+        clean_message = redact_text(message, self.secret_values)
+        with self._lock:
+            self.file.write(clean_message + "\n")
+            self.file.flush()
+            if self._spinner_active:
+                self._clear_spinner_line_locked()
+            self.stream.write(clean_message + "\n")
+            self.stream.flush()

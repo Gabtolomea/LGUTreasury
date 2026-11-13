@@ -227,9 +227,9 @@ class DeploymentRunnerTests(unittest.TestCase):
             exit_code = run(make_config(project_directory), command_runner)
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("Application URL: https://192.168.1.50:8443", output.getvalue())
-        self.assertIn("Local URL: https://localhost:8443", output.getvalue())
-        self.assertIn("Health endpoint: https://192.168.1.50:8443/health/ready", output.getvalue())
+        self.assertIn("Application URL  : https://192.168.1.50:8443", output.getvalue())
+        self.assertIn("Local URL        : https://localhost:8443", output.getvalue())
+        self.assertIn("Health Endpoint  : https://192.168.1.50:8443/health/ready", output.getvalue())
 
     @patch("scripts.network.socket.socket")
     def test_lan_address_discovery_returns_only_primary_route_address(self, socket_factory):
@@ -487,7 +487,8 @@ class DeploymentRunnerTests(unittest.TestCase):
         self.assertNotIn("[PASS]", text)
         self.assertNotIn("[PASSED]", text)
         self.assertIn("[ OK ]", text)
-        self.assertIn("[DONE] Deployment completed successfully", text)
+        self.assertIn("DEPLOYMENT SUCCESSFUL", text)
+        self.assertIn("Status           : SUCCESS", text)
         for stage in range(1, 9):
             self.assertIn("Stage {0}/8:".format(stage), text)
         self.assertLess(text.index("Stage 1/8:"), text.index("Stage 2/8:"))
@@ -506,7 +507,7 @@ class DeploymentRunnerTests(unittest.TestCase):
         text = output.getvalue()
         self.assertEqual(exit_code, 0)
         self.assertEqual(text.count("All health checks passed"), 1)
-        self.assertIn("Health checks: 1/1 passed.", text)
+        self.assertIn("Health Checks    : 1/1 PASSED", text)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_failed_deployment_reports_stage_and_rollback(self, unused_which):
@@ -523,15 +524,15 @@ class DeploymentRunnerTests(unittest.TestCase):
         self.assertIn(
             "The deployment failed during the application deployment stage.", text
         )
-        self.assertIn("Failed stage: application deployment.", text)
-        self.assertIn("Database health: Not checked.", text)
-        self.assertIn("Health checks: Not run.", text)
+        self.assertIn("Failed Stage     : application deployment", text)
+        self.assertIn("Database         : NOT CHECKED", text)
+        self.assertIn("Health Checks    : NOT RUN", text)
         self.assertIn("Starting automatic rollback", text)
         self.assertIn("The recovery backup is at", text)
         self.assertIn("The automatic rollback completed successfully.", text)
-        self.assertIn("Rollback: Completed successfully.", text)
-        self.assertIn("Recovery backup:", text)
-        self.assertIn("Deployment log:", text)
+        self.assertIn("Rollback         : COMPLETED", text)
+        self.assertIn("Recovery Backup  :", text)
+        self.assertIn("Deployment Log   :", text)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_failed_rollback_is_reported(self, unused_which):
@@ -549,7 +550,7 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         text = output.getvalue()
         self.assertNotEqual(exit_code, 0)
-        self.assertIn("Rollback: Failed.", text)
+        self.assertIn("Rollback         : FAILED", text)
         self.assertIn("The previous application image tag could not be restored.", text)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
@@ -587,8 +588,8 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         text = output.getvalue()
         self.assertEqual(exit_code, 0)
-        self.assertIn("Database health: Healthy.", text)
-        self.assertIn("Health checks: 2/2 passed.", text)
+        self.assertIn("Database         : HEALTHY", text)
+        self.assertIn("Health Checks    : 2/2 PASSED", text)
 
     def test_cleanup_preserves_backup_and_log_paths(self):
         temporary_directory, project_directory = self.create_project()

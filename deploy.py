@@ -389,33 +389,50 @@ class DeploymentRunner:
         else:
             self._fail_stage("manual rollback", [self.rollback_result["error"]])
 
+    def _summary_line(self, label, value):
+        self.logger.raw("  {0:<17}: {1}".format(label, value))
+
     def report(self):
         duration = time.monotonic() - self.started_at
+        project_name = project_directory(self.config).name
+        border = "=" * 60
+        title = "DEPLOYMENT SUCCESSFUL" if self.status == "successful" else "DEPLOYMENT FAILED"
+        status_label = "SUCCESS" if self.status == "successful" else "FAILED"
 
-        if self.status == "successful":
-            self.logger.done(
-                "Deployment completed successfully in {0:.2f}s.".format(duration)
-            )
-        else:
-            self.logger.fail("Deployment failed in {0:.2f}s.".format(duration))
-            if self.failed_stage:
-                self.logger.info("Failed stage: {0}.".format(self.failed_stage))
+        self.logger.raw("")
+        self.logger.raw(border)
+        self.logger.raw(title.center(60))
+        self.logger.raw(border)
+        self.logger.raw("")
+        self._summary_line("Project", project_name)
+        self._summary_line("Status", status_label)
+        if self.status != "successful" and self.failed_stage:
+            self._summary_line("Failed Stage", self.failed_stage)
+        self._summary_line("Duration", "{0:.2f} seconds".format(duration))
+        self.logger.raw("")
 
         self._report_health_status()
         self._report_recovery_status()
+        self.logger.raw("")
 
+        backup_dir = (self.backup_result or {}).get("backup_dir") or "NOT CREATED"
         log_path = project_directory(self.config) / self.config.get(
             "log_file",
             "logs/deployment.log",
         )
-        self.logger.info("Deployment log: {0}".format(log_path))
+        self._summary_line("Recovery Backup", backup_dir)
+        self._summary_line("Deployment Log", log_path)
+        self.logger.raw("")
+
         self._report_application_urls()
+        self.logger.raw("")
+        self.logger.raw(border)
 
     def _report_health_status(self):
         if not self.health_result:
-            self.logger.info("Database health: Not checked.")
-            self.logger.info("Application health: Not checked.")
-            self.logger.info("Health checks: Not run.")
+            self._summary_line("Database", "NOT CHECKED")
+            self._summary_line("Application", "NOT CHECKED")
+            self._summary_line("Health Checks", "NOT RUN")
             return
 
         checks = self.health_result.get("checks", [])
@@ -428,42 +445,30 @@ class DeploymentRunner:
                 break
 
         if database_check is None:
-            self.logger.info("Database health: Not checked.")
+            db_status = "NOT CHECKED"
         elif database_check.get("status") == "passed":
-            self.logger.info("Database health: Healthy.")
+            db_status = "HEALTHY"
         else:
-            self.logger.info("Database health: Failed.")
+            db_status = "FAILED"
 
-        if self.health_result["ok"]:
-            self.logger.info("Application health: Healthy.")
-        else:
-            self.logger.info("Application health: Failed.")
-
-        self.logger.info("Health checks: {0}/{1} passed.".format(passed, len(checks)))
+        app_status = "HEALTHY" if self.health_result["ok"] else "FAILED"
+        self._summary_line("Database", db_status)
+        self._summary_line("Application", app_status)
+        self._summary_line("Health Checks", "{0}/{1} PASSED".format(passed, len(checks)))
 
     def _report_recovery_status(self):
         if self.rollback_result:
-            if self.rollback_result["ok"]:
-                self.logger.info("Rollback: Completed successfully.")
-            else:
-                self.logger.info("Rollback: Failed.")
+            rollback_status = "COMPLETED" if self.rollback_result["ok"] else "FAILED"
         else:
-            self.logger.info("Rollback: Not required.")
+            rollback_status = "NOT REQUIRED"
 
         if self.cleanup_result:
-            if self.cleanup_result["ok"]:
-                self.logger.info("Cleanup: Succeeded.")
-            else:
-                self.logger.info("Cleanup: Failed.")
+            cleanup_status = "SUCCESS" if self.cleanup_result["ok"] else "FAILED"
         else:
-            self.logger.info("Cleanup: Not run.")
+            cleanup_status = "NOT RUN"
 
-        if self.backup_result and self.backup_result.get("backup_dir"):
-            self.logger.info(
-                "Recovery backup: {0}".format(self.backup_result["backup_dir"])
-            )
-        else:
-            self.logger.info("Recovery backup: Not created.")
+        self._summary_line("Rollback", rollback_status)
+        self._summary_line("Cleanup", cleanup_status)
 
     def _report_application_urls(self):
         scheme = self.config.get("app_scheme", "https")
@@ -471,25 +476,18 @@ class DeploymentRunner:
         health_path = self.config.get("health_path", "/health/ready")
         lan_addresses = get_lan_addresses()
         for address in lan_addresses:
-            self.logger.info("Application URL: {0}://{1}:{2}.".format(scheme, address, port))
-        self.logger.info("Local URL: {0}://localhost:{1}.".format(scheme, port))
+            self._summary_line("Application URL", "{0}://{1}:{2}".format(scheme, address, port))
+        self._summary_line("Local URL", "{0}://localhost:{1}".format(scheme, port))
         if lan_addresses:
             for address in lan_addresses:
-                self.logger.info(
-                    "Health endpoint: {0}://{1}:{2}{3}.".format(
-                        scheme,
-                        address,
-                        port,
-                        health_path,
-                    )
+                self._summary_line(
+                    "Health Endpoint",
+                    "{0}://{1}:{2}{3}".format(scheme, address, port, health_path),
                 )
         else:
-            self.logger.info(
-                "Health endpoint: {0}://localhost:{1}{2}.".format(
-                    scheme,
-                    port,
-                    health_path,
-                )
+            self._summary_line(
+                "Health Endpoint",
+                "{0}://localhost:{1}{2}".format(scheme, port, health_path),
             )
 
     def summary_dict(self):
