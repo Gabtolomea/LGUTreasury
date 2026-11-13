@@ -115,4 +115,4 @@ docker compose -f compose.native-mysql.yml ps
 # Inspect logs to confirm database connection and migrations
 docker compose -f compose.native-mysql.yml logs app --tail 30
 ```
-Open [http://localhost:8092](http://localhost:8092) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser.

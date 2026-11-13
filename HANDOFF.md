@@ -8,7 +8,7 @@ Quick operational reference for developers and operators managing the LGUTreasur
 
 | Service | Address / Port | Credentials / Notes |
 |---|---|---|
-| **Web App** | `http://localhost:8092` | Redirects to `/Account/Login` |
+| **Web App** | `http://localhost:3000` | Redirects to `/Account/Login` |
 | **MySQL (inside Docker network)** | `db:3306` | User: `lgu_user` / DB: `LGUTreasury` |
 | **Default Admin Account** | Login via Web UI | **Employee ID**: `ADMIN001`<br>**Password**: set in `.env` (min 12 chars) |
 

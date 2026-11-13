@@ -44,7 +44,7 @@ CONFIG = {
     "app_service": "app",
     "app_image": "lgu-treasury-app:local",
     "app_scheme": "http",
-    "app_port": 8092,
+    "app_port": 3000,
     "health_path": "/health/ready",
     "health_check_timeout": 60,
     "services": ["app"],
@@ -76,7 +76,7 @@ CONFIG = {
         {
             "name": "Application health endpoint",
             "type": "url",
-            "url": "http://localhost:8092/health/ready",
+            "url": "http://localhost:3000/health/ready",
             "expected_status": 200,
             "timeout": 5,
             "retries": 10,
@@ -155,6 +155,7 @@ class DeploymentRunner:
     def _configure_transport(self):
         values = environment_values(self.config)
         enable_https = values.get("ENABLE_HTTPS", "false").strip().lower() == "true"
+        http_port = int(values.get("APP_PORT") or 3000)
 
         if enable_https:
             scheme = "https"
@@ -165,16 +166,16 @@ class DeploymentRunner:
                     required_env.append(name)
         else:
             scheme = "http"
-            port = 8092
+            port = http_port
 
         self.config["app_scheme"] = scheme
         self.config["app_port"] = port
         for health_check in self.config.get("health_checks", []):
             if health_check.get("type") == "url":
-                # The container publishes plain HTTP on 8092 even when external
+                # The container publishes plain HTTP on http_port even when external
                 # clients use HTTPS on 8443. Probe the HTTP endpoint to avoid
                 # false failures from self-signed/local TLS certificates.
-                health_check["url"] = "http://localhost:8092/health/ready"
+                health_check["url"] = "http://localhost:{0}/health/ready".format(http_port)
 
     def initialize(self):
         log_path = project_directory(self.config) / self.config.get(

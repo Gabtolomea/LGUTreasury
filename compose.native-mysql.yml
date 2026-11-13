@@ -22,7 +22,7 @@ services:
         read_only: true
       - uploads-data:/app/wwwroot/uploads
     ports:
-      - "8092:8080"
+      - "3000:8080"
       - "8443:8443"
     restart: unless-stopped
 
