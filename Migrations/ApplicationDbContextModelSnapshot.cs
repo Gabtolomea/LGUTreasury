@@ -181,6 +181,9 @@ namespace LGUTreasury.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsBillingEnabled")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -519,6 +522,9 @@ namespace LGUTreasury.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsBillingEnabled")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("LastName")

@@ -19,6 +19,7 @@ RUN dotnet publish "LGUTreasury.csproj" -c $BUILD_CONFIGURATION -o /app/publish 
 
 FROM base AS final
 WORKDIR /app
-COPY --from=build /app/publish .
-COPY docker-entrypoint.sh .
+RUN mkdir -p /app/wwwroot/uploads/profile-pictures
+COPY --chown=$APP_UID:$APP_UID --from=build /app/publish .
+COPY --chown=$APP_UID:$APP_UID docker-entrypoint.sh .
 ENTRYPOINT ["sh", "./docker-entrypoint.sh"]

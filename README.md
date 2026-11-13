@@ -74,7 +74,6 @@ cp .env.example .env
 
 ```env
 ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
-Database__ApplyMigrations=true
 ENABLE_HTTPS=false
 ```
 
@@ -104,6 +103,10 @@ Then open `https://localhost:7087`. HTTP requests on `http://localhost:5094` red
 ---
 
 ### 4. Run with Docker Compose
+
+> [!TIP]
+> - For container logs, MySQL access, database backup/restore, and maintenance commands, refer to the [Operations & Handoff Guide](HANDOFF.md).
+> - For solutions to common errors (line endings, SSL modes, user permissions, upload permissions, and migrations), consult the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 Two Docker Compose configurations are available:
 - **`compose.container-mysql.yml`**: Runs both the ASP.NET Core application and a containerized MySQL 8.4 database with persistent volumes.
@@ -148,6 +151,13 @@ Access the MySQL console inside the database container:
 docker compose -f compose.container-mysql.yml exec db mysql -u root -p
 ```
 
+To import data into the containerized database (e.g. from `import.sql`):
+
+```bash
+# On Linux host / server using Docker Compose (use -T to disable pseudo-TTY allocation)
+docker compose exec -T db mysql -u root -plgu_user_root LGUTreasury < import.sql
+```
+
 The database data is persisted in the Docker volume `lgu-treasury-container-mysql-data`. `docker compose down` preserves this volume; to remove it and start fresh, run `docker compose down -v`.
 
 #### Running with Native MySQL
@@ -157,6 +167,10 @@ When using `compose.native-mysql.yml`, MySQL runs natively on the host machine o
 ```env
 NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;SslMode=Required;
 ```
+
+> [!IMPORTANT]
+> Before running native MySQL deployments, review the [Native MySQL Pre-Deployment Checklist](NATIVE_DEPLOYMENT_CHECKLIST.md) to ensure MySQL user permissions, bind address, and network reachability are configured properly.
+
 
 Start the application:
 
