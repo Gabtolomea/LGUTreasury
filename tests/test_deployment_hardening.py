@@ -2,6 +2,7 @@ import io
 import json
 import os
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -11,7 +12,7 @@ from deploy import DeploymentRunner, run
 from scripts.backup import prune_old_backups
 from scripts.commands import CommandResult
 from scripts.lock import DeploymentLock, DeploymentLockError
-from scripts.logger import Logger
+from scripts.logger import Logger, SPINNER_FRAMES
 from tests.test_deployment_runner import FakeCommandRunner, make_config
 
 
@@ -191,3 +192,49 @@ class DeploymentHardeningTests(unittest.TestCase):
             )
         )
         self.assertTrue(any("--no-build" in cmd for cmd in runner.commands))
+
+    def test_logger_braille_spinner_non_tty_is_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "logs" / "spinner.log"
+            stream = io.StringIO()
+            logger = Logger(log_path, stream=stream)
+            try:
+                with logger.spinner("Deploying...", interval=0.01):
+                    time.sleep(0.03)
+                logger.ok("Done")
+            finally:
+                logger.close()
+
+            self.assertEqual(stream.getvalue(), "[ OK ] Done\n")
+            log_text = log_path.read_text(encoding="utf-8")
+            for frame in SPINNER_FRAMES:
+                self.assertNotIn(frame, log_text)
+
+    def test_logger_braille_spinner_cycles_frames_on_tty(self):
+        class FakeTtyStream(io.StringIO):
+            encoding = "utf-8"
+
+            def isatty(self):
+                return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "logs" / "spinner_tty.log"
+            stream = FakeTtyStream()
+            logger = Logger(log_path, stream=stream)
+            try:
+                with logger.spinner("Working", interval=0.01):
+                    time.sleep(0.06)
+                    logger.info("Mid-step")
+                logger.ok("Finished")
+            finally:
+                logger.close()
+
+            output = stream.getvalue()
+            self.assertEqual(
+                SPINNER_FRAMES,
+                ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"),
+            )
+            self.assertIn("⠋", output)
+            self.assertIn("⠙", output)
+            self.assertIn("Mid-step", output)
+            self.assertIn("Finished", output)

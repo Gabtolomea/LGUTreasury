@@ -87,7 +87,16 @@ def run_logged_command(
     command_runner, command, cwd, timeout, logger, description, input=None, env=None
 ):
     logger.detail("Running the command `{0}`.".format(describe_command(command)))
-    result = execute_command(command_runner, command, cwd, timeout, input, env=env)
+    spinner_cm = (
+        logger.spinner("{0}...".format(description))
+        if hasattr(logger, "spinner")
+        else None
+    )
+    if spinner_cm is not None:
+        with spinner_cm:
+            result = execute_command(command_runner, command, cwd, timeout, input, env=env)
+    else:
+        result = execute_command(command_runner, command, cwd, timeout, input, env=env)
     if result.ok():
         logger.detail("{0} completed successfully.".format(description), level=" OK ")
         return result

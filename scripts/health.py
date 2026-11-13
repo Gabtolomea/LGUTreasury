@@ -177,20 +177,31 @@ def run_health_checks(
         attempts = 0
         passed = False
         last_error = "The health-check deadline was exceeded."
-        for attempt in range(1, retries + 1):
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            attempts = attempt
-            attempt_timeout = min(float(check.get("timeout", 10)), remaining)
-            passed, last_error = _run_check(
-                check, compose_executable, command_runner, config, logger, attempt_timeout
-            )
-            if passed:
-                break
-            remaining = deadline - time.monotonic()
-            if attempt < retries and remaining > 0:
-                time.sleep(min(float(interval), remaining))
+        spinner_cm = (
+            logger.spinner("Checking {0}...".format(name))
+            if hasattr(logger, "spinner")
+            else None
+        )
+        if spinner_cm is not None:
+            spinner_cm.__enter__()
+        try:
+            for attempt in range(1, retries + 1):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                attempts = attempt
+                attempt_timeout = min(float(check.get("timeout", 10)), remaining)
+                passed, last_error = _run_check(
+                    check, compose_executable, command_runner, config, logger, attempt_timeout
+                )
+                if passed:
+                    break
+                remaining = deadline - time.monotonic()
+                if attempt < retries and remaining > 0:
+                    time.sleep(min(float(interval), remaining))
+        finally:
+            if spinner_cm is not None:
+                spinner_cm.__exit__(None, None, None)
 
         duration = round(time.monotonic() - check_started, 2)
         result = {
