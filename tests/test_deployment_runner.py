@@ -395,8 +395,8 @@ class DeploymentRunnerTests(unittest.TestCase):
         runner = DeploymentRunner()
 
         self.assertEqual(runner.config["app_scheme"], "http")
-        self.assertEqual(runner.config["app_port"], 8092)
-        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8092/health/ready")
+        self.assertEqual(runner.config["app_port"], 3000)
+        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:3000/health/ready")
 
     @patch(
         "deploy.environment_values",
@@ -411,7 +411,7 @@ class DeploymentRunnerTests(unittest.TestCase):
 
         self.assertEqual(runner.config["app_scheme"], "https")
         self.assertEqual(runner.config["app_port"], 8443)
-        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:8092/health/ready")
+        self.assertEqual(runner.config["health_checks"][1]["url"], "http://localhost:3000/health/ready")
         self.assertIn("HTTPS_CERT_PASSWORD", runner.config["required_env"])
 
     @patch.dict("os.environ", {"NO_COLOR": ""})
@@ -651,7 +651,7 @@ class DeploymentRunnerTests(unittest.TestCase):
             "minimum_free_space_mb": 1,
             "app_image": "lgu-treasury-app:local",
             "app_scheme": "http",
-            "app_port": 8092,
+            "app_port": 3000,
             "database": {
                 "name": "LGUTreasury",
                 "backup_file": "database.sql",

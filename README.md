@@ -184,7 +184,7 @@ docker compose -f compose.native-mysql.yml up --build
 
 #### Common Docker Settings
 
-Docker uses `http://localhost:8092` by default. No HTTPS certificate is needed. To
+Docker uses `http://localhost:3000` by default. No HTTPS certificate is needed. To
 enable HTTPS later, set these values in `.env`:
 
 ```powershell
@@ -201,7 +201,7 @@ HTTPS_CERT_DIR=./.aspnet/https
 HTTPS_CERT_PASSWORD=YOUR_CERT_PASSWORD
 ```
 
-Open `http://localhost:8092` after the containers start. Docker Compose applies the
+Open `http://localhost:3000` after the containers start. Docker Compose applies the
 checked-in EF Core migrations and seeds the starter data. When HTTPS is
 enabled, use `https://localhost:8443` and HTTP redirects to HTTPS. The development
 certificate is trusted for `localhost`; LAN access needs a certificate that includes
@@ -225,9 +225,9 @@ docker compose restart app
 docker compose exec app sh
 
 # Check process liveness
-# Open http://localhost:8092/health/live
+# Open http://localhost:3000/health/live
 # Check application and MySQL readiness
-# Open http://localhost:8092/health/ready
+# Open http://localhost:3000/health/ready
 ```
 
 For a fresh database, configure `INITIAL_ADMIN_EMPLOYEE_ID` and
