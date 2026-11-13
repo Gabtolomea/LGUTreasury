@@ -379,7 +379,84 @@ public async Task<IActionResult> CreateBulk(
 
             return View(records);
         }
-        
+
+        // Read-only summary of the records covered by an OR number range.
+        // Used by the "OR Range" popup on the records page.
+        [HttpGet]
+        public async Task<IActionResult> OrRange(string? from, string? to)
+        {
+            if (HttpContext.Session.GetInt32("UserID") == null)
+                return Json(new { success = false, message = "Your session has expired. Please sign in again." });
+
+            var start = ParseOrNumber(from);
+            var end   = ParseOrNumber(to);
+
+            if (start == null && end == null)
+                return Json(new { success = false, message = "Enter an OR number (e.g. OR-001) or an OR range." });
+
+            var low  = start ?? end!.Value;
+            var high = end   ?? start!.Value;
+            if (high < low) (low, high) = (high, low);
+
+            var records = await _context.PaymentRecords
+                .Include(p => p.Payee)
+                .Include(p => p.CollectedBy)
+                .Include(p => p.RecordLineItems).ThenInclude(l => l.RevenueType)
+                .Where(p => !p.IsDeleted)
+                .ToListAsync();
+
+            var matches = records
+                .Where(p => OrOverlapsRange(p.OfficialReceipt, low, high))
+                .OrderBy(p => ParseOrNumber(p.OfficialReceipt) ?? long.MaxValue)
+                .ToList();
+
+            var total = matches.Sum(p => p.TotalAmount);
+
+            return Json(new
+            {
+                success    = true,
+                rangeLabel = $"OR-{low} to OR-{high}",
+                count      = matches.Count,
+                total      = total.ToString("N2"),
+                average    = matches.Count > 0 ? (total / matches.Count).ToString("N2") : "0.00",
+                firstDate  = matches.Count > 0 ? matches.Min(p => p.DateIssued).ToString("MMM dd, yyyy") : null,
+                lastDate   = matches.Count > 0 ? matches.Max(p => p.DateIssued).ToString("MMM dd, yyyy") : null,
+                byType = matches
+                    .GroupBy(p => p.RecordLineItems != null && p.RecordLineItems.Any()
+                        ? p.RecordLineItems.First().RevenueType?.Name ?? "—"
+                        : "—")
+                    .Select(g => new { Name = g.Key, Count = g.Count(), Total = g.Sum(p => p.TotalAmount) })
+                    .OrderByDescending(g => g.Total)
+                    .Select(g => new { name = g.Name, count = g.Count, total = g.Total.ToString("N2") })
+                    .ToList(),
+                byCollector = matches
+                    .GroupBy(p => p.CollectedBy != null
+                        ? $"{p.CollectedBy.LastName}, {p.CollectedBy.FirstName}"
+                        : "—")
+                    .Select(g => new { Name = g.Key, Count = g.Count(), Total = g.Sum(p => p.TotalAmount) })
+                    .OrderByDescending(g => g.Total)
+                    .Select(g => new { name = g.Name, count = g.Count, total = g.Total.ToString("N2") })
+                    .ToList(),
+                records = matches.Select(p => new
+                {
+                    or        = "OR-" + (p.OfficialReceipt ?? ""),
+                    payee     = p.Payee != null
+                        ? (string.IsNullOrWhiteSpace(p.Payee.Lastname)
+                            ? p.Payee.Firstname ?? "—"
+                            : $"{p.Payee.Lastname}, {p.Payee.Firstname}")
+                        : "—",
+                    type      = p.RecordLineItems != null && p.RecordLineItems.Any()
+                        ? p.RecordLineItems.First().RevenueType?.Name ?? "—"
+                        : "—",
+                    amount    = p.TotalAmount.ToString("N2"),
+                    date      = p.DateIssued.ToString("MMM dd, yyyy"),
+                    collector = p.CollectedBy != null
+                        ? $"{p.CollectedBy.LastName}, {p.CollectedBy.FirstName}"
+                        : "—"
+                }).ToList()
+            });
+        }
+
 
         [HttpPost]
         public async Task<IActionResult> EditRecord(
@@ -615,6 +692,23 @@ public async Task<IActionResult> CreateBulk(
 
         // Returns the existing OR text (single OR or range) that overlaps the
         // supplied numeric range, or null when the range is free.
+        private static long? ParseOrNumber(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(value, @"\d+");
+            return m.Success && long.TryParse(m.Value, out var n) ? n : (long?)null;
+        }
+
+        private static bool OrOverlapsRange(string? receipt, long start, long end)
+        {
+            if (string.IsNullOrWhiteSpace(receipt)) return false;
+            var m = System.Text.RegularExpressions.Regex.Match(receipt, @"^\s*(\d+)(?:\s*-\s*(\d+))?\s*$");
+            if (!m.Success) return false;
+            var rs = long.Parse(m.Groups[1].Value);
+            var re = m.Groups[2].Success ? long.Parse(m.Groups[2].Value) : rs;
+            return rs <= end && re >= start;
+        }
+
         private async Task<string?> FindOrConflict(long start, long end)
         {
             var used = await _context.PaymentRecords

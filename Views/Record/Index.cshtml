@@ -111,6 +111,35 @@
     transition: background .15s; margin-left: 4px;
 }
 .action-perm-btn:hover { background: #1c2b33; }
+
+/* OR range popup */
+.or-range-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; background: white; color: var(--text-2);
+    border: 1.5px solid var(--gray-border); border-radius: 10px;
+    box-shadow: var(--shadow); font-size: 12.5px; font-weight: 600;
+    font-family: inherit; cursor: pointer; flex: 0 0 auto;
+    transition: all .2s;
+}
+.or-range-btn:hover { background: var(--green-light); border-color: var(--green); color: var(--green-dark); }
+.or-range-inputs { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 14px; }
+.or-range-inputs .form-group { flex: 1; margin: 0; }
+.or-range-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+.or-range-stat { background: var(--gray-input); border: 1px solid var(--gray-border); border-radius: 9px; padding: 9px 12px; }
+.or-range-stat-label { font-size: 10.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.or-range-stat-value { font-size: 16px; font-weight: 800; color: var(--text); margin-top: 2px; overflow-wrap: anywhere; }
+.or-range-stat-sub { font-size: 11px; color: var(--green); margin-top: 2px; }
+.or-range-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin: 12px 0 6px; }
+.or-range-list { display: flex; flex-direction: column; gap: 4px; }
+.or-range-list-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--text-2); padding: 5px 9px; background: white; border: 1px solid var(--gray-border); border-radius: 7px; }
+.or-range-list-row strong { color: var(--text); }
+.or-range-table-wrap { max-height: 220px; overflow: auto; border: 1px solid var(--gray-border); border-radius: 9px; }
+.or-range-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.or-range-table th { position: sticky; top: 0; background: var(--gray-input); text-align: left; padding: 7px 9px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); }
+.or-range-table td { padding: 6px 9px; border-top: 1px solid var(--gray-border); color: var(--text-2); }
+.or-range-msg { font-size: 12.5px; color: var(--text-3); padding: 10px 2px; }
+.or-range-msg.error { color: #c62828; }
+@@media (max-width: 520px) { .or-range-inputs { flex-wrap: wrap; } }
 </style>
 
 @Html.AntiForgeryToken()
@@ -231,6 +260,10 @@
                 <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#aaa" stroke-width="1.5"/><path d="M11 11l3 3" stroke="#aaa" stroke-width="1.5" stroke-linecap="round"/></svg>
                 <input type="text" placeholder="Search by name, receipt, or type…" oninput="filterRecords(this.value)" />
             </div>
+            <button type="button" class="or-range-btn" onclick="openOrRange()" title="Summarize records within an OR number range">
+                <svg width="13" height="13" fill="none" viewBox="0 0 16 16"><path d="M2.5 5h11M4.5 8h7M6.5 11h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                OR Range
+            </button>
             <div class="or-sort-container">
                 <span class="or-sort-icon" title="Sort by Official Receipt Number">⇅</span>
                 <label for="orSort" class="or-sort-label">Sort</label>
@@ -575,6 +608,31 @@
     </div>
 </div>
 
+<!-- OR Range Modal -->
+<div class="modal-overlay" id="modal-or-range">
+    <div class="modal" style="max-width:620px">
+        <div class="modal-title">OR Range Summary</div>
+        <div class="modal-sub">Check the total amount and other details of the records inside a range of OR numbers.</div>
+        <div class="or-range-inputs">
+            <div class="form-group">
+                <label class="form-label">From OR</label>
+                <input type="text" class="form-input" id="or-range-from" placeholder="OR-001"
+                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); loadOrRange(); }" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">To OR</label>
+                <input type="text" class="form-input" id="or-range-to" placeholder="OR-005"
+                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); loadOrRange(); }" />
+            </div>
+            <button type="button" class="btn-primary" style="width:auto;padding:10px 18px;margin-top:0" onclick="loadOrRange()">Check Range</button>
+        </div>
+        <div id="or-range-result"></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-or-range')">Close</button>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="~/js/records.js"></script>
     <script>
@@ -640,6 +698,97 @@
         if (data.success) { UI.toast('Record permanently deleted.'); document.getElementById('deleted-row-' + deletedRecordID)?.remove(); }
         else UI.alert(data.message || 'Failed to permanently delete record.', { type: 'error' });
     }
+// ── OR Range popup ─────────────────────────────────────
+const OR_RANGE_ENDPOINT = '/Record/OrRange';
+
+function openOrRange() {
+    document.getElementById('or-range-result').innerHTML = '';
+    openModal('modal-or-range');
+    document.getElementById('or-range-from').focus();
+}
+
+function orRangeEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
+async function loadOrRange() {
+    const from = document.getElementById('or-range-from').value.trim();
+    const to   = document.getElementById('or-range-to').value.trim();
+    const box  = document.getElementById('or-range-result');
+
+    if (!from && !to) {
+        box.innerHTML = '<div class="or-range-msg error">Enter an OR number (e.g. OR-001) or a range.</div>';
+        return;
+    }
+
+    box.innerHTML = '<div class="or-range-msg">Checking records…</div>';
+
+    try {
+        const res  = await fetch(`${OR_RANGE_ENDPOINT}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+        const data = await res.json();
+
+        if (!data.success) {
+            box.innerHTML = `<div class="or-range-msg error">${orRangeEscape(data.message || 'Could not check this OR range.')}</div>`;
+            return;
+        }
+
+        if (!data.count) {
+            box.innerHTML = `<div class="or-range-msg">No records found for ${orRangeEscape(data.rangeLabel)}.</div>`;
+            return;
+        }
+
+        const breakdown = (title, rows) => rows.length
+            ? `<div class="or-range-section-title">${title}</div><div class="or-range-list">` +
+              rows.map(r => `<div class="or-range-list-row"><span>${orRangeEscape(r.name)}` +
+                  ` <span style="color:var(--text-3)">· ${r.count} record${r.count === 1 ? '' : 's'}</span></span>` +
+                  `<strong>₱ ${orRangeEscape(r.total)}</strong></div>`).join('') + '</div>'
+            : '';
+
+        const tableRows = data.records.map(r =>
+            `<tr><td style="font-weight:700;color:var(--green-dark);white-space:nowrap">${orRangeEscape(r.or)}</td>` +
+            `<td>${orRangeEscape(r.payee)}</td>` +
+            `<td>${orRangeEscape(r.type)}</td>` +
+            `<td style="white-space:nowrap">₱ ${orRangeEscape(r.amount)}</td>` +
+            `<td style="white-space:nowrap">${orRangeEscape(r.date)}</td>` +
+            `<td>${orRangeEscape(r.collector)}</td></tr>`).join('');
+
+        box.innerHTML = `
+            <div class="or-range-grid">
+                <div class="or-range-stat">
+                    <div class="or-range-stat-label">Total Amount</div>
+                    <div class="or-range-stat-value">₱ ${orRangeEscape(data.total)}</div>
+                    <div class="or-range-stat-sub">${orRangeEscape(data.rangeLabel)}</div>
+                </div>
+                <div class="or-range-stat">
+                    <div class="or-range-stat-label">Transactions</div>
+                    <div class="or-range-stat-value">${data.count}</div>
+                    <div class="or-range-stat-sub">payment record${data.count === 1 ? '' : 's'}</div>
+                </div>
+                <div class="or-range-stat">
+                    <div class="or-range-stat-label">Average per Transaction</div>
+                    <div class="or-range-stat-value">₱ ${orRangeEscape(data.average)}</div>
+                </div>
+                <div class="or-range-stat">
+                    <div class="or-range-stat-label">Date Issued</div>
+                    <div class="or-range-stat-value" style="font-size:13px">${orRangeEscape(data.firstDate)} – ${orRangeEscape(data.lastDate)}</div>
+                </div>
+            </div>
+            ${breakdown('By Collection Type', data.byType)}
+            ${breakdown('By Collector', data.byCollector)}
+            <div class="or-range-section-title">Records in this range</div>
+            <div class="or-range-table-wrap">
+                <table class="or-range-table">
+                    <thead><tr><th>OR No.</th><th>Payor</th><th>Type</th><th>Amount</th><th>Date</th><th>Collected By</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>`;
+    } catch (err) {
+        box.innerHTML = '<div class="or-range-msg error">Could not reach the server. Please try again.</div>';
+    }
+}
+
 function sortRecordsByOR() {
     const tbody = document.getElementById('records-tbody');
     const sortOrder = document.getElementById('orSort').value;
