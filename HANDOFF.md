@@ -84,14 +84,43 @@ Then connect using:
 docker exec lgutreasury-db-1 mysqldump -u root -p123456789 LGUTreasury > backup.sql
 ```
 
-### Import / Restore a SQL file (e.g. init.sql or backup.sql)
+### Import / Restore a SQL file (e.g. `import.sql` or backup dump)
+To import `import.sql` into the containerized MySQL database on a production or remote host (such as `ctugwebserver`):
+
+```bash
+# On Linux host / server using Docker Compose (pass -T to disable pseudo-TTY allocation)
+docker compose exec -T db mysql -u root -plgu_user_root LGUTreasury < import.sql
+```
+
+Expected output confirms tables and flushes table analyze status:
+```text
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Table   Op      Msg_type        Msg_text
+LGUTreasury.__EFMigrationsHistory       analyze status  OK
+LGUTreasury.RevenueCategories   analyze status  OK
+LGUTreasury.RevenueTypes        analyze status  OK
+LGUTreasury.RevenuePolicies     analyze status  OK
+LGUTreasury.BillingTypeOptions  analyze status  OK
+LGUTreasury.UserAccounts        analyze status  OK
+LGUTreasury.LongTermPayees      analyze status  OK
+LGUTreasury.AccountBillingTypes analyze status  OK
+LGUTreasury.MonthlyBills        analyze status  OK
+LGUTreasury.Payees      analyze status  OK
+LGUTreasury.PaymentRecords      analyze status  OK
+LGUTreasury.RecordLineItems     analyze status  OK
+LGUTreasury.Editrequests        analyze status  OK
+LGUTreasury.DeletedRecords      analyze status  OK
+LGUTreasury.ReportLog   analyze status  OK
+```
+
+Alternatively using direct Docker container commands:
 ```powershell
-# PowerShell
-Get-Content init.sql | docker exec -i lgutreasury-db-1 mysql -u root -p123456789 LGUTreasury
+# PowerShell (Windows)
+Get-Content import.sql -Raw | docker exec -i lgutreasury-db-1 mysql -u root -plgu_user_root LGUTreasury
 ```
 ```bash
 # Linux / macOS / Git Bash
-docker exec -i lgutreasury-db-1 mysql -u root -p123456789 LGUTreasury < init.sql
+docker exec -i lgutreasury-db-1 mysql -u root -plgu_user_root LGUTreasury < import.sql
 ```
 
 ---

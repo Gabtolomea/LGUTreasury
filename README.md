@@ -151,6 +151,13 @@ Access the MySQL console inside the database container:
 docker compose -f compose.container-mysql.yml exec db mysql -u root -p
 ```
 
+To import data into the containerized database (e.g. from `import.sql`):
+
+```bash
+# On Linux host / server using Docker Compose (use -T to disable pseudo-TTY allocation)
+docker compose exec -T db mysql -u root -plgu_user_root LGUTreasury < import.sql
+```
+
 The database data is persisted in the Docker volume `lgu-treasury-container-mysql-data`. `docker compose down` preserves this volume; to remove it and start fresh, run `docker compose down -v`.
 
 #### Running with Native MySQL
