@@ -68,6 +68,13 @@ namespace LGUTreasury.Controllers
                 .OrderBy(o => o.Name)
                 .ToListAsync();
 
+            // Archived (deactivated) tenants
+            ViewBag.ArchivedTenants = await _context.LongTermPayees
+                .Include(t => t.AccountBillingTypes)
+                .Where(t => !t.IsActive)
+                .OrderBy(t => t.LastName)
+                .ToListAsync();
+
             return View(tenants);
         }
 
@@ -304,6 +311,76 @@ namespace LGUTreasury.Controllers
             if (bill == null) return Json(new { success = false, message = "Bill not found." });
 
             bill.BilledAmount = BilledAmount;
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        // POST: /LongTermTenant/DeleteBill
+        [HttpPost]
+        public async Task<IActionResult> DeleteBill(int BillID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var bill = await _context.MonthlyBills.FindAsync(BillID);
+            if (bill == null) return Json(new { success = false, message = "Bill not found." });
+
+            _context.MonthlyBills.Remove(bill);
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        // POST: /LongTermTenant/DeleteTenant
+        [HttpPost]
+        public async Task<IActionResult> DeleteTenant(int tenantID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var tenant = await _context.LongTermPayees
+                .Include(t => t.AccountBillingTypes)
+                .Include(t => t.MonthlyBills)
+                .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+
+            if (tenant == null) return Json(new { success = false, message = "Tenant not found." });
+
+            if (tenant.MonthlyBills != null && tenant.MonthlyBills.Any())
+                _context.MonthlyBills.RemoveRange(tenant.MonthlyBills);
+
+            if (tenant.AccountBillingTypes != null && tenant.AccountBillingTypes.Any())
+                _context.AccountBillingTypes.RemoveRange(tenant.AccountBillingTypes);
+
+            _context.LongTermPayees.Remove(tenant);
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        // POST: /LongTermTenant/RestoreTenant
+        [HttpPost]
+        public async Task<IActionResult> RestoreTenant(int tenantID)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            var role = HttpContext.Session.GetString("Role");
+            if (role != "Officer" && role != "Admin")
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var tenant = await _context.LongTermPayees
+                .FirstOrDefaultAsync(t => t.LongTermPayeeID == tenantID);
+
+            if (tenant == null) return Json(new { success = false, message = "Tenant not found." });
+
+            tenant.IsActive         = true;
+            tenant.IsBillingEnabled = true;
             await _context.SaveChangesAsync();
             return Json(new { success = true });
         }

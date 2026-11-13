@@ -46,6 +46,11 @@
     .action-btn { height:28px; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 12px; font-size:12px; font-weight:600; color:white; font-family:inherit; white-space:nowrap; text-decoration:none; }
     .btn-view { background:var(--blue); }
     .btn-view:hover { background:#2471a3; }
+    .btn-delete { background:var(--red); margin-left:4px; }
+    .btn-delete:hover { background:#b71c1c; }
+    .btn-restore { background:var(--green-dark); }
+    .btn-restore:hover { background:var(--green); }
+    .archived-wrap { margin-top:18px; }
 
     /* Modal */
     .section-divider { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green); margin:14px 0 8px; padding-bottom:4px; border-bottom:1.5px solid var(--green-light); }
@@ -163,6 +168,9 @@
                             <td style="color:var(--text-3)">@tenant.StartMonth</td>
                             <td>
                                 <a asp-action="Ledger" asp-route-id="@tenant.LongTermPayeeID" class="action-btn btn-view"><svg width="10" height="10" fill="none" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2" fill="white"></circle><path d="M1 5s1.5-3 4-3 4 3 4 3-1.5 3-4 3-4-3-4-3Z" stroke="white" stroke-width="1"></path></svg></a>
+                                <button class="action-btn btn-delete" onclick="deleteTenant(@tenant.LongTermPayeeID, '@name.Replace("'", "\\'")')" title="Delete">
+                                    <span class="btn-icon">🗑</span>
+                                </button>
                             </td>
                         </tr>
                     }
@@ -170,6 +178,54 @@
             </tbody>
         </table>
     </div>
+
+    @if (ViewBag.ArchivedTenants != null && ((List<LGUTreasury.Models.LongTermPayee>)ViewBag.ArchivedTenants).Any())
+    {
+        var archived = (List<LGUTreasury.Models.LongTermPayee>)ViewBag.ArchivedTenants;
+        <div class="table-wrap archived-wrap">
+            <div class="table-header">
+                <div class="table-title">Archived Tenants</div>
+                <div class="table-sub">@archived.Count inactive account(s)</div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account No.</th>
+                        <th>Tenant Name</th>
+                        <th>Address / Unit</th>
+                        <th>Billing Types</th>
+                        <th>Start Month</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tenant in archived)
+                    {
+                        var accountNo    = "LTA-" + tenant.LongTermPayeeID.ToString("D6");
+                        var name         = $"{tenant.LastName}, {tenant.FirstName}";
+                        var billingTypes = tenant.AccountBillingTypes != null
+                            ? string.Join(" · ", tenant.AccountBillingTypes.Where(bt => bt.IsActive).Select(bt => bt.BillingTypeName))
+                            : "—";
+                        <tr>
+                            <td style="font-weight:700;color:var(--green-dark)">@accountNo</td>
+                            <td style="font-weight:600">@name</td>
+                            <td style="color:var(--text-3);font-size:12px">@(tenant.Address ?? "—")</td>
+                            <td style="font-size:12px">@billingTypes</td>
+                            <td style="color:var(--text-3)">@tenant.StartMonth</td>
+                            <td>
+                                <button class="action-btn btn-restore" onclick="restoreTenant(@tenant.LongTermPayeeID, '@name.Replace("'", "\\'")')" title="Restore">
+                                    <span class="btn-icon">↩</span>
+                                </button>
+                                <button class="action-btn btn-delete" onclick="deleteTenant(@tenant.LongTermPayeeID, '@name.Replace("'", "\\'")')" title="Delete">
+                                    <span class="btn-icon">🗑</span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>
 
 <!-- ADD TENANT MODAL -->
@@ -258,6 +314,46 @@ function filterTenants(query) {
     document.querySelectorAll('#tenants-tbody tr').forEach(tr => {
         tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
+}
+
+async function deleteTenant(tenantID, tenantName) {
+    const ok = await UI.confirm(
+        'Delete tenant ' + tenantName + '? This permanently removes the account together with all of its bills and billing types.',
+        { title: 'Delete Tenant', type: 'warning', confirmText: 'Delete', cancelText: 'Cancel', danger: true }
+    );
+    if (!ok) return;
+
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/DeleteTenant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ tenantID: tenantID })
+        });
+        const result = await res.json();
+        if (result.success) { showToast('Tenant deleted.'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+async function restoreTenant(tenantID, tenantName) {
+    const ok = await UI.confirm(
+        'Restore tenant ' + tenantName + '? Their account and automatic billing will be reactivated.',
+        { title: 'Restore Tenant', type: 'info', confirmText: 'Restore', cancelText: 'Cancel' }
+    );
+    if (!ok) return;
+
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/RestoreTenant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ tenantID: tenantID })
+        });
+        const result = await res.json();
+        if (result.success) { showToast('Tenant restored.'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
 }
 
 async function filterTypeOptions(query) {

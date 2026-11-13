@@ -86,6 +86,11 @@
     .btn-edit:hover { background:#b86902; }
     .btn-pdf    { background:#455a64; }
     .btn-pdf:hover { background:#263238; }
+    .btn-del    { background:var(--red); }
+    .btn-del:hover { background:#b71c1c; }
+    .btn-delete-tenant { display:inline-flex; align-items:center; gap:6px; background:white; color:var(--red); border:1.5px solid var(--red); border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .btn-delete-tenant:hover { background:#fff1f0; }
+    .btn-delete-tenant .btn-icon { font-size:13px; line-height:1; }
 
     .status-paid   { color:var(--green-dark); font-weight:700; font-size:12px; }
     .status-unpaid { color:var(--orange); font-weight:700; font-size:12px; }
@@ -101,6 +106,7 @@
     @@media print {
         .lt-page > .page-header-row .btn-add,
         .lt-page > .page-header-row .btn-outline,
+        .lt-page > .page-header-row .btn-delete-tenant,
         .table-header, .action-btn,
         thead th:last-child, tbody td:last-child { display:none !important; }
         .table-wrap { box-shadow:none; border:1px solid #ccc; }
@@ -147,6 +153,11 @@
         </button>
     }
 </form>
+
+<button type="button" class="btn-delete-tenant" onclick="deleteTenant(@Model.LongTermPayeeID, '@fullName.Replace("'", "\\'")')">
+    <span class="btn-icon">🗑</span>
+    Delete Tenant
+</button>
 </div> <!-- BILLS TABLE -->
 <div>
     <div class="table-wrap">
@@ -217,6 +228,9 @@
                                     <svg width="11" height="11" fill="none" viewBox="0 0 16 16" style="margin-right:3px"><path d="M8 2v8M5 7l3 3 3-3M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                     PDF
                                 </a>
+                                <button class="action-btn btn-del" onclick="deleteBill(@bill.MonthlyBillID, '@billNo', '@monthDisplay')" title="Delete">
+                                    <span class="btn-icon">🗑</span>
+                                </button>
                             </td>
                         </tr>
                     }
@@ -354,6 +368,46 @@ async function markUnpaid(billID, billNo, month) {
         });
         const result = await res.json();
         if (result.success) { showToast('Bill marked as unpaid.'); setTimeout(() => window.location.reload(), 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+async function deleteTenant(tenantID, tenantName) {
+    const ok = await UI.confirm(
+        'Delete tenant ' + tenantName + '? This permanently removes the account together with all of its bills and billing types.',
+        { title: 'Delete Tenant', type: 'warning', confirmText: 'Delete', cancelText: 'Cancel', danger: true }
+    );
+    if (!ok) return;
+
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/DeleteTenant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ tenantID: tenantID })
+        });
+        const result = await res.json();
+        if (result.success) { showToast('Tenant deleted.'); setTimeout(() => window.location.href = '/LongTermTenant/Index', 1200); }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
+async function deleteBill(billID, billNo, month) {
+    const ok = await UI.confirm(
+        'Delete ' + billNo + ' (' + month + ')? This bill and its payment details will be permanently removed.',
+        { title: 'Delete Bill', type: 'warning', confirmText: 'Delete', cancelText: 'Cancel', danger: true }
+    );
+    if (!ok) return;
+
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const res    = await fetch('/LongTermTenant/DeleteBill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams({ BillID: billID })
+        });
+        const result = await res.json();
+        if (result.success) { showToast('Bill deleted.'); setTimeout(() => window.location.reload(), 1200); }
         else { showToast(result.message || 'Failed.', true); }
     } catch { showToast('Error.', true); }
 }
