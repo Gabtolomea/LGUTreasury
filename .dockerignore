@@ -13,6 +13,17 @@ bin2/
 **/TestResults/
 **/publish/
 LGUTreasury.Tests/
+scripts/
+tests/
+tools/
+deploy.py
+requirements.txt
+import.sql
+*.md
+.pytest_cache/
+**/__pycache__/
+.deployment.lock
+.deployment-tmp/
 .vs/
 .vscode/
 .idea/

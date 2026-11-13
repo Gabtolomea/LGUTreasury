@@ -1,6 +1,7 @@
 
 import csv
 import io
+import json
 import os
 import re
 import shutil
@@ -106,13 +107,14 @@ def _create_private_credentials(config, command_runner, logger, database):
             else server
         )
 
+        ssl_setting = "PREFERRED" if config.get("allow_insecure_db_tls") else "REQUIRED"
         contents = "\n".join([
             "[client]",
             "host={0}".format(_option_value(host_address)),
             "port={0}".format(database["port"]),
             "user={0}".format(_option_value(database["user"])),
             "password={0}".format(_option_value(database["password"])),
-            "ssl-mode=REQUIRED",
+            "ssl-mode={0}".format(ssl_setting),
             "",
         ])
 
@@ -302,7 +304,10 @@ def _backup_native_database(config, compose_executable, command_runner, logger, 
     if not valid_database_name(database.get("database", "")):
         return "The native MySQL database name is invalid."
 
-    if database.get("ssl_mode") not in ("required", "verifyca", "verifyfull"):
+    if (
+        not config.get("allow_insecure_db_tls")
+        and database.get("ssl_mode") not in ("required", "verifyca", "verifyfull")
+    ):
         return "The native MySQL connection must require TLS."
 
     executable = _mysqldump_executable(config)
@@ -387,10 +392,16 @@ def _backup_database(config, compose_executable, command_runner, logger, backup_
     )
 
 
+def _default_rollback_image(image_name):
+    base = image_name.rsplit(":", 1)[0] if ":" in image_name else image_name
+    return "{0}:rollback".format(base)
+
+
 def _backup_app_image(config, compose_executable, command_runner, logger, backup_dir):
     project_dir = str(project_directory(config))
     service = config.get("app_service", "app")
     image_name = config.get("app_image", "lgu-treasury-app:local")
+    rollback_image = config.get("rollback_image") or _default_rollback_image(image_name)
 
     lookup_command = compose_command(
         config, compose_executable, ["ps", "-aq", service]
@@ -458,29 +469,41 @@ def _backup_app_image(config, compose_executable, command_runner, logger, backup
     if container_image != image_name:
         return "The active application image is not the stable rollback image."
 
-    image_file = backup_dir / "app-image.tar"
-
-    save_command = [
-        "docker", "image", "save", "--output", str(image_file), image_name
-    ]
-
-    save_result = run_logged_command(
+    tag_command = ["docker", "tag", image_name, rollback_image]
+    tag_result = run_logged_command(
         command_runner,
-        save_command,
+        tag_command,
         project_dir,
-        600,
+        30,
         logger,
-        "Previous application image preservation",
+        "Previous application image rollback tag",
     )
+    if not tag_result.ok():
+        return "The previous application image could not be tagged for rollback."
 
-    if (
-        not save_result.ok()
-        or not image_file.exists()
-        or image_file.stat().st_size == 0
-    ):
-        return "The previous application image could not be preserved."
+    (backup_dir / "rollback-tag.txt").write_text(rollback_image, encoding="utf-8")
 
-    logger.ok("The previous application image was saved and verified.")
+    if config.get("save_image_tar"):
+        image_file = backup_dir / "app-image.tar"
+        save_command = [
+            "docker", "image", "save", "--output", str(image_file), image_name
+        ]
+        save_result = run_logged_command(
+            command_runner,
+            save_command,
+            project_dir,
+            600,
+            logger,
+            "Previous application image archival",
+        )
+        if (
+            not save_result.ok()
+            or not image_file.exists()
+            or image_file.stat().st_size == 0
+        ):
+            return "The previous application image could not be archived."
+
+    logger.ok("The previous application image was preserved for rollback.")
     return ""
 
 
@@ -551,7 +574,55 @@ def create_data_backups(config, compose_executable, command_runner, logger, back
     for error in errors:
         logger.fail(error)
 
+    manifest = {
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "compose_files": config.get("compose_files", []),
+        "app_image": config.get("app_image", "lgu-treasury-app:local"),
+        "has_database_dump": (
+            Path(backup_dir) / config.get("database", {}).get("backup_file", "database.sql")
+        ).is_file(),
+        "has_rollback_tag": (Path(backup_dir) / "rollback-tag.txt").is_file(),
+        "has_image_tar": (Path(backup_dir) / "app-image.tar").is_file(),
+        "ok": not errors,
+    }
+    try:
+        (Path(backup_dir) / "manifest.json").write_text(
+            json.dumps(manifest, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
     return errors
+
+
+def prune_old_backups(config, logger, keep=5):
+    """Keep only the most recent `keep` backup_* directories."""
+    if keep is None or keep < 1:
+        return []
+    backup_root = project_path(config, config.get("backup_dir", "backups"))
+    if not backup_root.is_dir():
+        return []
+
+    candidates = sorted(
+        [
+            entry
+            for entry in backup_root.iterdir()
+            if entry.is_dir() and entry.name.startswith("backup_")
+        ],
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    removed = []
+    for old_dir in candidates[keep:]:
+        try:
+            shutil.rmtree(old_dir)
+            removed.append(str(old_dir))
+        except OSError as error:
+            logger.warning("Could not prune old backup {0}: {1}".format(old_dir, error))
+    if removed:
+        logger.info("Pruned {0} old backup(s), keeping the latest {1}.".format(len(removed), keep))
+    return removed
 
 
 def create_backups(config, compose_executable, command_runner, logger):

@@ -54,10 +54,10 @@ Complete and check each requirement prior to running the deployment:
   ```
 - [ ] **`NATIVE_MYSQL_CONNECTION` Connection String**:
   ```env
-  NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=lgu_user;Password=YOUR_DB_PASSWORD;SslMode=Preferred;
+  NATIVE_MYSQL_CONNECTION=Server=host.docker.internal;Port=3306;Database=LGUTreasury;User=lgu_user;Password=YOUR_DB_PASSWORD;SslMode=Required;
   ```
   - Use `Server=host.docker.internal` when MySQL runs on the same machine as Docker.
-  - If MySQL does not have TLS certificates configured, set `SslMode=None;` or `SslMode=Preferred;`.
+  - `deploy.py` enforces `SslMode=Required` (or `VerifyCA`/`VerifyFull`) by default so database credentials and backups are encrypted in transit. If your local MySQL server lacks TLS, pass `--allow-insecure-db-tls`.
 - [ ] **Initial Admin Credentials (First startup only)**:
   - If initializing a fresh database, ensure:
     ```env

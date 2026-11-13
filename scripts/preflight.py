@@ -2,7 +2,33 @@ import os
 import shutil
 
 from .commands import find_compose_command, run_logged_command
-from .config import environment_values, project_directory, project_path
+from .config import (
+    environment_values,
+    find_placeholder_env_values,
+    is_container_mysql,
+    native_database_config,
+    project_directory,
+    project_path,
+    valid_database_name,
+)
+
+
+def _locate_mysqldump(config):
+    configured = config.get("database", {}).get("mysqldump_executable")
+    if configured and os.path.isfile(configured):
+        return configured
+    located = shutil.which("mysqldump.exe") or shutil.which("mysqldump")
+    if located:
+        return located
+    if os.name == "nt":
+        default_path = r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+        if os.path.isfile(default_path):
+            return default_path
+    else:
+        for candidate in ("/usr/bin/mysqldump", "/usr/local/bin/mysqldump"):
+            if os.path.isfile(candidate):
+                return candidate
+    return ""
 
 
 def run_preflight(config, command_runner, logger):
@@ -39,6 +65,60 @@ def run_preflight(config, command_runner, logger):
         else:
             errors.append("The required environment value {0} is missing.".format(name))
             logger.fail("The required environment value {0} is missing.".format(name))
+
+    placeholders = find_placeholder_env_values(values, config.get("required_env", []))
+    for name in placeholders:
+        message = "The environment value {0} still contains a template placeholder.".format(name)
+        errors.append(message)
+        logger.fail(message)
+
+    if values.get("ENABLE_HTTPS", "false").strip().lower() == "true":
+        cert_dir = project_path(config, values.get("HTTPS_CERT_DIR") or "./.aspnet/https")
+        cert_file = cert_dir / "LGUTreasury.pfx"
+        if cert_file.is_file():
+            logger.ok("The HTTPS certificate file was found.")
+        else:
+            message = "ENABLE_HTTPS is true, but the certificate file was not found: {0}.".format(
+                cert_file
+            )
+            errors.append(message)
+            logger.fail(message)
+
+    if not is_container_mysql(config) and values.get("NATIVE_MYSQL_CONNECTION"):
+        try:
+            db = native_database_config(config)
+            if not db.get("user") or not db.get("password"):
+                message = "The native MySQL username or password is missing in NATIVE_MYSQL_CONNECTION."
+                errors.append(message)
+                logger.fail(message)
+            elif not valid_database_name(db.get("database", "")):
+                message = "The native MySQL database name in NATIVE_MYSQL_CONNECTION is invalid."
+                errors.append(message)
+                logger.fail(message)
+            elif (
+                not config.get("allow_insecure_db_tls")
+                and db.get("ssl_mode") not in ("required", "verifyca", "verifyfull")
+            ):
+                message = (
+                    "The native MySQL connection must require TLS (SslMode=Required). "
+                    "Pass --allow-insecure-db-tls only if MySQL TLS is unavailable."
+                )
+                errors.append(message)
+                logger.fail(message)
+            else:
+                logger.ok("The native MySQL connection string is valid.")
+        except ValueError as error:
+            message = "NATIVE_MYSQL_CONNECTION is invalid: {0}".format(error)
+            errors.append(message)
+            logger.fail(message)
+
+        if not config.get("skip_backup"):
+            if _locate_mysqldump(config):
+                logger.ok("The mysqldump executable is available.")
+            else:
+                message = "mysqldump executable could not be located for pre-deployment backup."
+                errors.append(message)
+                logger.fail(message)
 
     if os.access(str(project_dir), os.R_OK):
         logger.ok("The project directory is readable.")

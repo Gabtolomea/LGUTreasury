@@ -1,9 +1,16 @@
 import argparse
+import io
+import json
+import shutil
 import time
 from copy import deepcopy
 from pathlib import Path
 
-from scripts.backup import create_data_backups, create_recovery_backups
+from scripts.backup import (
+    create_data_backups,
+    create_recovery_backups,
+    prune_old_backups,
+)
 from scripts.cleanup import clean
 from scripts.commands import run_command
 from scripts.config import (
@@ -11,13 +18,17 @@ from scripts.config import (
     is_container_mysql,
     native_database_config,
     project_directory,
+    project_path,
 )
+from scripts.deployment import capture_service_logs
 from scripts.deployment import deploy as deploy_application
 from scripts.deployment import validate_compose
 from scripts.health import run_health_checks
+from scripts.lock import DeploymentLock, DeploymentLockError
 from scripts.logger import Logger
 from scripts.network import get_lan_addresses
 from scripts.preflight import run_preflight
+from scripts.rollback import find_latest_backup
 from scripts.rollback import rollback as restore_rollback
 
 
@@ -40,7 +51,8 @@ CONFIG = {
     "backup_dir": "backups",
     "log_file": "logs/deployment.log",
     "temporary_paths": [".deployment-tmp"],
-    "minimum_free_space_mb": 100,
+    "minimum_free_space_mb": 512,
+    "keep_backups": 5,
     "app_service": "app",
     "app_image": "lgu-treasury-app:local",
     "app_scheme": "http",
@@ -71,7 +83,7 @@ CONFIG = {
             "name": "Application container health",
             "type": "container",
             "retries": 20,
-            "interval": 3,
+            "interval": 1,
         },
         {
             "name": "Application health endpoint",
@@ -80,7 +92,7 @@ CONFIG = {
             "expected_status": 200,
             "timeout": 5,
             "retries": 10,
-            "interval": 3,
+            "interval": 1,
         },
     ],
 }
@@ -148,14 +160,21 @@ class DeploymentRunner:
                     "type": "container",
                     "service": "db",
                     "retries": 20,
-                    "interval": 3,
+                    "interval": 1,
                 }
                 self.config["health_checks"] = [db_check] + checks
+
+        if self.config.get("no_build"):
+            deploy_args = self.config.get("compose", {}).get("deploy_args", [])
+            if "--build" in deploy_args:
+                self.config["compose"]["deploy_args"] = [
+                    arg for arg in deploy_args if arg != "--build"
+                ]
 
     def _configure_transport(self):
         values = environment_values(self.config)
         enable_https = values.get("ENABLE_HTTPS", "false").strip().lower() == "true"
-        http_port = int(values.get("APP_PORT") or 3000)
+        http_port = 3000
 
         if enable_https:
             scheme = "https"
@@ -192,8 +211,10 @@ class DeploymentRunner:
             values.get("HTTPS_CERT_PASSWORD", ""),
             values.get("INITIAL_ADMIN_PASSWORD", ""),
         ]
+        stream = io.StringIO() if self.config.get("json_output") else None
         self.logger = Logger(
             log_path,
+            stream=stream,
             secret_values=secret_values,
             verbose=self.verbose,
         )
@@ -237,35 +258,58 @@ class DeploymentRunner:
             return
         self.compose_executable = preflight_result["compose_command"]
 
-        self.logger.info("Stage 2/8: Creating recovery backups...")
-        backup_dir, recovery_errors = create_recovery_backups(self.config, self.logger)
-        if recovery_errors:
-            self.backup_result = {
-                "ok": False,
-                "errors": recovery_errors,
-                "backup_dir": str(backup_dir),
-            }
-            self._fail_stage("recovery backups", recovery_errors)
+        if self.config.get("rollback_mode"):
+            self._run_manual_rollback()
             return
 
-        self.logger.info(
-            "Stage 3/8: Checking the database and application image backups..."
-        )
-        backup_errors = create_data_backups(
-            self.config,
-            self.compose_executable,
-            self.command_runner,
-            self.logger,
-            backup_dir,
-        )
-        self.backup_result = {
-            "ok": not backup_errors,
-            "errors": backup_errors,
-            "backup_dir": str(backup_dir),
-        }
-        if backup_errors:
-            self._fail_stage("database and image backups", backup_errors)
+        if self.config.get("dry_run"):
+            self.logger.info("Stage 4/8: Validating Docker Compose configuration (dry-run)...")
+            validation_result = validate_compose(
+                self.config,
+                self.compose_executable,
+                self.command_runner,
+                self.logger,
+            )
+            if not validation_result["ok"]:
+                self._fail_stage("Docker Compose validation", [validation_result["error"]])
+                return
+            self.status = "successful"
             return
+
+        if self.config.get("skip_backup"):
+            self.logger.warning("Skipping Stage 2/8 and Stage 3/8 (--skip-backup).")
+        else:
+            self.logger.info("Stage 2/8: Creating recovery backups...")
+            backup_dir, recovery_errors = create_recovery_backups(self.config, self.logger)
+            if recovery_errors:
+                self.backup_result = {
+                    "ok": False,
+                    "errors": recovery_errors,
+                    "backup_dir": str(backup_dir),
+                }
+                self._fail_stage("recovery backups", recovery_errors)
+                return
+
+            self.logger.info(
+                "Stage 3/8: Checking the database and application image backups..."
+            )
+            backup_errors = create_data_backups(
+                self.config,
+                self.compose_executable,
+                self.command_runner,
+                self.logger,
+                backup_dir,
+            )
+            self.backup_result = {
+                "ok": not backup_errors,
+                "errors": backup_errors,
+                "backup_dir": str(backup_dir),
+            }
+            if backup_errors:
+                shutil.rmtree(backup_dir, ignore_errors=True)
+                self.backup_result["backup_dir"] = ""
+                self._fail_stage("database and image backups", backup_errors)
+                return
 
         self.logger.info("Stage 4/8: Validating Docker Compose configuration...")
         validation_result = validate_compose(
@@ -287,8 +331,15 @@ class DeploymentRunner:
             self.logger,
         )
         if not deployment_result["ok"]:
+            capture_service_logs(
+                self.config,
+                self.compose_executable,
+                self.command_runner,
+                self.logger,
+            )
             self._fail_stage("application deployment", [deployment_result["error"]])
-            self.rollback_result = self._attempt_rollback()
+            if not self.config.get("skip_backup"):
+                self.rollback_result = self._attempt_rollback()
             return
 
         self.logger.info("Stage 6/8: Running deployment health checks...")
@@ -299,10 +350,44 @@ class DeploymentRunner:
             self.logger,
         )
         if not self.health_result["ok"]:
+            capture_service_logs(
+                self.config,
+                self.compose_executable,
+                self.command_runner,
+                self.logger,
+            )
             self._fail_stage("deployment health checks", self.health_result["errors"])
-            self.rollback_result = self._attempt_rollback()
+            if not self.config.get("skip_backup"):
+                self.rollback_result = self._attempt_rollback()
             return
         self.status = "successful"
+
+    def _run_manual_rollback(self):
+        target = self.config.get("rollback_target")
+        if target:
+            backup_path = project_path(self.config, target)
+        else:
+            backup_path = find_latest_backup(self.config)
+        if not backup_path or not Path(backup_path).is_dir():
+            self._fail_stage(
+                "manual rollback",
+                ["No backup directory was found for rollback."],
+            )
+            return
+
+        self.backup_result = {"ok": True, "backup_dir": str(backup_path)}
+        self.rollback_result = restore_rollback(
+            self.config,
+            self.backup_result,
+            self.compose_executable,
+            self.command_runner,
+            self.logger,
+            restore_db=bool(self.config.get("restore_db")),
+        )
+        if self.rollback_result["ok"]:
+            self.status = "successful"
+        else:
+            self._fail_stage("manual rollback", [self.rollback_result["error"]])
 
     def report(self):
         duration = time.monotonic() - self.started_at
@@ -407,6 +492,23 @@ class DeploymentRunner:
                 )
             )
 
+    def summary_dict(self):
+        duration = round(time.monotonic() - self.started_at, 2)
+        log_path = project_directory(self.config) / self.config.get(
+            "log_file",
+            "logs/deployment.log",
+        )
+        return {
+            "status": self.status,
+            "duration_seconds": duration,
+            "failed_stage": self.failed_stage,
+            "errors": list(self.errors),
+            "backup_dir": (self.backup_result or {}).get("backup_dir", ""),
+            "rollback": self.rollback_result,
+            "health": self.health_result,
+            "log_file": str(log_path),
+        }
+
     def run(self):
         self.started_at = time.monotonic()
 
@@ -416,6 +518,22 @@ class DeploymentRunner:
             print("[FAIL] The deployment logger could not be initialized: {0}.".format(error))
             return 1
 
+        lock_path = project_directory(self.config) / self.config.get(
+            "lock_file", ".deployment.lock"
+        )
+        try:
+            with DeploymentLock(lock_path):
+                return self._run_locked()
+        except DeploymentLockError as error:
+            self.errors.append(str(error))
+            self.failed_stage = "deployment lock"
+            self.logger.fail(str(error))
+            self.logger.close()
+            if self.config.get("json_output"):
+                print(json.dumps(self.summary_dict(), indent=2))
+            return 1
+
+    def _run_locked(self):
         try:
             self._run_stages()
         except Exception as error:
@@ -423,7 +541,7 @@ class DeploymentRunner:
             self.logger.fail(
                 "An unexpected error occurred during deployment: {0}".format(error)
             )
-            if self.deployment_started:
+            if self.deployment_started and not self.config.get("skip_backup"):
                 self.rollback_result = self._attempt_rollback()
 
         try:
@@ -431,6 +549,16 @@ class DeploymentRunner:
             self.cleanup_result = clean(self.config, self.logger)
             if not self.cleanup_result["ok"]:
                 self.errors.extend(self.cleanup_result["errors"])
+            if (
+                self.status == "successful"
+                and not self.config.get("dry_run")
+                and not self.config.get("skip_backup")
+            ):
+                prune_old_backups(
+                    self.config,
+                    self.logger,
+                    keep=self.config.get("keep_backups", 5),
+                )
         except Exception as error:
             self.cleanup_result = {
                 "ok": False,
@@ -447,6 +575,8 @@ class DeploymentRunner:
         self.logger.info("Stage 8/8: Deployment summary")
         self.report()
         self.logger.close()
+        if self.config.get("json_output"):
+            print(json.dumps(self.summary_dict(), indent=2))
         if self.status == "successful":
             return 0
         return 1
@@ -455,6 +585,34 @@ class DeploymentRunner:
 def run(config=None, command_runner=None, verbose=False):
     runner = DeploymentRunner(config, command_runner, verbose=verbose)
     return runner.run()
+
+
+def _build_cli_config(arguments):
+    config = deepcopy(CONFIG)
+    if arguments.env_file:
+        config["env_file"] = arguments.env_file
+    if arguments.compose_file:
+        config["compose_files"] = [arguments.compose_file]
+    if arguments.dry_run:
+        config["dry_run"] = True
+    if arguments.no_build:
+        config["no_build"] = True
+    if arguments.skip_backup:
+        config["skip_backup"] = True
+    if arguments.save_image_tar:
+        config["save_image_tar"] = True
+    if arguments.keep_backups is not None:
+        config["keep_backups"] = arguments.keep_backups
+    if arguments.rollback is not None:
+        config["rollback_mode"] = True
+        config["rollback_target"] = arguments.rollback or None
+    if arguments.restore_db:
+        config["restore_db"] = True
+    if arguments.allow_insecure_db_tls:
+        config["allow_insecure_db_tls"] = True
+    if arguments.json:
+        config["json_output"] = True
+    return config
 
 
 def main():
@@ -466,8 +624,67 @@ def main():
         action="store_true",
         help="Show the executed commands in the terminal output.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run preflight checks and Compose validation without backing up or deploying.",
+    )
+    parser.add_argument(
+        "--env-file",
+        help="Override the environment file path (default: .env).",
+    )
+    parser.add_argument(
+        "--compose-file",
+        help="Override the Docker Compose file path.",
+    )
+    parser.add_argument(
+        "--no-build",
+        action="store_true",
+        help="Deploy without rebuilding the Docker image.",
+    )
+    parser.add_argument(
+        "--skip-backup",
+        action="store_true",
+        help="Skip pre-deployment backups (faster, disables automatic rollback).",
+    )
+    parser.add_argument(
+        "--save-image-tar",
+        action="store_true",
+        help="Also export app-image.tar during backup in addition to fast docker tag.",
+    )
+    parser.add_argument(
+        "--keep-backups",
+        type=int,
+        default=5,
+        help="Number of recent backup directories to retain (default: 5).",
+    )
+    parser.add_argument(
+        "--rollback",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="BACKUP_DIR",
+        help="Roll back to the specified backup directory (or latest backup if omitted).",
+    )
+    parser.add_argument(
+        "--restore-db",
+        action="store_true",
+        help="Also restore database.sql when running --rollback.",
+    )
+    parser.add_argument(
+        "--allow-insecure-db-tls",
+        action="store_true",
+        help="Allow native MySQL connections without SslMode=Required.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a machine-readable JSON deployment summary to stdout.",
+    )
     arguments = parser.parse_args()
-    return run(verbose=arguments.verbose)
+    config = _build_cli_config(arguments)
+    runner = DeploymentRunner(config=config, verbose=arguments.verbose)
+    return runner.run()
 
 
 if __name__ == "__main__":

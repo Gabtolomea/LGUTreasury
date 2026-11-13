@@ -56,6 +56,33 @@ def environment_names(config):
     return names
 
 
+PLACEHOLDER_MARKERS = (
+    "YOUR_DB_USER",
+    "YOUR_DB_PASSWORD",
+    "YOUR_CERT_PASSWORD",
+    "YOUR_ADMIN_EMPLOYEE_ID",
+    "CHANGE_TO_A_UNIQUE_PASSWORD",
+    "change-this-password",
+    "change-this-root-password",
+    "change-this-certificate-password",
+)
+
+
+def find_placeholder_env_values(values, names=None):
+    """Return names of environment variables still holding template placeholders."""
+    flagged = []
+    targets = names if names is not None else values.keys()
+    for name in targets:
+        raw = values.get(name, "")
+        if not raw:
+            continue
+        for marker in PLACEHOLDER_MARKERS:
+            if marker in raw:
+                flagged.append(name)
+                break
+    return sorted(flagged)
+
+
 def environment_values(config):
     values = {}
     env_file = config.get("env_file")

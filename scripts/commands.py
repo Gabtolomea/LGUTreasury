@@ -21,12 +21,13 @@ def _text(value):
     return str(value)
 
 
-def run_command(command, cwd=None, timeout=None, input=None):
+def run_command(command, cwd=None, timeout=None, input=None, env=None):
     try:
         completed = subprocess.run(
             command,
             cwd=cwd,
             input=input,
+            env=env,
             capture_output=True,
             text=True,
             shell=False,
@@ -67,7 +68,12 @@ def describe_command(command):
     return shlex.join([str(item) for item in command])
 
 
-def execute_command(command_runner, command, cwd=None, timeout=None, input=None):
+def execute_command(command_runner, command, cwd=None, timeout=None, input=None, env=None):
+    if env is not None:
+        try:
+            return command_runner(command, cwd=cwd, timeout=timeout, input=input, env=env)
+        except TypeError:
+            pass
     try:
         return command_runner(command, cwd=cwd, timeout=timeout, input=input)
     except TypeError:
@@ -77,9 +83,11 @@ def execute_command(command_runner, command, cwd=None, timeout=None, input=None)
             return command_runner(command)
 
 
-def run_logged_command(command_runner, command, cwd, timeout, logger, description, input=None):
+def run_logged_command(
+    command_runner, command, cwd, timeout, logger, description, input=None, env=None
+):
     logger.detail("Running the command `{0}`.".format(describe_command(command)))
-    result = execute_command(command_runner, command, cwd, timeout, input)
+    result = execute_command(command_runner, command, cwd, timeout, input, env=env)
     if result.ok():
         logger.detail("{0} completed successfully.".format(description), level=" OK ")
         return result

@@ -58,6 +58,10 @@ class FakeCommandRunner:
             if self.buildkit_image_ids:
                 return CommandResult(0, "sha256:buildkit-platform-image\n", "")
             return CommandResult(0, "sha256:old-image\n", "")
+        if command[:2] == ["docker", "tag"]:
+            if self.fail_rollback and command[2] == "lgu-treasury-app:rollback":
+                return CommandResult(1, "", "Rollback tag restore failed")
+            return CommandResult(0, "", "")
         if command[:3] == ["docker", "image", "save"]:
             output_index = command.index("--output") + 1
             Path(command[output_index]).write_bytes(b"image backup")
@@ -183,7 +187,7 @@ class DeploymentRunnerTests(unittest.TestCase):
         validation_index = next(
             index
             for index, command in enumerate(command_runner.commands)
-            if "config" in command and "--services" not in command
+            if "config" in command and "--services" in command
         )
         deployment_index = next(
             index
@@ -341,7 +345,12 @@ class DeploymentRunnerTests(unittest.TestCase):
         exit_code = run(make_config(project_directory), command_runner)
 
         self.assertNotEqual(exit_code, 0)
-        self.assertTrue(any(command[:3] == ["docker", "load", "--input"] for command in command_runner.commands))
+        self.assertTrue(
+            any(
+                command == ["docker", "tag", "lgu-treasury-app:rollback", "lgu-treasury-app:local"]
+                for command in command_runner.commands
+            )
+        )
         rollback_commands = [
             command for command in command_runner.commands if "--no-build" in command
         ]
@@ -365,7 +374,12 @@ class DeploymentRunnerTests(unittest.TestCase):
         exit_code = run(make_config(project_directory), command_runner)
 
         self.assertNotEqual(exit_code, 0)
-        self.assertTrue(any(command[:3] == ["docker", "load", "--input"] for command in command_runner.commands))
+        self.assertTrue(
+            any(
+                command == ["docker", "tag", "lgu-treasury-app:rollback", "lgu-treasury-app:local"]
+                for command in command_runner.commands
+            )
+        )
         self.assertGreaterEqual(command_runner.health_checks, 2)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
@@ -536,7 +550,7 @@ class DeploymentRunnerTests(unittest.TestCase):
         text = output.getvalue()
         self.assertNotEqual(exit_code, 0)
         self.assertIn("Rollback: Failed.", text)
-        self.assertIn("The previous application image could not be restored.", text)
+        self.assertIn("The previous application image tag could not be restored.", text)
 
     @patch("scripts.preflight.shutil.which", return_value="docker")
     def test_container_mysql_deployment_reports_database_health(self, unused_which):
