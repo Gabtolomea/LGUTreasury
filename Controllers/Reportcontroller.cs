@@ -126,6 +126,9 @@ namespace LGUTreasury.Controllers
             if (type == "monthly-remittance" && (toDate.Date - fromDate.Date).Days > 31)
                 return BadRequest("Monthly Remittance accepts a date range of at most 31 days.");
 
+            if (type == "category" && !revenueTypeId.HasValue)
+                return BadRequest("Please select a collection type for the Category Type Report.");
+
             var fullName = HttpContext.Session.GetString("FullName") ?? "Officer";
 
             // Save the parameters so the report can be downloaded again later
@@ -191,6 +194,8 @@ namespace LGUTreasury.Controllers
                 return "Monthly Remittance";
             if (type == "detailed")
                 return "Detailed Collection List";
+            if (type == "category")
+                return "Category Type Report";
 
             return "Revenue Summary";
         }
@@ -262,7 +267,7 @@ namespace LGUTreasury.Controllers
             // The detailed list keeps the individual transactions behind the
             // summary matrix (OR number, payor, method, and the
             // base/surcharge/interest breakdown).
-            if (type == "detailed")
+            if (type is "detailed" or "category")
             {
                 return format switch
                 {
@@ -939,8 +944,14 @@ namespace LGUTreasury.Controllers
         private static string DetailPayee(PaymentRecord p) =>
             p.Payee != null ? $"{p.Payee.Lastname}, {p.Payee.Firstname}" : "—";
 
-        private static string DetailType(PaymentRecord p) =>
-            p.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+        private static string DetailType(PaymentRecord p)
+        {
+            var line = p.RecordLineItems?.FirstOrDefault();
+            var name = line?.RevenueType?.Name ?? "—";
+            return string.IsNullOrWhiteSpace(line?.SectionType)
+                ? name
+                : $"{name} — {line!.SectionType!.Trim()}";
+        }
 
         private static string DetailMethod(PaymentRecord p) =>
             p.PaymentMethod ?? "—";

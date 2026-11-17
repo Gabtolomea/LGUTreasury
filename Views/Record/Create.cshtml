@@ -27,6 +27,7 @@
         <input type="hidden" name="TotalSurcharge" id="pay-surcharge" />
         <input type="hidden" name="TotalInterest" id="pay-interest" />
         <input type="hidden" name="TotalAmount" id="pay-total" />
+        <input type="hidden" name="SectionType" id="pay-sectiontype" />
 
         <!-- PAYMENT INFORMATION -->
         <div class="form-section">
@@ -93,25 +94,33 @@
                     <!-- Breakdown panel -->
                     <div class="payment-breakdown" id="payment-breakdown">
                         <div class="breakdown-title">Computed Breakdown</div>
+                        <div class="breakdown-row" id="section-type-row" hidden>
+                            <span>Section Type *</span>
+                            <span>
+                                <input type="text" class="bd-input" id="bi-section-type"
+                                       placeholder="e.g. Business, Tricycle" maxlength="100"
+                                       autocomplete="off" />
+                            </span>
+                        </div>
                         <div class="breakdown-row">
                             <span>Base Amount</span>
                             <span>
                                 <span id="bd-base" hidden>₱ 0.00</span>
-                                <input type="number" class="bd-input" id="bi-base" min="0" step="0.01" value="0.00" />
+                                <input type="number" class="bd-input" id="bi-base" min="0" step="0.01" value="" />
                             </span>
                         </div>
                         <div class="breakdown-row">
                             <span>Surcharge Amount</span>
                             <span>
                                 <span id="bd-surcharge" hidden>₱ 0.00</span>
-                                <input type="number" class="bd-input" id="bi-surcharge" min="0" step="0.01" value="0.00" />
+                                <input type="number" class="bd-input" id="bi-surcharge" min="0" step="0.01" value="" />
                             </span>
                         </div>
                         <div class="breakdown-row">
                             <span>Interest Amount</span>
                             <span>
                                 <span id="bd-interest" hidden>₱ 0.00</span>
-                                <input type="number" class="bd-input" id="bi-interest" min="0" step="0.01" value="0.00" />
+                                <input type="number" class="bd-input" id="bi-interest" min="0" step="0.01" value="" />
                             </span>
                         </div>
                         <div class="breakdown-total">
@@ -331,6 +340,11 @@
             if (r.count < 1)    { e.preventDefault(); UI.toast('OR range is invalid.', 'error'); return; }
             if (r.count > 2000) { e.preventDefault(); UI.toast('Maximum 2000 receipts per batch.', 'error'); return; }
             if (!document.getElementById('pay-typeid').value) { e.preventDefault(); UI.toast('Please select a collection type.', 'error'); return; }
+            const sectionRow = document.getElementById('section-type-row');
+            const sectionInput = document.getElementById('bi-section-type');
+            if (sectionRow && !sectionRow.hidden && !(sectionInput.value || '').trim()) {
+                e.preventDefault(); UI.toast("Please enter the Mayor's Permit section type.", 'error'); return;
+            }
             const total = parseFloat(document.getElementById('pay-total').value) || 0;
             if (total <= 0) { e.preventDefault(); UI.toast('Total amount must be greater than zero.', 'error'); return; }
             e.preventDefault();
@@ -364,7 +378,8 @@
         function pullComputed() {
             ['base', 'surcharge', 'interest'].forEach(k => {
                 const t = (f('bd-' + k).textContent || '').replace(/[^0-9.]/g, '');
-                ins[k].value = (parseFloat(t) || 0).toFixed(2);
+                const v = parseFloat(t) || 0;
+                ins[k].value = v === 0 ? '' : v.toFixed(2);
             });
         }
 
@@ -376,6 +391,7 @@
             f('pay-surcharge').value = s.toFixed(2);
             f('pay-interest').value  = i.toFixed(2);
             f('pay-total').value     = total.toFixed(2);
+            f('pay-sectiontype').value = (f('bi-section-type').value || '').trim();
             f('bd-total').textContent = money(total);
         }
 
@@ -383,6 +399,8 @@
             edited = true;
             pushValues();
         }));
+
+        f('bi-section-type').addEventListener('input', pushValues);
 
         // When the revenue type / date makes record-payment.js recompute, refresh the boxes
         const obs = new MutationObserver(function () {
@@ -401,6 +419,12 @@
 
         f('payment-form').addEventListener('submit', function (e) {
             if (edited) pushValues();
+            const sectionRow = f('section-type-row');
+            if (sectionRow && !sectionRow.hidden && !(f('bi-section-type').value || '').trim()) {
+                e.preventDefault();
+                showToast("Please enter the Mayor's Permit section type.", true);
+                return;
+            }
             if (!(num(f('pay-total').value) > 0)) {
                 e.preventDefault();
                 showToast('Total amount must be greater than zero.', true);

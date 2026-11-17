@@ -24,6 +24,7 @@
                     <option value="monthly">Monthly Remittance</option>
                      <option value="annual">Annual Report</option> 
                     <option value="custom">Custom Report</option> 
+                    <option value="category">Category Type Report</option>
                 </select>
             </div>
             <div class="form-group">
@@ -143,6 +144,10 @@
                 showToast('From date cannot be after To date.', true);
                 return;
             }
+            if (type === 'category' && !revenueType) {
+                showToast('Please select a collection type for the Category Type Report.', true);
+                return;
+            }
 
             showToast('Generating report...');
             let url = '/Report/Generate?type=' + type + '&format=' + format + '&from=' + from + '&to=' + to;
@@ -170,7 +175,7 @@
                 return;
             } else if (type === 'monthly') {
                 from = new Date(today.getFullYear(), today.getMonth(), 1);
-            } else if (type === 'annual') {
+            } else if (type === 'annual' || type === 'category') {
                 from = new Date(today.getFullYear(), 0, 1);
             }
             // daily: from = to = today

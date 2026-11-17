@@ -16,6 +16,9 @@ namespace LGUTreasury.Models
 
         public int Quantity { get; set; } = 1;
 
+        [MaxLength(100)]
+        public string? SectionType { get; set; }
+
         [Column(TypeName = "decimal(12,2)")]
         public decimal BaseAmount { get; set; } = 0;
 

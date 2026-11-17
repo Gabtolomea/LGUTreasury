@@ -106,7 +106,8 @@ public async Task<IActionResult> SearchPayee(string? query)
                 collectedByName    = payment.CollectedBy != null
                     ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
                 typeID   = payment.RecordLineItems?.FirstOrDefault()?.TypeID,
-                typeName = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name
+                typeName = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name,
+                sectionType = payment.RecordLineItems?.FirstOrDefault()?.SectionType
             });
         }
 
@@ -132,7 +133,8 @@ public async Task<IActionResult> SearchPayee(string? query)
             string? FullName, string OfficialReceipt, DateTime DateIssued,
             string? Remarks, string? PaymentMethod, int TypeID,
             decimal TotalBaseAmount, decimal TotalSurcharge,
-            decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID)
+            decimal TotalInterest, decimal TotalAmount, int CollectedBy_UserID,
+            string? SectionType = null)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null) return RedirectToAction("Login", "Account");
@@ -156,6 +158,19 @@ public async Task<IActionResult> SearchPayee(string? query)
             if (TypeID == 0)
             {
                 TempData["Error"] = "Please select a collection type.";
+                await ReloadCreateViewBags();
+                return View();
+            }
+
+            var sectionType = NormalizeSectionType(SectionType);
+            var revenueTypeName = await _context.RevenueTypes
+                .Where(t => t.TypeID == TypeID)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync();
+
+            if (IsMayorPermitName(revenueTypeName) && sectionType == null)
+            {
+                TempData["Error"] = "Please enter the Mayor's Permit section type.";
                 await ReloadCreateViewBags();
                 return View();
             }
@@ -201,6 +216,7 @@ public async Task<IActionResult> SearchPayee(string? query)
             _context.RecordLineItems.Add(new RecordLineItem
             {
                 PaymentID = payment.PaymentID, TypeID = TypeID, Quantity = 1,
+                SectionType = sectionType,
                 BaseAmount = TotalBaseAmount, SurchargeAmount = TotalSurcharge,
                 InterestAmount = TotalInterest, LineTotal = TotalAmount
             });
@@ -215,7 +231,7 @@ public async Task<IActionResult> CreateBulk(
     int? PayeeID, string FullName, string OfficialReceipt,
     DateTime DateIssued, string? Remarks, string? PaymentMethod,
     int TypeID, decimal TotalBaseAmount, decimal TotalSurcharge,
-    decimal TotalInterest, int CollectedBy_UserID)
+    decimal TotalInterest, int CollectedBy_UserID, string? SectionType = null)
 {
     var userID = HttpContext.Session.GetInt32("UserID");
     if (userID == null) return RedirectToAction("Login", "Account");
@@ -227,6 +243,7 @@ public async Task<IActionResult> CreateBulk(
 
     string? error = null;
     long start = 0, end = 0;
+    var sectionType = NormalizeSectionType(SectionType);
     if (!m.Success) error = "Invalid OR range. Use a format like 60-578.";
     else
     {
@@ -238,6 +255,15 @@ public async Task<IActionResult> CreateBulk(
     if (error == null && string.IsNullOrWhiteSpace(FullName) && !(PayeeID > 0))
                                                                   error = "Please enter a label (e.g. Water).";
     if (error == null && TypeID == 0)                             error = "Please select a collection type.";
+    if (error == null && TypeID != 0)
+    {
+        var revenueTypeName = await _context.RevenueTypes
+            .Where(t => t.TypeID == TypeID)
+            .Select(t => t.Name)
+            .FirstOrDefaultAsync();
+        if (IsMayorPermitName(revenueTypeName) && sectionType == null)
+            error = "Please enter the Mayor's Permit section type.";
+    }
     if (error == null && CollectedBy_UserID == 0)                 error = "Please select a collector.";
     if (error == null && TotalBaseAmount + TotalSurcharge + TotalInterest <= 0)
                                                                   error = "Total amount must be greater than zero.";
@@ -292,6 +318,7 @@ public async Task<IActionResult> CreateBulk(
         {
             new RecordLineItem {
                 TypeID = TypeID, Quantity = count,
+                SectionType = sectionType,
                 BaseAmount = TotalBaseAmount, SurchargeAmount = TotalSurcharge,
                 InterestAmount = TotalInterest, LineTotal = total
             }
@@ -422,9 +449,7 @@ public async Task<IActionResult> CreateBulk(
                 firstDate  = matches.Count > 0 ? matches.Min(p => p.DateIssued).ToString("MMM dd, yyyy") : null,
                 lastDate   = matches.Count > 0 ? matches.Max(p => p.DateIssued).ToString("MMM dd, yyyy") : null,
                 byType = matches
-                    .GroupBy(p => p.RecordLineItems != null && p.RecordLineItems.Any()
-                        ? p.RecordLineItems.First().RevenueType?.Name ?? "—"
-                        : "—")
+                    .GroupBy(p => TypeLabel(p.RecordLineItems?.FirstOrDefault()))
                     .Select(g => new { Name = g.Key, Count = g.Count(), Total = g.Sum(p => p.TotalAmount) })
                     .OrderByDescending(g => g.Total)
                     .Select(g => new { name = g.Name, count = g.Count, total = g.Total.ToString("N2") })
@@ -445,9 +470,7 @@ public async Task<IActionResult> CreateBulk(
                             ? p.Payee.Firstname ?? "—"
                             : $"{p.Payee.Lastname}, {p.Payee.Firstname}")
                         : "—",
-                    type      = p.RecordLineItems != null && p.RecordLineItems.Any()
-                        ? p.RecordLineItems.First().RevenueType?.Name ?? "—"
-                        : "—",
+                    type      = TypeLabel(p.RecordLineItems?.FirstOrDefault()),
                     amount    = p.TotalAmount.ToString("N2"),
                     date      = p.DateIssued.ToString("MMM dd, yyyy"),
                     collector = p.CollectedBy != null
@@ -528,7 +551,7 @@ public async Task<IActionResult> CreateBulk(
                                        ? payment.Payee.Firstname ?? "—"
                                        : $"{payment.Payee.Lastname}, {payment.Payee.Firstname}",
                 CollectorName    = payment.CollectedBy != null ? $"{payment.CollectedBy.LastName}, {payment.CollectedBy.FirstName}" : "—",
-                CollectionType   = payment.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—",
+                CollectionType   = TypeLabel(payment.RecordLineItems?.FirstOrDefault()),
                 DeletedBy_UserID = userID.Value,
                 DeletedByName    = user != null ? $"{user.LastName}, {user.FirstName}" : "—",
                 DeletedAt        = DateTime.Now
@@ -757,6 +780,28 @@ public async Task<IActionResult> CreateBulk(
             var parts = fullName.Split(' ');
             if (parts.Length >= 2) return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
             return fullName[0].ToString().ToUpper();
+        }
+
+        private static bool IsMayorPermitName(string? name)
+        {
+            var key = new string((name ?? "").Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+            return key is "mayorspermitfees" or "mayorspermit"
+                       or "mayorpermitfees" or "mayorpermit";
+        }
+
+        private static string? NormalizeSectionType(string? sectionType)
+        {
+            var value = sectionType?.Trim();
+            if (string.IsNullOrEmpty(value)) return null;
+            return value.Length > 100 ? value[..100] : value;
+        }
+
+        private static string TypeLabel(RecordLineItem? line)
+        {
+            var name = line?.RevenueType?.Name ?? "—";
+            return string.IsNullOrWhiteSpace(line?.SectionType)
+                ? name
+                : $"{name} — {line!.SectionType!.Trim()}";
         }
     }
 

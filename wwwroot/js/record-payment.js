@@ -44,6 +44,27 @@ function filterRevTypes() {
     });
 }
 
+// Mayor's Permit Fees has different permit types that must be captured separately.
+function isMayorPermitType(name) {
+    const key = (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return key === 'mayorspermitfees' || key === 'mayorspermit' ||
+           key === 'mayorpermitfees' || key === 'mayorpermit';
+}
+
+function toggleSectionType(name) {
+    const row   = document.getElementById('section-type-row');
+    const input = document.getElementById('bi-section-type');
+    const hidden = document.getElementById('pay-sectiontype');
+    if (!row || !input) return;
+
+    const show = isMayorPermitType(name);
+    row.hidden = !show;
+    if (!show) {
+        input.value = '';
+        if (hidden) hidden.value = '';
+    }
+}
+
 function selectRevType(el) {
     const name      = el.dataset.name;
     const typeID    = el.dataset.id;
@@ -54,6 +75,7 @@ function selectRevType(el) {
     // Fill display and hidden fields
     document.getElementById('coltype-display').value = name;
     document.getElementById('pay-typeid').value      = typeID;
+    toggleSectionType(name);
 
     // Compute breakdown
     const surchargeAmt = baseRate * (surcharge / 100);

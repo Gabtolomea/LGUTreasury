@@ -152,7 +152,11 @@
                 paymentID    = r.PaymentID,
                 txnID        = "TXN-" + r.PaymentID.ToString("D6"),
                 payee        = r.Payee != null ? FormatPayee(r.Payee.Firstname, r.Payee.Lastname) : "—",
-                type         = r.RecordLineItems != null && r.RecordLineItems.Any() ? r.RecordLineItems.First().RevenueType?.Name ?? "—" : "—",
+                type         = r.RecordLineItems != null && r.RecordLineItems.Any()
+                    ? (r.RecordLineItems.First().RevenueType?.Name ?? "—")
+                      + (string.IsNullOrWhiteSpace(r.RecordLineItems.First().SectionType)
+                          ? "" : " — " + r.RecordLineItems.First().SectionType)
+                    : "—",
                 amount       = r.TotalAmount,
                 date         = r.DateIssued.ToString("yyyy-MM-dd"),
                 dateDisplay  = r.DateIssued.ToString("MMM dd, yyyy"),
@@ -300,7 +304,9 @@
                             <!--var txnID     = "OR-" + record.PaymentID.ToString("D6");-->
                             var txnID     = "OR-" + record.OfficialReceipt ?? "-";
                             var payee     = record.Payee != null ? FormatPayee(record.Payee.Firstname, record.Payee.Lastname) : "—";
-                            var type      = record.RecordLineItems?.FirstOrDefault()?.RevenueType?.Name ?? "—";
+                            var typeLine  = record.RecordLineItems?.FirstOrDefault();
+                            var type      = (typeLine?.RevenueType?.Name ?? "—")
+                                            + (string.IsNullOrWhiteSpace(typeLine?.SectionType) ? "" : " — " + typeLine!.SectionType);
                             var amount    = record.TotalAmount.ToString("N2");
                             var date      = record.DateIssued.ToString("MMM dd, yyyy");
                             var orNumber  = record.OfficialReceipt ?? "—";
