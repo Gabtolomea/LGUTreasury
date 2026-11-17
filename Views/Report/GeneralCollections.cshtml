@@ -8,11 +8,9 @@
     string Money(decimal v) => v.ToString("N2", CultureInfo.InvariantCulture);
 
     var lines = Model.RemitLines;
-    var monthNames = CultureInfo.InvariantCulture.DateTimeFormat.MonthNames;
 
-    var periodFrom = new DateTime(Model.Year, Model.Month, 1);
-    var periodTo = periodFrom.AddMonths(1).AddDays(-1);
-    var periodText = $"{periodFrom:MMMM dd, yyyy} to {periodTo:MMMM dd, yyyy}";
+    var reportDate = Model.Date == default ? DateTime.Today : Model.Date;
+    var periodText = reportDate.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture);
 }
 
 <link rel="stylesheet" href="~/css/general-collections.css" asp-append-version="true" />
@@ -52,16 +50,10 @@
     </div>
 
     <form method="get" class="gc-filter no-print">
-        <label>Month
-            <select name="month" class="form-select">
-                @for (var i = 1; i <= 12; i++)
-                {
-                    <option value="@i" selected="@(i == Model.Month)">@monthNames[i - 1]</option>
-                }
-            </select>
-        </label>
-        <label>Year
-            <input type="number" name="year" class="form-input" min="2000" max="2100" value="@Model.Year" />
+        <label>Date
+            <input type="date" name="date" class="form-input"
+                   value="@reportDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+                   max="@DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" />
         </label>
         <button type="submit" class="btn-generate">VIEW</button>
         <button type="button" class="btn-generate" onclick="window.print()">PRINT</button>
@@ -76,7 +68,7 @@
         <div class="gc-report-header">
             <div class="gc-org">LGU TREASURER'S OFFICE COLLECTION RECORDING SYSTEM</div>
             <div class="gc-report-type">Daily Collection Report</div>
-            <div class="gc-report-period">Period: @periodText</div>
+            <div class="gc-report-period">Date: @periodText</div>
         </div>
 
         <div class="gc-scroll">

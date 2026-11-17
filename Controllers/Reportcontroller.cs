@@ -46,9 +46,9 @@ namespace LGUTreasury.Controllers
             return View();
         }
 
-        // GET: /Report/GeneralCollections?month=9&year=2026&allDays=false
+        // GET: /Report/GeneralCollections?date=2026-11-17&allDays=false
         // On-screen / printable version of the paper GENERAL COLLECTIONS ledger.
-        public async Task<IActionResult> GeneralCollections(int? month, int? year, bool allDays = false)
+        public async Task<IActionResult> GeneralCollections(DateTime? date, bool allDays = false)
         {
             if (HttpContext.Session.GetInt32("UserID") == null)
                 return RedirectToAction("Login", "Account");
@@ -59,11 +59,12 @@ namespace LGUTreasury.Controllers
             ViewData["Initials"] = GetInitials(ViewData["FullName"]?.ToString());
 
             var today = DateTime.Today;
-            var m = month is >= 1 and <= 12 ? month.Value : today.Month;
-            var y = year is >= 2000 and <= 2100 ? year.Value : today.Year;
+            // Defaults to the present date; future dates fall back to today.
+            var day = date?.Date ?? today;
+            if (day > today) day = today;
 
-            var from = new DateTime(y, m, 1);
-            var to = from.AddMonths(1).AddSeconds(-1);   // 23:59:59 on the last day
+            var from = day;
+            var to = day.AddDays(1).AddSeconds(-1);   // 23:59:59 on the selected day
 
             var payments = await _context.PaymentRecords
                 .Include(p => p.RecordLineItems)
@@ -81,11 +82,12 @@ namespace LGUTreasury.Controllers
 
             var vm = new GeneralCollectionsVm
             {
-                Month = m,
-                Year = y,
+                Date = day,
+                Month = day.Month,
+                Year = day.Year,
                 AllDays = allDays,
-                Title = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m).ToUpper() + " " + y,
-                PeriodText = PeriodLabel(from, to),
+                Title = day.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture),
+                PeriodText = day.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture),
                 RemitTotal = remit.Total,
                 RawTotal = remit.Total
             };
@@ -1763,6 +1765,7 @@ namespace LGUTreasury.Controllers
     // ── View model for the General Collections screen ──
     public class GeneralCollectionsVm
     {
+        public DateTime Date { get; set; }
         public int Month { get; set; }
         public int Year { get; set; }
         public bool AllDays { get; set; }
