@@ -254,6 +254,10 @@
             <label class="form-label">OR Number *</label>
             <input type="text" class="form-input" id="paid-or" placeholder="e.g. OR-00200" />
         </div>
+        <div class="form-group">
+            <label class="form-label">Payment Date *</label>
+            <input type="date" class="form-input" id="paid-date" required />
+        </div>
         <div class="modal-actions">
             <button class="btn-secondary" onclick="closeModal('modal-mark-paid')">Cancel</button>
             <button class="btn-primary" onclick="confirmMarkPaid()">Confirm Payment</button>
@@ -329,22 +333,47 @@ document.getElementById('add-bill-type')?.addEventListener('change', function() 
 });
 
 function openMarkPaid(billID, billNo, month) {
-    document.getElementById('paid-bill-id').value      = billID;
+    document.getElementById('paid-bill-id').value = billID;
     document.getElementById('paid-bill-display').value = billNo + ' — ' + month;
-    document.getElementById('paid-or').value           = '';
+    document.getElementById('paid-or').value = '';
+
+    // Default to today's local date
+    const today = new Date();
+    const localDate = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0')
+    ].join('-');
+
+    document.getElementById('paid-date').value = localDate;
+
     openModal('modal-mark-paid');
 }
 
 async function confirmMarkPaid() {
-    const billID   = document.getElementById('paid-bill-id').value;
+    const billID = document.getElementById('paid-bill-id').value;
     const orNumber = document.getElementById('paid-or').value.trim();
-    if (!orNumber) { showToast('Please enter an OR number.', true); return; }
+    const paidDate = document.getElementById('paid-date').value;
+
+    if (!orNumber) {
+        showToast('Please enter an OR number.', true);
+        return;
+    }
+
+    if (!paidDate) {
+        showToast('Please select a payment date.', true);
+        return;
+    }
     const token = document.querySelector('input[name=__RequestVerificationToken]');
     try {
         const res    = await fetch('/LongTermTenant/MarkPaid', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
-            body: new URLSearchParams({ BillID: billID, ORNumber: orNumber })
+            body: new URLSearchParams({
+                BillID: billID,
+                ORNumber: orNumber,
+                PaidDate: paidDate
+            })
         });
         const result = await res.json();
         if (result.success) { closeModal('modal-mark-paid'); showToast('Bill marked as paid!'); setTimeout(() => window.location.reload(), 1200); }

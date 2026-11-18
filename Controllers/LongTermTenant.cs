@@ -1,3 +1,4 @@
+using System.Globalization;
 using LGUTreasury.Data;
 using LGUTreasury.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -254,16 +255,32 @@ namespace LGUTreasury.Controllers
 
         // POST: /LongTermTenant/MarkPaid
         [HttpPost]
-        public async Task<IActionResult> MarkPaid(int BillID, string ORNumber)
+        public async Task<IActionResult> MarkPaid(
+            int BillID,
+            string ORNumber,
+            string PaidDate)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
-            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+            if (userID == null)
+                return Json(new { success = false, message = "Not logged in." });
 
             if (string.IsNullOrWhiteSpace(ORNumber))
                 return Json(new { success = false, message = "OR Number is required." });
 
+            if (!DateTime.TryParseExact(
+                PaidDate,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var paymentDate))
+            {
+                return Json(new { success = false, message = "Invalid payment date." });
+            }
+
             var bill = await _context.MonthlyBills.FindAsync(BillID);
-            if (bill == null) return Json(new { success = false, message = "Bill not found." });
+
+            if (bill == null)
+                return Json(new { success = false, message = "Bill not found." });
 
             var orNumber = ORNumber.Trim();
 
@@ -274,12 +291,18 @@ namespace LGUTreasury.Controllers
                 b.ORNumber.Trim().ToLower() == orNumber.ToLower());
 
             if (alreadyUsed)
-                return Json(new { success = false, message = $"OR number \"{orNumber}\" is already used by another bill." });
+                return Json(new
+                {
+                    success = false,
+                    message = $"OR number \"{orNumber}\" is already used by another bill."
+                });
 
-            bill.Status   = "Paid";
+            bill.Status = "Paid";
             bill.ORNumber = orNumber;
-            bill.PaidAt   = DateTime.Now;
+            bill.PaidAt = paymentDate.Date;
+
             await _context.SaveChangesAsync();
+
             return Json(new { success = true });
         }
 
