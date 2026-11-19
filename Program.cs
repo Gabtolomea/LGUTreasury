@@ -1,5 +1,6 @@
 using LGUTreasury;
 using LGUTreasury.Data;
+using LGUTreasury.Services;
 using Microsoft.EntityFrameworkCore;
 
 // Load credentials/local settings from .env (git-ignored) before building configuration.
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSession(); // add this
+builder.Services.AddHostedService<MonthlyBillingBackgroundService>();
 
 /*builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(
