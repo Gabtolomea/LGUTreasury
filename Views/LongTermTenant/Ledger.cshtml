@@ -350,7 +350,7 @@ function openMarkPaid(billID, billNo, month) {
     openModal('modal-mark-paid');
 }
 
-async function confirmMarkPaid() {
+async function confirmMarkPaid(confirmDuplicate = false) {
     const billID = document.getElementById('paid-bill-id').value;
     const orNumber = document.getElementById('paid-or').value.trim();
     const paidDate = document.getElementById('paid-date').value;
@@ -366,17 +366,27 @@ async function confirmMarkPaid() {
     }
     const token = document.querySelector('input[name=__RequestVerificationToken]');
     try {
+        const params = {
+            BillID: billID,
+            ORNumber: orNumber,
+            PaidDate: paidDate
+        };
+        if (confirmDuplicate) params.ConfirmDuplicate = true;
+
         const res    = await fetch('/LongTermTenant/MarkPaid', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
-            body: new URLSearchParams({
-                BillID: billID,
-                ORNumber: orNumber,
-                PaidDate: paidDate
-            })
+            body: new URLSearchParams(params)
         });
         const result = await res.json();
         if (result.success) { closeModal('modal-mark-paid'); showToast('Bill marked as paid!'); setTimeout(() => window.location.reload(), 1200); }
+        else if (result.isDuplicate) {
+            const proceed = await UI.confirm(
+                result.message,
+                { title: 'Duplicate OR Number', type: 'warning', confirmText: 'Continue Anyway', cancelText: 'Cancel', danger: true }
+            );
+            if (proceed) await confirmMarkPaid(true);
+        }
         else { showToast(result.message || 'Failed.', true); }
     } catch { showToast('Error.', true); }
 }

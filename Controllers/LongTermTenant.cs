@@ -259,7 +259,8 @@ namespace LGUTreasury.Controllers
         public async Task<IActionResult> MarkPaid(
             int BillID,
             string ORNumber,
-            string PaidDate)
+            string PaidDate,
+            bool ConfirmDuplicate = false)
         {
             var userID = HttpContext.Session.GetInt32("UserID");
             if (userID == null)
@@ -285,18 +286,22 @@ namespace LGUTreasury.Controllers
 
             var orNumber = ORNumber.Trim();
 
-            // An OR number may only be attached to one bill.
-            var alreadyUsed = await _context.MonthlyBills.AnyAsync(b =>
-                b.MonthlyBillID != BillID &&
-                b.ORNumber != null &&
-                b.ORNumber.Trim().ToLower() == orNumber.ToLower());
+            // Warn (but allow) when the OR number is already used by another bill.
+            if (!ConfirmDuplicate)
+            {
+                var alreadyUsed = await _context.MonthlyBills.AnyAsync(b =>
+                    b.MonthlyBillID != BillID &&
+                    b.ORNumber != null &&
+                    b.ORNumber.Trim().ToLower() == orNumber.ToLower());
 
-            if (alreadyUsed)
-                return Json(new
-                {
-                    success = false,
-                    message = $"OR number \"{orNumber}\" is already used by another bill."
-                });
+                if (alreadyUsed)
+                    return Json(new
+                    {
+                        success = false,
+                        isDuplicate = true,
+                        message = $"OR number \"{orNumber}\" is already used by another bill. Do you want to continue?"
+                    });
+            }
 
             bill.Status = "Paid";
             bill.ORNumber = orNumber;
