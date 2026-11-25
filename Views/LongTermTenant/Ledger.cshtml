@@ -196,7 +196,11 @@
                             <td>@monthDisplay</td>
                             <td style="color:var(--text-3)">@(bill.BillingType ?? "—")</td>
                             <td style="font-weight:600">₱ @bill.BilledAmount.ToString("N2")</td>
-                            <td>@(bill.ORNumber ?? "—")</td>
+                            <td>@(bill.ORNumber ?? "—")
+                                @if (isPaid)
+                                {
+                                    <button class="action-btn btn-edit" style="height:22px;padding:0 7px;font-size:10px;margin-left:4px" onclick="openEditOR(@bill.MonthlyBillID, '@billNo', '@monthDisplay', '@(bill.ORNumber?.Replace("'", "\\'") ?? "")')">✎</button>
+                                }</td>
                             <td style="color:var(--text-3)">@(bill.PaidAt?.ToString("MMM dd, yyyy") ?? "—")</td>
                             <td>
                                 @if (isPaid)
@@ -282,6 +286,27 @@
         <div class="modal-actions">
             <button class="btn-secondary" onclick="closeModal('modal-edit-amount')">Cancel</button>
             <button class="btn-primary" onclick="confirmEditAmount()">Save Amount</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit OR Modal -->
+<div class="modal-overlay" id="modal-edit-or">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-title">Edit OR Number</div>
+        <div class="modal-sub">Update the Official Receipt number for this bill.</div>
+        <input type="hidden" id="edit-or-bill-id" />
+        <div class="form-group">
+            <label class="form-label">Bill</label>
+            <input type="text" class="form-input" id="edit-or-display" readonly />
+        </div>
+        <div class="form-group">
+            <label class="form-label">OR Number *</label>
+            <input type="text" class="form-input" id="edit-or-value" placeholder="e.g. OR-00200" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal('modal-edit-or')">Cancel</button>
+            <button class="btn-primary" onclick="confirmEditOR()">Save OR</button>
         </div>
     </div>
 </div>
@@ -475,6 +500,40 @@ async function confirmEditAmount() {
     } catch { showToast('Error.', true); }
 }
 
+function openEditOR(billID, billNo, month, currentOR) {
+    document.getElementById('edit-or-bill-id').value = billID;
+    document.getElementById('edit-or-display').value = billNo + ' — ' + month;
+    document.getElementById('edit-or-value').value   = currentOR;
+    openModal('modal-edit-or');
+}
+
+async function confirmEditOR(confirmDuplicate = false) {
+    const billID   = document.getElementById('edit-or-bill-id').value;
+    const orNumber = document.getElementById('edit-or-value').value.trim();
+    if (!orNumber) { showToast('Please enter an OR number.', true); return; }
+    const token = document.querySelector('input[name=__RequestVerificationToken]');
+    try {
+        const params = { BillID: billID, ORNumber: orNumber };
+        if (confirmDuplicate) params.ConfirmDuplicate = true;
+
+        const res    = await fetch('/LongTermTenant/UpdateOR', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token ? token.value : '' },
+            body: new URLSearchParams(params)
+        });
+        const result = await res.json();
+        if (result.success) { closeModal('modal-edit-or'); showToast('OR number updated!'); setTimeout(() => window.location.reload(), 1200); }
+        else if (result.isDuplicate) {
+            const proceed = await UI.confirm(
+                result.message,
+                { title: 'Duplicate OR Number', type: 'warning', confirmText: 'Continue Anyway', cancelText: 'Cancel', danger: true }
+            );
+            if (proceed) await confirmEditOR(true);
+        }
+        else { showToast(result.message || 'Failed.', true); }
+    } catch { showToast('Error.', true); }
+}
+
 async function submitAddBill() {
     const month      = document.getElementById('add-bill-month').value;
     const typeSelect = document.getElementById('add-bill-type');
@@ -498,7 +557,7 @@ async function submitAddBill() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    ['modal-mark-paid', 'modal-add-bill', 'modal-edit-amount'].forEach(id => {
+    ['modal-mark-paid', 'modal-add-bill', 'modal-edit-amount', 'modal-edit-or'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
     });

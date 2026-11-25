@@ -344,6 +344,43 @@ namespace LGUTreasury.Controllers
             return Json(new { success = true });
         }
 
+        // POST: /LongTermTenant/UpdateOR
+        [HttpPost]
+        public async Task<IActionResult> UpdateOR(int BillID, string ORNumber, bool ConfirmDuplicate = false)
+        {
+            var userID = HttpContext.Session.GetInt32("UserID");
+            if (userID == null) return Json(new { success = false, message = "Not logged in." });
+
+            if (string.IsNullOrWhiteSpace(ORNumber))
+                return Json(new { success = false, message = "OR Number is required." });
+
+            var bill = await _context.MonthlyBills.FindAsync(BillID);
+            if (bill == null) return Json(new { success = false, message = "Bill not found." });
+
+            var orNumber = ORNumber.Trim();
+
+            // Warn (but allow) when the OR number is already used by another bill.
+            if (!ConfirmDuplicate)
+            {
+                var alreadyUsed = await _context.MonthlyBills.AnyAsync(b =>
+                    b.MonthlyBillID != BillID &&
+                    b.ORNumber != null &&
+                    b.ORNumber.Trim().ToLower() == orNumber.ToLower());
+
+                if (alreadyUsed)
+                    return Json(new
+                    {
+                        success = false,
+                        isDuplicate = true,
+                        message = $"OR number \"{orNumber}\" is already used by another bill. Do you want to continue?"
+                    });
+            }
+
+            bill.ORNumber = orNumber;
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
         // POST: /LongTermTenant/DeleteBill
         [HttpPost]
         public async Task<IActionResult> DeleteBill(int BillID)
