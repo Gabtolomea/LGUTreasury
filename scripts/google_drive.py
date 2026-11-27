@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 
-SECRETS_DIR = Path(r"C:\\ProgramData\\LGUTreasury\\secrets")
+SECRETS_DIR = Path(r"C:\ProgramData\LGUTreasury\secrets")
 CREDENTIALS_PATH = SECRETS_DIR / "credentials.json"
 
 # Keep the school account token separate from the previous personal-account token.
@@ -97,7 +97,7 @@ def get_drive_service():
 
 
 def _escape_drive_query_value(value):
-    return str(value).replace("\\\\", "\\\\\\\\").replace("'", "\\\\'")
+    return str(value).replace("\\", "\\\\").replace("'", "\\'")
 
 
 def get_or_create_drive_folder(service, folder_name=DEFAULT_DRIVE_FOLDER_NAME):
