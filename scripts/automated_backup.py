@@ -143,6 +143,10 @@ def run_automated_backup(config=None, command_runner=None):
             drive_result = upload_backup(
                 drive_service,
                 result["encrypted_file"],
+                folder_name=values.get(
+                    "DRIVE_BACKUP_FOLDER_NAME",
+                    "LGUTreasury Backups",
+                ),
             )
 
             result["drive_upload_ok"] = True
@@ -157,6 +161,14 @@ def run_automated_backup(config=None, command_runner=None):
 
         except Exception as error:
             result["drive_error"] = type(error).__name__
+            result["ok"] = False
+            result["errors"].append(
+                "The local encrypted backup was created successfully, "
+                "but Google Drive upload or verification failed. "
+                "Error type: {0}. The local encrypted backup is safe at: {1}. "
+                "Review the log and renew Google authorization if required."
+                .format(result["drive_error"], result["encrypted_file"])
+            )
 
             logger.warning(
                 "Google Drive upload failed. The local encrypted backup "
@@ -165,7 +177,13 @@ def run_automated_backup(config=None, command_runner=None):
                 )
             )
 
-        logger.done("Automated backup completed successfully.")
+        if result["drive_upload_ok"]:
+            logger.done("Automated backup completed successfully.")
+        else:
+            logger.fail(
+                "Automated backup did not complete all destinations. "
+                "The local encrypted backup is available."
+            )
         logger.ok(
             "Encrypted backup saved at: {0}".format(
                 result["encrypted_file"]
@@ -219,7 +237,12 @@ if __name__ == "__main__":
                 backup_result["drive_error"]
             ))
     else:
-        print("\nAutomated backup failed.")
+        print("\nAutomated backup did not complete successfully.")
+
+        if backup_result["encrypted_file"]:
+            print("Local encrypted backup is safe: {0}".format(
+                backup_result["encrypted_file"]
+            ))
 
         for error in backup_result["errors"]:
             print("- {0}".format(error))
