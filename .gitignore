@@ -70,10 +70,12 @@ secrets.json
 .DS_Store
 Thumbs.db
 
-# Google Drive OAuth credentials
+# Google Drive OAuth credentials and generated account-specific state
 credentials.json
 client_secret_*.json
 token.json
+school_token.json
+drive_folder.json
 
 # Runtime user uploads (profile pictures)
 wwwroot/uploads/
