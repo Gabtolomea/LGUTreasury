@@ -52,6 +52,7 @@ def environment_names(config):
         "HTTPS_CERT_PASSWORD",
         "INITIAL_ADMIN_EMPLOYEE_ID",
         "INITIAL_ADMIN_PASSWORD",
+        "DRIVE_BACKUP_FOLDER_NAME",
     ])
     return names
 
