@@ -1,6 +1,8 @@
-﻿import hashlib
+import hashlib
+import json
 from pathlib import Path
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -8,18 +10,18 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 
-SECRETS_DIR = Path(
-    r"C:\ProgramData\LGUTreasury\secrets"
-)
-
+SECRETS_DIR = Path(r"C:\\ProgramData\\LGUTreasury\\secrets")
 CREDENTIALS_PATH = SECRETS_DIR / "credentials.json"
-TOKEN_PATH = SECRETS_DIR / "token.json"
 
-DRIVE_FOLDER_ID = "1vJ9V8tHYPqypU2oMnHi0ykgGQkfv93pG"
+# Keep the school account token separate from the previous personal-account token.
+TOKEN_PATH = SECRETS_DIR / "school_token.json"
+FOLDER_ID_PATH = SECRETS_DIR / "drive_folder.json"
 
-SCOPES = [
-    "https://www.googleapis.com/auth/drive"
-]
+DEFAULT_DRIVE_FOLDER_NAME = "LGUTreasury Backups"
+DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+
+# This is intentionally the least-privilege scope configured in Google Cloud.
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def calculate_md5(file_path):
@@ -50,12 +52,21 @@ def get_drive_service():
 
     if credentials and not credentials.has_scopes(SCOPES):
         raise RuntimeError(
-            "The saved Google token does not have the required Drive "
-            "permission. Reauthorize the application before continuing."
+            "The saved school Google token does not have the required "
+            "drive.file permission. Reauthorize the school account."
         )
 
     if credentials and credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+        try:
+            credentials.refresh(Request())
+        except RefreshError as error:
+            raise RuntimeError(
+                "Google Drive authorization must be renewed. The OAuth app "
+                "is in External/Testing mode, where Drive refresh tokens "
+                "generally expire after 7 days. Run the backup manually "
+                "while signed in to Windows and complete Google sign-in. "
+                "Original error: {0}".format(error)
+            ) from error
 
     elif not credentials or not credentials.valid:
         flow = InstalledAppFlow.from_client_secrets_file(
@@ -71,6 +82,7 @@ def get_drive_service():
             prompt="consent",
         )
 
+    SECRETS_DIR.mkdir(parents=True, exist_ok=True)
     TOKEN_PATH.write_text(
         credentials.to_json(),
         encoding="utf-8",
@@ -84,7 +96,99 @@ def get_drive_service():
     )
 
 
-def verify_drive_file(service, file_id, local_file):
+def _escape_drive_query_value(value):
+    return str(value).replace("\\\\", "\\\\\\\\").replace("'", "\\\\'")
+
+
+def get_or_create_drive_folder(service, folder_name=DEFAULT_DRIVE_FOLDER_NAME):
+    """Return the app-managed Drive folder, creating it on first use.
+
+    With the drive.file scope, the app can list files it created or files the
+    user explicitly opened with the app. Creating the folder through this API
+    ensures the app can access it on later runs.
+    """
+    if not folder_name or not folder_name.strip():
+        raise ValueError("Google Drive backup folder name cannot be empty.")
+
+    folder_name = folder_name.strip()
+    SECRETS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if FOLDER_ID_PATH.is_file():
+        try:
+            cached = json.loads(FOLDER_ID_PATH.read_text(encoding="utf-8"))
+            folder_id = cached.get("folder_id", "")
+        except (OSError, ValueError, AttributeError) as error:
+            raise RuntimeError(
+                "The saved Google Drive folder configuration is invalid. "
+                "Check {0}.".format(FOLDER_ID_PATH)
+            ) from error
+
+        if not folder_id:
+            raise RuntimeError(
+                "The saved Google Drive folder configuration has no folder ID."
+            )
+
+        folder = service.files().get(
+            fileId=folder_id,
+            fields="id,name,mimeType",
+        ).execute()
+
+        if (
+            folder.get("mimeType") != DRIVE_FOLDER_MIME_TYPE
+            or folder.get("name") != folder_name
+        ):
+            raise RuntimeError(
+                "The saved Google Drive folder does not match the configured "
+                "folder name. Review {0} before continuing.".format(
+                    FOLDER_ID_PATH
+                )
+            )
+
+        return folder_id
+
+    escaped_name = _escape_drive_query_value(folder_name)
+    response = service.files().list(
+        q=(
+            "name = '{0}' and mimeType = '{1}' and trashed = false".format(
+                escaped_name,
+                DRIVE_FOLDER_MIME_TYPE,
+            )
+        ),
+        spaces="drive",
+        pageSize=100,
+        fields="files(id,name,mimeType)",
+    ).execute()
+
+    folders = response.get("files", [])
+
+    if len(folders) > 1:
+        raise RuntimeError(
+            "More than one app-accessible Google Drive folder is named "
+            "'{0}'. Rename or remove duplicates before running the backup."
+            .format(folder_name)
+        )
+
+    if folders:
+        folder_id = folders[0]["id"]
+    else:
+        created = service.files().create(
+            body={
+                "name": folder_name,
+                "mimeType": DRIVE_FOLDER_MIME_TYPE,
+            },
+            fields="id,name",
+        ).execute()
+        folder_id = created["id"]
+
+    FOLDER_ID_PATH.write_text(
+        json.dumps({"folder_id": folder_id}, indent=2),
+        encoding="utf-8",
+    )
+
+    return folder_id
+
+
+def verify_drive_file(service, file_id, local_file, folder_id):
     local_file = Path(local_file)
 
     remote_file = service.files().get(
@@ -108,9 +212,9 @@ def verify_drive_file(service, file_id, local_file):
             "Google Drive MD5 checksum does not match the local backup."
         )
 
-    if DRIVE_FOLDER_ID not in remote_file.get("parents", []):
+    if folder_id not in remote_file.get("parents", []):
         raise RuntimeError(
-            "The uploaded file is not in the configured backup folder."
+            "The uploaded file is not in the configured school backup folder."
         )
 
     return {
@@ -122,7 +226,11 @@ def verify_drive_file(service, file_id, local_file):
     }
 
 
-def upload_backup(service, encrypted_file):
+def upload_backup(
+    service,
+    encrypted_file,
+    folder_name=DEFAULT_DRIVE_FOLDER_NAME,
+):
     encrypted_file = Path(encrypted_file).resolve()
 
     if not encrypted_file.is_file():
@@ -132,9 +240,11 @@ def upload_backup(service, encrypted_file):
             )
         )
 
+    folder_id = get_or_create_drive_folder(service, folder_name)
+
     metadata = {
         "name": encrypted_file.name,
-        "parents": [DRIVE_FOLDER_ID],
+        "parents": [folder_id],
     }
 
     media = MediaFileUpload(
@@ -168,11 +278,13 @@ def upload_backup(service, encrypted_file):
         service,
         file_id,
         encrypted_file,
+        folder_id,
     )
 
     return {
         "ok": True,
         "file_id": file_id,
+        "folder_id": folder_id,
         "name": response.get("name", encrypted_file.name),
         "verification": verification,
     }
